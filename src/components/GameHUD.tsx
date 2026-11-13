@@ -75,6 +75,17 @@ function formatClock(timeOfDay: number): string {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
+function formatDayPeriod(timeOfDay: number): string {
+  const hour = timeOfDay * 24;
+  if (hour >= 5 && hour < 7) return 'Alvorecer';
+  if (hour >= 7 && hour < 11) return 'Manhã';
+  if (hour >= 11 && hour < 16) return 'Dia';
+  if (hour >= 16 && hour < 18) return 'Tarde';
+  if (hour >= 18 && hour < 20) return 'Anoitecer';
+  if (hour >= 20) return 'Noite';
+  return 'Madrugada';
+}
+
 function StatBar({
   label,
   value,
@@ -422,7 +433,7 @@ export function GameHUD({
                 {hud.sectorName}
               </div>
               <div className="text-[11px] text-slate-400 font-mono-tabular whitespace-nowrap">
-                Dia {hud.day} · {formatClock(hud.timeOfDay)} · Chefe {hud.defeatedBosses.length}/4
+                Dia {hud.day} · {formatDayPeriod(hud.timeOfDay)} · {formatClock(hud.timeOfDay)} · Chefe {hud.defeatedBosses.length}/4
               </div>
             </div>
 
