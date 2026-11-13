@@ -29,7 +29,7 @@ const _right = new THREE.Vector3();
 const _camDesiredPos = new THREE.Vector3();
 const _camLookTarget = new THREE.Vector3();
 const _skyColor = new THREE.Color();
-const _dayColor = new THREE.Color(0x284366);
+const _dayColor = new THREE.Color(0x5d83a8);
 const _duskColor = new THREE.Color(0x3f263a);
 const _nightColor = new THREE.Color(0x0b1220);
 const _acidColor = new THREE.Color(0x162b22);
@@ -216,7 +216,7 @@ export class GameEngine {
     this.moonMesh = new THREE.Mesh(new THREE.SphereGeometry(5.8, 24, 16), moonMaterial);
     this.moonMesh.visible = false;
     this.scene.add(this.moonMesh);
-    this.moonLight = new THREE.PointLight(0xc8dcff, 0, 110, 1.6);
+    this.moonLight = new THREE.PointLight(0xc8dcff, 0, 140, 1.6);
     this.scene.add(this.moonLight);
 
     this.catTorch = new THREE.PointLight(0x22d3ee, 0.9, 12);
@@ -1906,9 +1906,9 @@ export class GameEngine {
       ? (this.timeOfDay - 0.72) / 0.28
       : this.timeOfDay / 0.22;
     const moonStrength = isNight
-      ? THREE.MathUtils.clamp(0.58 + Math.sin(nightProgress * Math.PI) * 0.42, 0, 1)
+      ? THREE.MathUtils.clamp(0.76 + Math.sin(nightProgress * Math.PI) * 0.24, 0, 1)
       : 0;
-    this.moonMesh.position.set(this.catPos.x + 92, 76, this.catPos.z - 142);
+    this.moonMesh.position.set(this.catPos.x + 40, 68, this.catPos.z - 65);
     this.moonLight.position.copy(this.moonMesh.position);
     this.moonMesh.visible = moonStrength > 0.08;
     this.moonLight.intensity = moonStrength * 2.7;
@@ -1924,7 +1924,7 @@ export class GameEngine {
     }
 
     if (this.weather === 'acid_rain') _skyColor.copy(_acidColor);
-    else if (daylight > 0.55) _skyColor.copy(new THREE.Color(0x5d83a8));
+    else if (daylight > 0.55) _skyColor.copy(_dayColor);
     else if (daylight > 0.18) _skyColor.copy(_duskColor).lerp(_dayColor, (daylight - 0.18) / 0.37);
     else _skyColor.copy(_nightColor).lerp(_duskColor, daylight / 0.18);
 
