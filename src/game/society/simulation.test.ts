@@ -5,10 +5,10 @@ import { SocietySimulation } from './simulation';
 test('creates a deterministic starter neighborhood with three professions', () => {
   const simulation = new SocietySimulation();
   const snapshot = simulation.snapshot();
-  assert.equal(snapshot.agents.length, 4);
+  assert.equal(snapshot.agents.length, 5);
   assert.deepEqual(
     [...new Set(snapshot.agents.map((agent) => agent.profession))].sort(),
-    ['agent', 'engineer', 'worker'],
+    ['agent', 'engineer', 'farmer', 'worker'],
   );
   assert.equal(snapshot.relationships.length, 3);
 });
@@ -92,6 +92,19 @@ test('worker completes the material-to-construction chain and emits a project co
   assert.ok(snapshot.events.filter((event) => event.kind === 'resource_changed').length >= 4);
 });
 
+
+test('farmer cultivates, harvests food and residents consume community meals', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(320);
+  assert.ok(snapshot.tasks.some((task) => task.kind === 'cultivate_field' && task.status === 'completed'));
+  assert.ok(snapshot.tasks.some((task) => task.kind === 'harvest_food' && task.status === 'completed'));
+  assert.ok(snapshot.events.some((event) => event.kind === 'resource_changed'
+    && event.payload.reason === 'crop_harvest'));
+  assert.ok(snapshot.events.some((event) => event.kind === 'resource_changed'
+    && event.payload.reason === 'community_meal'));
+  assert.ok(snapshot.resources.food >= 0);
+  assert.ok(snapshot.agents.every((agent) => agent.needs.hunger >= 0 && agent.needs.hunger <= 100));
+});
 
 test('records deterministic social interactions and relationship growth', () => {
   const simulation = new SocietySimulation();
