@@ -5,6 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // GitHub Pages serves this project from /Tomas-Cat/, not the domain root.
+    base: '/Tomas-Cat/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
