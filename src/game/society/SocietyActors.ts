@@ -185,10 +185,14 @@ export class SocietyActors {
   public dispose(): void {
     for (const actor of this.actors.values()) {
       actor.root.traverse((object) => {
-        if (!(object instanceof THREE.Mesh)) return;
-        object.geometry.dispose();
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        materials.forEach((material) => material.dispose());
+        if (object instanceof THREE.Mesh) object.geometry.dispose();
+        if (object instanceof THREE.Mesh || object instanceof THREE.Sprite) {
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          materials.forEach((material) => {
+            if (material instanceof THREE.SpriteMaterial && material.map) material.map.dispose();
+            material.dispose();
+          });
+        }
       });
       this.scene.remove(actor.root);
     }
