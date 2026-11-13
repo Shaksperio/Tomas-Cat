@@ -28,6 +28,7 @@
 9. **Sem violência gratuita nem discriminação.** Rivalidade e conflito existem, mas por personalidade e ações individuais, nunca por espécie ou aparência. Brigas estilizadas, sem ferimentos gráficos; mediação e reconciliação são caminhos válidos.
 10. **Transparência.** Segredos de mundo podem existir; regras de segurança, probabilidades relevantes e critérios de reconhecimento dos jogadores não podem ser escondidos.
 11. **Não refaça o que já funciona.** Verifique a seção 4 antes de reimplementar algo.
+12. **O roteiro da seção 5 é fixo.** O autor decidiu seguir este roteiro sem alterações; ele só será reavaliado depois que o jogo estiver concluído e tiver sido jogado. Não proponha cortar, trocar ou reordenar fases por conta própria; implemente o que está descrito.
 
 ## 3. Como executar e verificar
 
