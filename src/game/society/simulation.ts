@@ -56,6 +56,8 @@ const TASK_DURATION: Record<AgentTask['kind'], number> = {
   mediate_conflict: 3,
   patrol_area: 6,
   investigate_event: 4,
+  cultivate_field: 5,
+  harvest_food: 4,
 };
 
 const clampNeed = (value: number): number => Math.max(0, Math.min(100, value));
@@ -126,6 +128,7 @@ export class SocietySimulation {
     this.addAgent(makeAgent('worker-01', 'Tico', 'worker', 2, 1));
     this.addAgent(makeAgent('worker-02', 'Nina', 'worker', 4, -2));
     this.addAgent(makeAgent('agent-01', 'Bento', 'agent', -2, -4));
+    this.addAgent(makeAgent('farmer-01', 'Amora', 'farmer', 6, 3));
 
     this.addRelationship('engineer-01', 'worker-01', 62, 48);
     this.addRelationship('engineer-01', 'worker-02', 58, 54);
@@ -134,6 +137,7 @@ export class SocietySimulation {
     this.enqueueTask(makeTask('task-survey-01', 'survey_site', 'engineer', 0));
     this.enqueueTask(makeTask('task-gather-01', 'gather_materials', 'worker', 0));
     this.enqueueTask(makeTask('task-patrol-01', 'patrol_area', 'agent', 0));
+    this.enqueueTask(makeTask('task-farm-01', 'cultivate_field', 'farmer', 0));
   }
 
   private addAgent(agent: SimulatedAgent): void {
@@ -236,6 +240,16 @@ export class SocietySimulation {
     });
   }
 
+  private feedResidents(): void {
+    if (this.tickCount % 40 !== 0) return;
+    for (const agent of this.agents.values()) {
+      if (this.resources.food <= 0) break;
+      this.changeResource('food', -1, 'community_meal', `meal:${agent.id}:${this.tickCount}`);
+      agent.needs.hunger = clampNeed(agent.needs.hunger - 28);
+      agent.needs.morale = clampNeed(agent.needs.morale + 1.5);
+    }
+  }
+
   private updateNeeds(agent: SimulatedAgent): void {
     agent.needs.hunger = clampNeed(agent.needs.hunger + 0.45);
     agent.needs.social = clampNeed(agent.needs.social + 0.18);
@@ -306,6 +320,9 @@ export class SocietySimulation {
       agent.status = 'idle';
       agent.needs.morale = clampNeed(agent.needs.morale + 8);
       agent.version += 1;
+      if (task.kind === 'harvest_food') {
+        this.changeResource('food', 10, 'crop_harvest', task.id);
+      }
       if (task.kind === 'gather_materials') {
         this.changeResource('wood', 8, 'material_gathering', task.id);
         this.changeResource('stone', 4, 'material_gathering', task.id);
@@ -346,6 +363,9 @@ export class SocietySimulation {
       nextKind = workerSequence[completed.kind];
     } else if (agent.profession === 'agent') {
       nextKind = completed.kind === 'patrol_area' ? 'investigate_event' : undefined;
+    } else if (agent.profession === 'farmer') {
+      nextKind = completed.kind === 'cultivate_field' ? 'harvest_food'
+        : completed.kind === 'harvest_food' ? 'cultivate_field' : undefined;
     }
     if (!nextKind) return;
 
@@ -408,6 +428,7 @@ export class SocietySimulation {
       this.assignQueuedTasks();
       this.progressTasks();
       this.updateSocialRelationships();
+      this.feedResidents();
     }
     return this.snapshot();
   }
