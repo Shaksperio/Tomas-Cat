@@ -335,6 +335,17 @@ export class SocietySimulation {
         if (relationship.interactionCount % 5 === 0) {
           relationship.trust = clampNeed(relationship.trust + 1);
           relationship.affinity = clampNeed(relationship.affinity + 1);
+          this.emit('social_interaction', relationship.id, {
+            relationshipId: relationship.id,
+            fromAgentId: relationship.fromAgentId,
+            toAgentId: relationship.toAgentId,
+            interactionCount: relationship.interactionCount,
+          });
+          this.emit('relationship_changed', relationship.id, {
+            relationshipId: relationship.id,
+            trust: relationship.trust,
+            affinity: relationship.affinity,
+          });
         }
       }
     }
