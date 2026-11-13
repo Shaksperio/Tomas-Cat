@@ -14,6 +14,7 @@ export interface PredatorActor {
   name: string;
   kind: EnemyKind;
   isBoss: boolean;
+  isFriendly?: boolean;
   isTerritoryRival?: boolean;
   rivalLevel?: number;
   starReward?: number;
