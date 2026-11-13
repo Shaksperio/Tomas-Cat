@@ -140,9 +140,7 @@ export class SocietyActors {
         2,
         dt,
       );
-      actor.badge.material = new THREE.MeshBasicMaterial({
-        color: STATUS_COLORS[agent.status],
-      });
+      (actor.badge.material as THREE.MeshBasicMaterial).color.setHex(STATUS_COLORS[agent.status]);
       actor.phase += dt * (agent.status === 'working' ? 8 : 2.2);
       const stride = agent.status === 'working' ? Math.sin(actor.phase) * 0.42 : 0;
       actor.legs[0].rotation.x = stride;
