@@ -17,7 +17,7 @@ test('assigns work to matching professions and completes tasks over logical tick
   const simulation = new SocietySimulation();
   const first = simulation.step(1);
   assert.ok(first.agents.every((agent) => agent.activeTaskId !== null));
-  const finished = simulation.step(8);
+  const finished = simulation.step(40);
   assert.ok(finished.tasks.some((task) => task.status === 'completed'));
   assert.ok(finished.events.some((event) => event.kind === 'task_completed'));
 });
@@ -45,7 +45,7 @@ test('caps a requested simulation advance to a bounded number of ticks', () => {
 
 test('waits for a completed prerequisite before assigning a follow-up task', () => {
   const simulation = new SocietySimulation();
-  const snapshot = simulation.step(4);
+  const snapshot = simulation.step(40);
   const followUp = snapshot.tasks.find((task) => task.dependencies.length > 0);
   assert.ok(followUp);
   assert.ok(followUp.dependencies.every((id) =>
@@ -60,4 +60,13 @@ test('agents rest when exhausted and resume their assigned work after recovery',
   assert.ok(agentsWithWork.length > 0);
   assert.ok(snapshot.agents.every((agent) => agent.energy >= 0 && agent.energy <= 100));
   assert.ok(snapshot.agents.every((agent) => agent.status !== 'working' || agent.energy > 0));
+});
+
+test('agents travel toward deterministic work sites before completing tasks', () => {
+  const simulation = new SocietySimulation();
+  const before = simulation.snapshot().agents.find((agent) => agent.id === 'worker-01');
+  const after = simulation.step(5).agents.find((agent) => agent.id === 'worker-01');
+  assert.ok(before && after);
+  assert.notDeepEqual(after.position, before.position);
+  assert.ok(['travelling', 'working'].includes(after.status));
 });
