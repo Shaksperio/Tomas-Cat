@@ -1,6 +1,13 @@
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
 
-export type WeatherState = 'clear' | 'acid_warning' | 'acid_rain';
+export type WeatherState =
+  | 'clear'
+  | 'rain'
+  | 'snow'
+  | 'cold_wind'
+  | 'freezing'
+  | 'acid_warning'
+  | 'acid_rain';
 
 export type InteractionKind =
   | 'food'
