@@ -189,12 +189,20 @@ export class SocietySimulation {
         .sort((a, b) => a.id.localeCompare(b.id))[0];
       if (!candidate) continue;
 
+      const seed = [...task.id].reduce((value, char) => value + char.charCodeAt(0), 0);
+      const angle = (seed % 360) * (Math.PI / 180);
+      const radius = 2.5 + (seed % 4);
+      task.target = {
+        x: candidate.position.x + Math.cos(angle) * radius,
+        z: candidate.position.z + Math.sin(angle) * radius,
+        sectorId: task.sectorId,
+      };
       task.status = 'assigned';
       task.assignedAgentId = candidate.id;
       task.updatedAtTick = this.tickCount;
       task.version += 1;
       candidate.activeTaskId = task.id;
-      candidate.status = 'working';
+      candidate.status = 'travelling';
       candidate.version += 1;
       this.emit('agent_state_changed', candidate.id, { agentId: candidate.id, status: candidate.status });
     }
@@ -240,6 +248,21 @@ export class SocietySimulation {
         task.status = 'in_progress';
         task.updatedAtTick = this.tickCount;
         task.version += 1;
+      }
+      if (task.target) {
+        const dx = task.target.x - agent.position.x;
+        const dz = task.target.z - agent.position.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance > 0.45) {
+          const travelStep = Math.min(0.18, distance);
+          agent.position.x += (dx / distance) * travelStep;
+          agent.position.z += (dz / distance) * travelStep;
+          agent.status = 'travelling';
+          continue;
+        }
+        agent.position.x = task.target.x;
+        agent.position.z = task.target.z;
+        agent.status = 'working';
       }
       runtime.elapsedTicks += 1;
       if (runtime.elapsedTicks < runtime.durationTicks) continue;
