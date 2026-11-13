@@ -38,9 +38,11 @@ test('returns defensive snapshots that cannot mutate simulation state', () => {
   const snapshot = simulation.snapshot();
   snapshot.agents[0].needs.hunger = 0;
   snapshot.tasks[0].dependencies.push('tampered');
+  snapshot.resources.wood = 999;
   const fresh = simulation.snapshot();
   assert.notEqual(fresh.agents[0].needs.hunger, 0);
   assert.equal(fresh.tasks[0].dependencies.includes('tampered'), false);
+  assert.notEqual(fresh.resources.wood, 999);
 });
 
 test('caps a requested simulation advance to a bounded number of ticks', () => {
@@ -85,6 +87,9 @@ test('worker completes the material-to-construction chain and emits a project co
   assert.ok(snapshot.tasks.some((task) => task.kind === 'build_module' && task.status === 'completed'));
   assert.ok(snapshot.events.some((event) => event.kind === 'project_started'));
   assert.ok(snapshot.events.some((event) => event.kind === 'project_completed'));
+  assert.equal(snapshot.resources.wood, 4);
+  assert.equal(snapshot.resources.stone, 2);
+  assert.ok(snapshot.events.filter((event) => event.kind === 'resource_changed').length >= 4);
 });
 
 
