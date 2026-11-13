@@ -32,6 +32,10 @@ const STATUS_COLORS: Record<SimulatedAgent['status'], number> = {
 export class SocietyActors {
   private readonly actors = new Map<string, SocietyActorView>();
   private readonly constructions = new Map<string, THREE.Group>();
+  private farm: THREE.Group | null = null;
+  private readonly crops: THREE.Group[] = [];
+  private storage: THREE.Group | null = null;
+  private readonly stockBars = new Map<keyof SocietySimulationSnapshot['resources'], THREE.Mesh>();
   private readonly processedSocialEventIds = new Set<string>();
 
   constructor(private readonly scene: THREE.Scene) {}
@@ -165,6 +169,101 @@ export class SocietyActors {
     return { root, body, head, legs, badge, nameTag, socialBubble, socialBubbleTimer: 0, phase: agent.id.length * 0.73 };
   }
 
+  private createFarm(): void {
+    const farm = new THREE.Group();
+    const soil = new THREE.MeshStandardMaterial({ color: 0x76523b, roughness: 1 });
+    const furrow = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 3.6), soil);
+    furrow.position.y = 0.06;
+    furrow.receiveShadow = true;
+    farm.add(furrow);
+
+    const cropStem = new THREE.MeshStandardMaterial({ color: 0x4d9b45, roughness: 0.9 });
+    const cropLeaf = new THREE.MeshStandardMaterial({ color: 0x84cc16, roughness: 0.85 });
+    const cropFruit = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.7 });
+    for (let row = 0; row < 3; row += 1) {
+      for (let column = 0; column < 4; column += 1) {
+        const plant = new THREE.Group();
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.055, 0.48, 6), cropStem);
+        stem.position.y = 0.24;
+        plant.add(stem);
+        for (const side of [-1, 1]) {
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.14, 7, 5), cropLeaf);
+          leaf.scale.set(1.5, 0.45, 0.8);
+          leaf.position.set(side * 0.13, 0.27, 0);
+          plant.add(leaf);
+        }
+        const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), cropFruit);
+        fruit.position.set(0, 0.49, 0.04);
+        plant.add(fruit);
+        plant.position.set(-1.95 + column * 1.3, 0.12, -1.15 + row * 1.15);
+        farm.add(plant);
+        this.crops.push(plant);
+      }
+    }
+    farm.position.set(10, 0, 4);
+    farm.visible = false;
+    this.scene.add(farm);
+    this.farm = farm;
+  }
+
+  private createStorage(): void {
+    const storage = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x79543a, roughness: 0.9 });
+    const stone = new THREE.MeshStandardMaterial({ color: 0x87939d, roughness: 0.95 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.18, 1.5), stone);
+    base.position.y = 0.09;
+    storage.add(base);
+    const resources: Array<[keyof SocietySimulationSnapshot['resources'], number]> = [
+      ['food', -0.85], ['wood', 0], ['stone', 0.85],
+    ];
+    for (const [resource, x] of resources) {
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.62, 0.68), wood);
+      crate.position.set(x, 0.49, 0);
+      crate.castShadow = true;
+      storage.add(crate);
+      const bar = new THREE.Mesh(
+        new THREE.BoxGeometry(0.46, 0.08, 0.08),
+        new THREE.MeshBasicMaterial({ color: resource === 'food' ? 0x84cc16 : resource === 'wood' ? 0xf59e0b : 0x94a3b8 }),
+      );
+      bar.position.set(x, 0.92, 0.37);
+      storage.add(bar);
+      this.stockBars.set(resource, bar);
+    }
+    storage.position.set(5, 0, 8);
+    storage.visible = false;
+    this.scene.add(storage);
+    this.storage = storage;
+  }
+
+  private updateCommunityVisuals(snapshot: SocietySimulationSnapshot, visible: boolean): void {
+    if (!this.farm) this.createFarm();
+    if (!this.storage) this.createStorage();
+    if (!this.farm || !this.storage) return;
+
+    const farmerTask = snapshot.tasks.find((task) =>
+      task.assignedAgentId === 'farmer-01'
+      && (task.kind === 'cultivate_field' || task.kind === 'harvest_food')
+      && task.status !== 'completed' && task.status !== 'cancelled',
+    );
+    const growing = farmerTask?.kind === 'cultivate_field' && farmerTask.status === 'in_progress';
+    const harvestReady = farmerTask?.kind === 'harvest_food';
+    const cycle = (snapshot.tick % 36) / 36;
+    const growth = harvestReady ? 1 : growing ? Math.max(0.18, cycle) : Math.max(0.12, cycle * 0.82);
+    for (const [index, crop] of this.crops.entries()) {
+      const variation = 0.82 + (index % 4) * 0.06;
+      crop.scale.setScalar(growth * variation);
+      crop.visible = true;
+    }
+    this.farm.visible = visible;
+    this.storage.visible = visible;
+    const maximum = Math.max(10, snapshot.resources.food, snapshot.resources.wood, snapshot.resources.stone);
+    for (const [resource, bar] of this.stockBars) {
+      const amount = snapshot.resources[resource];
+      bar.scale.x = 0.35 + (amount / maximum) * 1.1;
+      bar.visible = amount > 0;
+    }
+  }
+
   public update(
     dt: number,
     snapshot: SocietySimulationSnapshot,
@@ -231,6 +330,8 @@ export class SocietyActors {
       actor.socialBubble.visible = visible && actor.socialBubbleTimer > 0;
       actor.socialBubble.material.opacity = Math.min(1, actor.socialBubbleTimer * 2);
     }
+
+    this.updateCommunityVisuals(snapshot, visible);
 
     // Uma estrutura só aparece após a tarefa de construção ser concluída.
     for (const task of snapshot.tasks) {
@@ -305,5 +406,20 @@ export class SocietyActors {
       this.scene.remove(structure);
     }
     this.constructions.clear();
+    for (const group of [this.farm, this.storage]) {
+      if (!group) continue;
+      group.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.geometry.dispose();
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          materials.forEach((material) => material.dispose());
+        }
+      });
+      this.scene.remove(group);
+    }
+    this.farm = null;
+    this.storage = null;
+    this.crops.length = 0;
+    this.stockBars.clear();
   }
 }
