@@ -21,11 +21,12 @@ export function TitleScreen({ hasSave, onNewGame, onContinue }: TitleScreenProps
         </div>
 
         <h1 className="font-display mt-3 text-4xl md:text-5xl font-bold tracking-tight text-white">
-          FELIS-09
+          Tomas Vagabundo
         </h1>
+        <p className="mt-1 text-xs font-semibold tracking-[0.22em] text-cyan-300">FELIS-09 · SOBREVIVÊNCIA EM MUNDO ABERTO</p>
 
         <p className="mt-3 text-sm md:text-base text-slate-300 leading-relaxed max-w-xl">
-          Abandonado em uma metrópole devastada em terceira pessoa 3D, sobreviva entre casas em ruínas, arranha-céus escaláveis, hospitais inundados e um mega estádio. Você tem 5 chances para continuar de onde caiu, checkpoints automáticos após cada chefe, disputas de telhados por Estrelas e evolução até o Nível 99 (Gato Líder &amp; Alpha).
+          Tomas Vagabundo é um gato errante em uma metrópole devastada. Explore ruas, entre em prédios acessíveis, escale telhados e sobreviva às mudanças do tempo e do clima. Você tem 5 chances para continuar de onde caiu, checkpoints automáticos após cada chefe, disputas de telhados por Estrelas e evolução até o Nível 99 (Gato Líder &amp; Alpha).
         </p>
 
         <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
