@@ -1,3 +1,9 @@
+export interface SocietyResources {
+  food: number;
+  wood: number;
+  stone: number;
+}
+
 import {
   type AgentProfession,
   type AgentTask,
@@ -31,6 +37,7 @@ export interface SocietySimulationSnapshot {
   tasks: AgentTask[];
   relationships: AgentRelationship[];
   events: WorldEvent[];
+  resources: SocietyResources;
 }
 
 interface TaskRuntime {
@@ -112,6 +119,7 @@ export class SocietySimulation {
   private readonly relationships = new Map<string, AgentRelationship>();
   private readonly events: WorldEvent[] = [];
   private eventSequence = 0;
+  private readonly resources: SocietyResources = { food: 12, wood: 0, stone: 0 };
 
   constructor() {
     this.addAgent(makeAgent('engineer-01', 'Íris', 'engineer', -4, 2));
@@ -182,7 +190,7 @@ export class SocietySimulation {
       const dependenciesComplete = task.dependencies.every((dependencyId) =>
         this.tasks.get(dependencyId)?.status === 'completed',
       );
-      if (!dependenciesComplete) continue;
+      if (!dependenciesComplete || !this.hasResources(task.requiredResources)) continue;
 
       const candidate = [...this.agents.values()]
         .filter((agent) => canAgentAcceptTask(agent, task).valid)
@@ -206,6 +214,26 @@ export class SocietySimulation {
       candidate.version += 1;
       this.emit('agent_state_changed', candidate.id, { agentId: candidate.id, status: candidate.status });
     }
+  }
+
+  private hasResources(required: Record<string, number>): boolean {
+    return Object.entries(required).every(([resource, amount]) =>
+      (this.resources[resource as keyof SocietyResources] ?? 0) >= amount,
+    );
+  }
+
+  private changeResource(resource: keyof SocietyResources, amount: number, reason: string, sourceId: string): void {
+    const previous = this.resources[resource];
+    const next = Math.max(0, previous + amount);
+    if (next === previous) return;
+    this.resources[resource] = next;
+    this.emit('resource_changed', sourceId, {
+      resource,
+      previous,
+      amount: next - previous,
+      current: next,
+      reason,
+    });
   }
 
   private updateNeeds(agent: SimulatedAgent): void {
@@ -245,6 +273,10 @@ export class SocietySimulation {
       if (!agent || !runtime || agent.status === 'resting' || agent.energy <= 0) continue;
 
       if (task.status === 'assigned') {
+        if (!this.hasResources(task.requiredResources)) continue;
+        for (const [resource, amount] of Object.entries(task.requiredResources)) {
+          this.changeResource(resource as keyof SocietyResources, -amount, 'construction_consumption', task.id);
+        }
         task.status = 'in_progress';
         task.updatedAtTick = this.tickCount;
         task.version += 1;
@@ -274,6 +306,10 @@ export class SocietySimulation {
       agent.status = 'idle';
       agent.needs.morale = clampNeed(agent.needs.morale + 8);
       agent.version += 1;
+      if (task.kind === 'gather_materials') {
+        this.changeResource('wood', 8, 'material_gathering', task.id);
+        this.changeResource('stone', 4, 'material_gathering', task.id);
+      }
       this.emit('task_completed', task.id, {
         taskId: task.id,
         agentId: agent.id,
@@ -315,7 +351,9 @@ export class SocietySimulation {
 
     const id = `task-${agent.id}-${this.tickCount}`;
     if (this.tasks.has(id)) return;
-    this.enqueueTask(makeTask(id, nextKind, agent.profession, this.tickCount));
+    const nextTask = makeTask(id, nextKind, agent.profession, this.tickCount);
+    if (nextKind === 'build_module') nextTask.requiredResources = { wood: 4, stone: 2 };
+    this.enqueueTask(nextTask);
     const followUp = this.tasks.get(id);
     if (followUp) followUp.dependencies = [completed.id];
   }
@@ -389,6 +427,7 @@ export class SocietySimulation {
       })),
       relationships: [...this.relationships.values()].map((relationship) => ({ ...relationship })),
       events: this.events.map((event) => ({ ...event, payload: { ...event.payload } })),
+      resources: { ...this.resources },
     };
   }
 }
