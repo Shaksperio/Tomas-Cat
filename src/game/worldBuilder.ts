@@ -909,8 +909,9 @@ export function buildPostApocalypticWorld(
     hp: number,
     damage: number,
     speed: number,
+    isFriendly = false,
   ) => {
-    const { group, bodyMesh, legs } = createPredatorMesh(kind, isBoss);
+    const { group, bodyMesh, legs } = createPredatorMesh(kind, isBoss, false, isFriendly ? 0xb8a58a : undefined);
     group.position.set(x, 0, z);
     scene.add(group);
     predators.push({
@@ -918,6 +919,7 @@ export function buildPostApocalypticWorld(
       name,
       kind,
       isBoss,
+      isFriendly,
       phaseIndex,
       group,
       bodyMesh,
@@ -939,6 +941,10 @@ export function buildPostApocalypticWorld(
       scrapReward: isBoss ? 3 : 1,
     });
   };
+
+  // Friendly strays: curious neighborhood cats that observe Tomas but never attack.
+  addPredator('stray-cat-1', 'Mingau', 'feral_cat', false, 1, -34, -8, 60, 0, 2.2, true);
+  addPredator('stray-cat-2', 'Canela', 'feral_cat', false, 1, 36, -54, 60, 0, 2.0, true);
 
   addPredator('mob-rat-1', 'Rato Mutante', 'rat', false, 1, -8, -32, 42, 8, 5.4);
   addPredator('mob-rat-2', 'Rato Mutante', 'rat', false, 1, 14, -44, 42, 8, 5.4);
