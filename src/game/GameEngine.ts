@@ -1510,6 +1510,7 @@ export class GameEngine {
       this.isInsideShelter && this.currentSpeed < 0.2,
       this.isClimbing,
       this.catVelY,
+      this.isInsideShelter && (this.timeOfDay > 0.72 || this.timeOfDay < 0.22),
       this.elapsed,
     );
 
