@@ -41,8 +41,17 @@ export interface WorldInteractable {
   lore?: LoreLog;
 }
 
+export interface IndoorZone {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  ceilingY: number;
+}
+
 export interface BuiltWorld {
   colliders: ColliderBox[];
+  indoorZones: IndoorZone[];
   phaseGates: PhaseGate[];
   interactables: WorldInteractable[];
   predators: PredatorActor[];
@@ -90,6 +99,7 @@ export function buildPostApocalypticWorld(
   textures: ProceduralTextureSet,
 ): BuiltWorld {
   const colliders: ColliderBox[] = [];
+  const indoorZones: IndoorZone[] = [];
   const phaseGates: PhaseGate[] = [];
   const interactables: WorldInteractable[] = [];
   const predators: PredatorActor[] = [];
@@ -253,6 +263,13 @@ export function buildPostApocalypticWorld(
     mat: THREE.Material = buildingMat,
   ) => {
     const wallT = 0.65;
+    indoorZones.push({
+      minX: cx - w / 2 + wallT,
+      maxX: cx + w / 2 - wallT,
+      minZ: cz - d / 2 + wallT,
+      maxZ: cz + d / 2 - wallT,
+      ceilingY: h - 0.5,
+    });
     const doorW = Math.min(3.8, Math.min(w, d) * 0.42);
     const doorH = Math.min(3.0, h * 0.62);
 
@@ -1172,6 +1189,7 @@ export function buildPostApocalypticWorld(
 
   return {
     colliders,
+    indoorZones,
     phaseGates,
     interactables,
     predators,
