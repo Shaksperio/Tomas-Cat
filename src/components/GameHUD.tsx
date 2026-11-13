@@ -524,6 +524,27 @@ export function GameHUD({
                   <span>Chuva Ácida ({hud.weatherCountdown}s)</span>
                 </div>
               )}
+              {hud.weather === 'rain' && (
+                <div className="flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-[#0B1724]/95 px-2.5 py-1 text-[11px] font-medium text-sky-200">
+                  <CloudRain className="w-3.5 h-3.5" />
+                  <span>Chuva ({hud.weatherCountdown}s)</span>
+                </div>
+              )}
+              {hud.weather === 'snow' && (
+                <div className="rounded-lg border border-cyan-300/40 bg-[#10202A]/95 px-2.5 py-1 text-[11px] font-medium text-cyan-100">
+                  ❄ Neve ({hud.weatherCountdown}s)
+                </div>
+              )}
+              {hud.weather === 'cold_wind' && (
+                <div className="rounded-lg border border-blue-300/40 bg-[#101B2B]/95 px-2.5 py-1 text-[11px] font-medium text-blue-100">
+                  ❄ Vento gelado ({hud.weatherCountdown}s)
+                </div>
+              )}
+              {hud.weather === 'freezing' && (
+                <div className="rounded-lg border border-indigo-300/50 bg-[#14172D]/95 px-2.5 py-1 text-[11px] font-medium text-indigo-100">
+                  ❄ Frio congelante ({hud.weatherCountdown}s)
+                </div>
+              )}
               {hud.isInsideShelter && (
                 <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-[#0D1E1A]/95 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
                   <Home className="w-3.5 h-3.5" />
