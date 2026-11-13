@@ -279,17 +279,38 @@ export class SocietySimulation {
         agentId: agent.id,
         kind: task.kind,
       });
+      if (task.kind === 'design_project') {
+        this.emit('project_started', task.id, {
+          projectId: 'neighborhood-shelter-01',
+          name: 'Abrigo comunitário',
+          engineerId: agent.id,
+        });
+      } else if (task.kind === 'build_module') {
+        this.emit('project_completed', task.id, {
+          projectId: 'neighborhood-shelter-01',
+          assetId: 'community-shelter',
+          builderId: agent.id,
+          position: task.target ? { ...task.target } : null,
+        });
+      }
       this.createFollowUpTask(agent, task);
     }
   }
 
   private createFollowUpTask(agent: SimulatedAgent, completed: AgentTask): void {
-    const nextByProfession: Partial<Record<AgentProfession, AgentTask['kind']>> = {
-      engineer: 'design_project',
-      worker: 'transport_materials',
-      agent: 'investigate_event',
-    };
-    const nextKind = nextByProfession[agent.profession];
+    let nextKind: AgentTask['kind'] | undefined;
+    if (agent.profession === 'engineer' && completed.kind === 'survey_site') {
+      nextKind = 'design_project';
+    } else if (agent.profession === 'worker') {
+      const workerSequence: Partial<Record<AgentTask['kind'], AgentTask['kind']>> = {
+        gather_materials: 'transport_materials',
+        transport_materials: 'prepare_site',
+        prepare_site: 'build_module',
+      };
+      nextKind = workerSequence[completed.kind];
+    } else if (agent.profession === 'agent') {
+      nextKind = completed.kind === 'patrol_area' ? 'investigate_event' : undefined;
+    }
     if (!nextKind) return;
 
     const id = `task-${agent.id}-${this.tickCount}`;
