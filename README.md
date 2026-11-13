@@ -1,5 +1,7 @@
 # Tomas Vagabundo
 
+> **Para IAs e colaboradores:** o roteiro completo, as decisões de arquitetura e o estado atual do código estão em [`AGENTS.md`](./AGENTS.md).
+
 Jogo 3D de exploração e sobrevivência felina, desenvolvido originalmente no **Google AI Studio** e versionado neste repositório.
 
 ## Tecnologias
