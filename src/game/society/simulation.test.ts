@@ -86,3 +86,16 @@ test('worker completes the material-to-construction chain and emits a project co
   assert.ok(snapshot.events.some((event) => event.kind === 'project_started'));
   assert.ok(snapshot.events.some((event) => event.kind === 'project_completed'));
 });
+
+
+test('records deterministic social interactions and relationship growth', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(320);
+  assert.ok(snapshot.events.some((event) => event.kind === 'social_interaction'));
+  assert.ok(snapshot.events.some((event) => event.kind === 'relationship_changed'));
+  assert.ok(snapshot.relationships.every((relationship) =>
+    relationship.trust >= 0 && relationship.trust <= 100
+    && relationship.affinity >= 0 && relationship.affinity <= 100,
+  ));
+  assert.ok(snapshot.relationships.some((relationship) => relationship.interactionCount >= 5));
+});
