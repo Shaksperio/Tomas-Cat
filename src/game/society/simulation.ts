@@ -179,6 +179,11 @@ export class SocietySimulation {
       .sort((a, b) => a.createdAtTick - b.createdAtTick || a.id.localeCompare(b.id));
 
     for (const task of queued) {
+      const dependenciesComplete = task.dependencies.every((dependencyId) =>
+        this.tasks.get(dependencyId)?.status === 'completed',
+      );
+      if (!dependenciesComplete) continue;
+
       const candidate = [...this.agents.values()]
         .filter((agent) => canAgentAcceptTask(agent, task).valid)
         .sort((a, b) => a.id.localeCompare(b.id))[0];
@@ -201,12 +206,16 @@ export class SocietySimulation {
     if (agent.status === 'working') {
       agent.energy = clampNeed(agent.energy - 1.1);
       agent.needs.morale = clampNeed(agent.needs.morale - 0.12);
+      if (agent.energy <= 18) {
+        agent.status = 'resting';
+        agent.version += 1;
+      }
     } else if (agent.status === 'resting') {
       agent.energy = clampNeed(agent.energy + 3.2);
       agent.needs.hunger = clampNeed(agent.needs.hunger - 0.12);
       agent.needs.morale = clampNeed(agent.needs.morale + 0.35);
       if (agent.energy >= 72) {
-        agent.status = 'idle';
+        agent.status = agent.activeTaskId ? 'working' : 'idle';
         agent.version += 1;
       }
     } else {
