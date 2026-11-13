@@ -1563,17 +1563,30 @@ export class GameEngine {
       this.catPos.z + Math.cos(this.camYaw) * horizDist,
     );
 
-    // Prevent camera from clipping inside buildings
-    for (const box of this.world.colliders) {
-      if (box.topY < 1.5 || box.isBarrier) continue;
-      if (
-        _camDesiredPos.x > box.minX - 0.3 &&
-        _camDesiredPos.x < box.maxX + 0.3 &&
-        _camDesiredPos.z > box.minZ - 0.3 &&
-        _camDesiredPos.z < box.maxZ + 0.3 &&
-        _camDesiredPos.y < box.topY + 0.3
-      ) {
-        _camDesiredPos.y = Math.max(_camDesiredPos.y, box.topY + 0.65);
+    // Keep the camera inside the same building as Tomas when both are indoors.
+    const cameraSharesIndoorZone = this.world.indoorZones.some((zone) =>
+      this.catPos.x > zone.minX && this.catPos.x < zone.maxX &&
+      this.catPos.z > zone.minZ && this.catPos.z < zone.maxZ &&
+      this.catPos.y < zone.ceilingY &&
+      _camDesiredPos.x > zone.minX && _camDesiredPos.x < zone.maxX &&
+      _camDesiredPos.z > zone.minZ && _camDesiredPos.z < zone.maxZ &&
+      _camDesiredPos.y < zone.ceilingY
+    );
+
+    // Outside, raise the camera over solid geometry to prevent wall clipping.
+    // Indoors, skip this correction only while the camera remains in Tomas's building.
+    if (!cameraSharesIndoorZone) {
+      for (const box of this.world.colliders) {
+        if (box.topY < 1.5 || box.isBarrier) continue;
+        if (
+          _camDesiredPos.x > box.minX - 0.3 &&
+          _camDesiredPos.x < box.maxX + 0.3 &&
+          _camDesiredPos.z > box.minZ - 0.3 &&
+          _camDesiredPos.z < box.maxZ + 0.3 &&
+          _camDesiredPos.y < box.topY + 0.3
+        ) {
+          _camDesiredPos.y = Math.max(_camDesiredPos.y, box.topY + 0.65);
+        }
       }
     }
 
@@ -1730,6 +1743,10 @@ export class GameEngine {
     )) {
       this.isInsideShelter = true;
     }
+
+    // Precipitation must not render through a building roof around a sheltered cat.
+    if (this.isInsideShelter) this.rainPoints.visible = false;
+
     this.activeInteractableId = closestId;
 
     // 6. Predator, Boss & Rooftop Rival Cat AI
