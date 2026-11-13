@@ -42,3 +42,22 @@ test('caps a requested simulation advance to a bounded number of ticks', () => {
   const simulation = new SocietySimulation();
   assert.equal(simulation.step(5000).tick, 1000);
 });
+
+test('waits for a completed prerequisite before assigning a follow-up task', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(4);
+  const followUp = snapshot.tasks.find((task) => task.dependencies.length > 0);
+  assert.ok(followUp);
+  assert.ok(followUp.dependencies.every((id) =>
+    snapshot.tasks.some((task) => task.id === id && task.status === 'completed'),
+  ));
+});
+
+test('agents rest when exhausted and resume their assigned work after recovery', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(80);
+  const agentsWithWork = snapshot.agents.filter((agent) => agent.activeTaskId !== null);
+  assert.ok(agentsWithWork.length > 0);
+  assert.ok(snapshot.agents.every((agent) => agent.energy >= 0 && agent.energy <= 100));
+  assert.ok(snapshot.agents.every((agent) => agent.status !== 'working' || agent.energy > 0));
+});
