@@ -46,7 +46,9 @@ export class ArticulatedCat {
   private currentScale = EVOLUTION_STAGES[0].scale;
   private targetScale = EVOLUTION_STAGES[0].scale;
   private actionTimer = 0;
-  private actionType: 'none' | 'eat' | 'drink' | 'pounce' | 'claw' | 'meow' = 'none';
+  private idleGroomTimer = 0;
+  private nextGroomAt = 9;
+  private actionType: 'none' | 'eat' | 'drink' | 'pounce' | 'claw' | 'meow' | 'groom' = 'none';
   private rightingRoll = 0;
   private landingSquat = 0;
 
@@ -458,6 +460,19 @@ export class ArticulatedCat {
 
     const moving = horizontalSpeed > 0.35;
 
+    // A calm, grounded cat occasionally pauses to groom its front paw.
+    if (isGrounded && !moving && !isClimbing && this.actionType === 'none') {
+      this.idleGroomTimer += dt;
+      if (this.idleGroomTimer >= this.nextGroomAt) {
+        this.actionType = 'groom';
+        this.actionTimer = 1.35;
+        this.idleGroomTimer = 0;
+        this.nextGroomAt = 12 + Math.random() * 11;
+      }
+    } else if (moving || isClimbing || !isGrounded) {
+      this.idleGroomTimer = 0;
+    }
+
     if (isClimbing) {
       // Vertical wall climbing posture!
       this.climbPhase += dt * (Math.abs(verticalVel) > 0.2 ? 12 : 2);
@@ -505,6 +520,18 @@ export class ArticulatedCat {
       this.legs.fr.hip.rotation.x = -1.25;
       this.legs.fr.shin.rotation.x = -0.3;
       this.legs.fl.hip.rotation.x = 0.35;
+    } else if (this.actionType === 'groom') {
+      // Lift a forepaw toward the muzzle in a short, natural grooming cycle.
+      const groomWave = Math.sin((1 - this.actionTimer / 1.35) * Math.PI * 5);
+      this.bodyPivot.rotation.z = THREE.MathUtils.damp(this.bodyPivot.rotation.z, 0, 12, dt);
+      this.bodyPivot.rotation.x = THREE.MathUtils.damp(this.bodyPivot.rotation.x, 0.08, 8, dt);
+      this.bodyPivot.position.y = THREE.MathUtils.damp(this.bodyPivot.position.y, 0.39, 8, dt);
+      this.legs.fl.hip.rotation.x = THREE.MathUtils.damp(this.legs.fl.hip.rotation.x, -1.35 + groomWave * 0.16, 14, dt);
+      this.legs.fl.shin.rotation.x = THREE.MathUtils.damp(this.legs.fl.shin.rotation.x, -0.8 + groomWave * 0.12, 14, dt);
+      this.legs.fr.hip.rotation.x = THREE.MathUtils.damp(this.legs.fr.hip.rotation.x, -0.18, 10, dt);
+      this.legs.fr.shin.rotation.x = THREE.MathUtils.damp(this.legs.fr.shin.rotation.x, 0.12, 10, dt);
+      this.legs.bl.hip.rotation.x = THREE.MathUtils.damp(this.legs.bl.hip.rotation.x, 0.12, 10, dt);
+      this.legs.br.hip.rotation.x = THREE.MathUtils.damp(this.legs.br.hip.rotation.x, 0.12, 10, dt);
     } else if (moving) {
       this.bodyPivot.rotation.z = THREE.MathUtils.damp(this.bodyPivot.rotation.z, 0, 12, dt);
       const freq = isSprinting ? 14.5 : 9.5;
@@ -560,7 +587,9 @@ export class ArticulatedCat {
     const headPitch =
       this.actionType === 'eat' || this.actionType === 'drink'
         ? 0.45 + Math.sin(elapsed * 16) * 0.14
-        : this.actionType === 'meow'
+        : this.actionType === 'groom'
+          ? 0.62 + Math.sin(elapsed * 13) * 0.08
+          : this.actionType === 'meow'
           ? -0.35
           : Math.sin(elapsed * 1.6) * 0.04;
     const headYaw = moving ? 0 : Math.sin(elapsed * 0.9) * 0.14;
