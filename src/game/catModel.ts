@@ -520,7 +520,7 @@ export class ArticulatedCat {
       this.legs.fr.hip.rotation.x = -1.25;
       this.legs.fr.shin.rotation.x = -0.3;
       this.legs.fl.hip.rotation.x = 0.35;
-    } else if (this.actionType === 'groom') {
+    } else if (this.actionType === 'groom' && isGrounded && !moving && !isClimbing) {
       // Lift a forepaw toward the muzzle in a short, natural grooming cycle.
       const groomWave = Math.sin((1 - this.actionTimer / 1.35) * Math.PI * 5);
       this.bodyPivot.rotation.z = THREE.MathUtils.damp(this.bodyPivot.rotation.z, 0, 12, dt);
