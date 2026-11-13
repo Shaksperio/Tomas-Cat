@@ -8,7 +8,7 @@
 
 export const SOCIETY_CONTRACT_VERSION = 1 as const;
 
-export type AgentProfession = 'engineer' | 'worker' | 'agent';
+export type AgentProfession = 'engineer' | 'worker' | 'agent' | 'farmer';
 export type SocietyAgentStatus = 'idle' | 'working' | 'resting' | 'travelling' | 'disabled';
 export type AgentTaskKind =
   | 'survey_site'
@@ -20,7 +20,9 @@ export type AgentTaskKind =
   | 'repair_structure'
   | 'mediate_conflict'
   | 'patrol_area'
-  | 'investigate_event';
+  | 'investigate_event'
+  | 'cultivate_field'
+  | 'harvest_food';
 export type AgentTaskStatus = 'queued' | 'assigned' | 'in_progress' | 'blocked' | 'completed' | 'cancelled';
 export type ConstructionProjectStatus = 'proposed' | 'validated' | 'active' | 'paused' | 'completed' | 'rejected';
 export type WorldEventKind =
