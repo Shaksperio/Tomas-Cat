@@ -17,7 +17,7 @@ test('assigns work to matching professions and completes tasks over logical tick
   const simulation = new SocietySimulation();
   const first = simulation.step(1);
   const assignedTasks = first.tasks.filter((task) => task.status === 'assigned' || task.status === 'in_progress');
-  assert.equal(assignedTasks.length, 3);
+  assert.equal(assignedTasks.length, 4);
   assert.ok(assignedTasks.every((task) => {
     const agent = first.agents.find((candidate) => candidate.id === task.assignedAgentId);
     return agent?.activeTaskId === task.id;
