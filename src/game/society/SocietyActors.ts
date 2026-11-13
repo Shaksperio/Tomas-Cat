@@ -7,6 +7,7 @@ interface SocietyActorView {
   head: THREE.Mesh;
   legs: THREE.Mesh[];
   badge: THREE.Mesh;
+  nameTag: THREE.Sprite;
   phase: number;
 }
 
@@ -96,6 +97,31 @@ export class SocietyActors {
     badge.position.set(0, 1.18, 0);
     root.add(badge);
 
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 256;
+    labelCanvas.height = 64;
+    const labelContext = labelCanvas.getContext('2d');
+    if (labelContext) {
+      labelContext.fillStyle = 'rgba(8, 16, 30, 0.82)';
+      labelContext.beginPath();
+      labelContext.roundRect(8, 8, 240, 48, 18);
+      labelContext.fill();
+      labelContext.font = 'bold 26px sans-serif';
+      labelContext.textAlign = 'center';
+      labelContext.textBaseline = 'middle';
+      labelContext.fillStyle = '#f8fafc';
+      labelContext.fillText(agent.displayName, 128, 32);
+    }
+    const labelTexture = new THREE.CanvasTexture(labelCanvas);
+    const nameTag = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: labelTexture,
+      transparent: true,
+      depthWrite: false,
+    }));
+    nameTag.position.set(0, 1.48, 0);
+    nameTag.scale.set(1.35, 0.34, 1);
+    root.add(nameTag);
+
     const shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.42, 12),
       new THREE.MeshBasicMaterial({ color: 0x050b14, transparent: true, opacity: 0.22 }),
@@ -105,7 +131,7 @@ export class SocietyActors {
     root.add(shadow);
 
     this.scene.add(root);
-    return { root, body, head, legs, badge, phase: agent.id.length * 0.73 };
+    return { root, body, head, legs, badge, nameTag, phase: agent.id.length * 0.73 };
   }
 
   public update(
