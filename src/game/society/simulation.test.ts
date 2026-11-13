@@ -70,3 +70,14 @@ test('agents travel toward deterministic work sites before completing tasks', ()
   assert.notDeepEqual(after.position, before.position);
   assert.ok(['travelling', 'working'].includes(after.status));
 });
+
+
+test('worker completes the material-to-construction chain and emits a project completion event', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(320);
+  assert.ok(snapshot.tasks.some((task) => task.kind === 'prepare_site'));
+  assert.ok(snapshot.tasks.some((task) => task.kind === 'build_module'));
+  assert.ok(snapshot.tasks.some((task) => task.kind === 'build_module' && task.status === 'completed'));
+  assert.ok(snapshot.events.some((event) => event.kind === 'project_started'));
+  assert.ok(snapshot.events.some((event) => event.kind === 'project_completed'));
+});
