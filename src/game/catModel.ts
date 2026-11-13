@@ -431,6 +431,7 @@ export class ArticulatedCat {
     isSheltered: boolean,
     isClimbing: boolean,
     verticalVel: number,
+    isSleeping: boolean,
     elapsed: number,
   ): void {
     this.currentScale = THREE.MathUtils.damp(this.currentScale, this.targetScale, 4.5, dt);
@@ -520,6 +521,20 @@ export class ArticulatedCat {
       this.legs.fr.hip.rotation.x = -1.25;
       this.legs.fr.shin.rotation.x = -0.3;
       this.legs.fl.hip.rotation.x = 0.35;
+    } else if (isSleeping && isGrounded && !moving && !isClimbing && this.actionType === 'none') {
+      // A sheltered night rest: tuck the limbs and breathe slowly without locking player control.
+      const breathing = Math.sin(elapsed * 1.8) * 0.008;
+      this.bodyPivot.rotation.z = THREE.MathUtils.damp(this.bodyPivot.rotation.z, 0, 8, dt);
+      this.bodyPivot.rotation.x = THREE.MathUtils.damp(this.bodyPivot.rotation.x, 0.14, 5, dt);
+      this.bodyPivot.position.y = THREE.MathUtils.damp(this.bodyPivot.position.y, 0.29 + breathing, 4, dt);
+      this.legs.fl.hip.rotation.x = THREE.MathUtils.damp(this.legs.fl.hip.rotation.x, -0.38, 5, dt);
+      this.legs.fr.hip.rotation.x = THREE.MathUtils.damp(this.legs.fr.hip.rotation.x, -0.38, 5, dt);
+      this.legs.bl.hip.rotation.x = THREE.MathUtils.damp(this.legs.bl.hip.rotation.x, 0.42, 5, dt);
+      this.legs.br.hip.rotation.x = THREE.MathUtils.damp(this.legs.br.hip.rotation.x, 0.42, 5, dt);
+      this.legs.fl.shin.rotation.x = THREE.MathUtils.damp(this.legs.fl.shin.rotation.x, 0.48, 5, dt);
+      this.legs.fr.shin.rotation.x = THREE.MathUtils.damp(this.legs.fr.shin.rotation.x, 0.48, 5, dt);
+      this.legs.bl.shin.rotation.x = THREE.MathUtils.damp(this.legs.bl.shin.rotation.x, -0.35, 5, dt);
+      this.legs.br.shin.rotation.x = THREE.MathUtils.damp(this.legs.br.shin.rotation.x, -0.35, 5, dt);
     } else if (this.actionType === 'groom' && isGrounded && !moving && !isClimbing) {
       // Lift a forepaw toward the muzzle in a short, natural grooming cycle.
       const groomWave = Math.sin((1 - this.actionTimer / 1.35) * Math.PI * 5);
@@ -584,8 +599,9 @@ export class ArticulatedCat {
       this.legs.br.shin.rotation.x = THREE.MathUtils.damp(this.legs.br.shin.rotation.x, -legBend * 1.2, 10, dt);
     }
 
-    const headPitch =
-      this.actionType === 'eat' || this.actionType === 'drink'
+    const headPitch = isSleeping && isGrounded && !moving && !isClimbing && this.actionType === 'none'
+      ? 0.48 + Math.sin(elapsed * 1.8) * 0.015
+      : this.actionType === 'eat' || this.actionType === 'drink'
         ? 0.45 + Math.sin(elapsed * 16) * 0.14
         : this.actionType === 'groom'
           ? 0.62 + Math.sin(elapsed * 13) * 0.08
@@ -600,8 +616,9 @@ export class ArticulatedCat {
     this.rightEar.rotation.z = 0.25 - (Math.sin(elapsed * 3.7) > 0.97 ? 0.14 : 0);
 
     this.tailSegments.forEach((seg, idx) => {
-      const sway = Math.sin(elapsed * (moving ? 6.5 : 2.6) - idx * 0.65) * (moving ? 0.18 : 0.24);
-      const lift = idx === 0 ? (moving ? 0.35 : 0.55) : 0.22;
+      const sleeping = isSleeping && isGrounded && !moving && !isClimbing && this.actionType === 'none';
+      const sway = Math.sin(elapsed * (moving ? 6.5 : sleeping ? 0.9 : 2.6) - idx * 0.65) * (moving ? 0.18 : sleeping ? 0.08 : 0.24);
+      const lift = idx === 0 ? (moving ? 0.35 : sleeping ? 0.28 : 0.55) : sleeping ? 0.12 : 0.22;
       seg.rotation.y = sway;
       seg.rotation.x = lift + Math.cos(elapsed * 2.1 - idx * 0.5) * 0.08;
     });
