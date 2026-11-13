@@ -159,15 +159,45 @@ Cada setor tem:
 
 O servidor persiste o manifesto e o estado; o cliente instancia os modelos Three.js. Setores distantes podem ser descarregados da memória e reconstruídos pela seed e pelo manifesto. Projetos de construção só entram no mundo após validação de colisão, navegação, orçamento e limites.
 
-## 9. Jogadores humanos, animais de IA e conflitos
+## 9. Jogadores humanos, animais selvagens e evolução felina
 
-- Jogadores humanos controlam seus próprios personagens.
-- Habitantes de IA têm identidades, objetivos e capacidades próprias.
+O mundo deve conter uma fauna com papéis ecológicos e de gameplay distintos. Os animais não serão apenas variações visuais de inimigos: terão territórios, comportamento, necessidades, relações e regras de combate próprias.
+
+### 9.1 Facções e espécies selvagens
+
+- **Cães selvagens:** ameaças territoriais que podem caçar em matilhas, cercar, perseguir e disputar recursos. A coordenação da matilha deve ser simulada por regras previsíveis; indivíduos podem recuar, proteger filhotes ou abandonar a perseguição.
+- **Lobos:** predadores mais estratégicos, com territórios amplos, patrulhas e comportamento de grupo. Devem representar um desafio maior em áreas selvagens e regiões avançadas.
+- **Raposas:** animais cautelosos, ágeis e oportunistas. Podem evitar confronto direto, roubar recursos, investigar acampamentos e fugir quando ameaçadas; algumas situações podem torná-las adversárias, outras permitir encontros neutros.
+- **Outros animais:** a arquitetura deve permitir acrescentar espécies e facções sem reescrever o sistema de IA. Cada espécie recebe perfil de comportamento, habitat, dieta, atributos, relações e nível de ameaça configuráveis.
+
+A classificação de cada encontro deve ser contextual: hostil, defensivo, territorial, oportunista, neutro ou amigável. Nem todo animal selvagem ataca automaticamente. Agentes podem mediar conflitos quando suas políticas e capacidades permitirem.
+
+### 9.2 Evolução dos gatos jogáveis
+
+Os gatos controlados por humanos poderão desbloquear formas evolutivas inspiradas em felinos selvagens:
+
+1. **Gato doméstico / forma inicial:** equilíbrio e mobilidade para aprender o mundo.
+2. **Gato selvagem:** primeira evolução; maior resistência, sentidos e capacidade de sobrevivência.
+3. **Ramos de evolução avançada:** o jogador poderá desenvolver uma especialização inspirada em:
+   - **Onça-pintada:** força, mordida e domínio em emboscadas; adequada a florestas e áreas úmidas.
+   - **Tigre:** força e resistência elevadas; adequado a confrontos diretos, com maior custo de energia.
+   - **Leopardo:** agilidade, escalada, saltos e furtividade; adequado a telhados, árvores e terrenos verticais.
+   - **Leão:** resistência, presença territorial e habilidades de liderança ou cooperação; adequado a grupos e disputas territoriais.
+
+A evolução deve ser uma progressão de gameplay e fantasia, não uma transformação zoológica literal. Cada forma terá vantagens, limitações, animações, silhueta e requisitos próprios. Nenhuma forma será superior em todas as situações: o equilíbrio deve preservar escolhas significativas.
+
+A progressão poderá exigir experiência, desafios, exploração de biomas, reputação, recursos e missões. O desbloqueio será validado pelo servidor no mundo persistente. O jogador deverá compreender previamente os requisitos e as consequências da escolha. Sempre que possível, formas já desbloqueadas poderão ser alternadas em locais seguros, sem apagar o progresso anterior.
+
+### 9.3 Regras de combate e convivência
+
+- Jogadores humanos controlam seus próprios personagens e suas formas desbloqueadas.
+- Habitantes de IA e animais selvagens têm identidades, objetivos e capacidades próprias.
 - Regras de combate e colisão são validadas pelo servidor em áreas compartilhadas.
-- Animais hostis, rivais territoriais e habitantes amigáveis permanecem categorias distintas.
+- Gatos amigáveis, gatos sociais, rivais territoriais e predadores selvagens permanecem categorias distintas.
+- Cães selvagens, lobos e raposas não devem compartilhar uma única rotina de ataque; cada espécie possui comportamento e contramedidas específicas.
 - Agentes podem intervir em brigas conforme regras conhecidas.
 - Não permitir que agentes sociais sejam tratados automaticamente como inimigos ou alvos de combate.
-- Progresso, recompensas e acesso a fases são decididos pelo servidor; a IA pode criar desafios, mas não alterar critérios de forma oculta.
+- Progresso, recompensas, evolução e acesso a fases são decididos pelo servidor; a IA pode criar desafios, mas não alterar critérios de forma oculta.
 
 ## 10. Modelo de dados inicial
 
@@ -177,7 +207,7 @@ Tabelas/coleções lógicas propostas (nomes sujeitos a revisão antes da migra�
 - `world_snapshots`: checkpoints e metadados de recuperação.
 - `world_events`: eventos ordenados e idempotentes.
 - `players`: identidade de jogo e progresso.
-- `society_agents`: habitantes, profissão, personalidade e estado.
+- `society_agents`: habitantes, profissão, personalidade, espécie, facção e estado.\n- `species_profiles`: habitats, atributos, comportamento, dieta e relações entre espécies.\n- `player_evolutions`: formas desbloqueadas, ramo escolhido, requisitos e versão de progressão.
 - `agent_memories`: memória resumida e referências a eventos.
 - `agent_relationships`: confiança, rivalidade, alianças e reputação.
 - `construction_projects`: projetos, orçamento e estado.
