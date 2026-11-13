@@ -1,0 +1,6 @@
+{
+  "name": "FELIS-09: Sobrevivência Pós-Apocalíptica",
+  "description": "Jogo 3D futurista de mundo aberto onde você controla um gato abandonado em uma cidade pós-apocalíptica, buscando comida, água e abrigo enquanto evolui e cresce.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
