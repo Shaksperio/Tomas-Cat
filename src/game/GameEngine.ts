@@ -19,6 +19,8 @@ import { ArticulatedCat } from './catModel';
 import { PredatorActor } from './enemyModels';
 import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuilder';
+import { SocietySimulation } from './society/simulation';
+import { SocietyActors } from './society/SocietyActors';
 
 const SAVE_KEY = 'felis09_save_v4';
 
@@ -57,6 +59,9 @@ export class GameEngine {
   private readonly textures: ProceduralTextureSet;
   private readonly world: BuiltWorld;
   private readonly cat: ArticulatedCat;
+  private society = new SocietySimulation();
+  private readonly societyActors: SocietyActors;
+  private societyTickTimer = 0;
   private readonly contactShadow: THREE.Mesh;
 
   private readonly sunLight: THREE.DirectionalLight;
@@ -229,6 +234,8 @@ export class GameEngine {
     const maxAniso = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
     this.textures = createProceduralTextures(maxAniso);
     this.world = buildPostApocalypticWorld(this.scene, this.textures);
+    this.societyActors = new SocietyActors(this.scene);
+    this.societyActors.update(0, this.society.snapshot(), false);
 
     this.cat = new ArticulatedCat();
     this.cat.root.position.copy(this.catPos);
@@ -392,6 +399,8 @@ export class GameEngine {
     this.sheltersUpgraded = 0;
     this.enemiesDefeated = 0;
     this.lastThreatCause = '';
+    this.society = new SocietySimulation();
+    this.societyTickTimer = 0;
 
     this.world.interactables.forEach((item) => {
       item.active = true;
@@ -1298,6 +1307,14 @@ export class GameEngine {
       this.updateEnvironmentLighting(dt);
     } else if (this.phase === 'playing') {
       this.updateGameplay(dt);
+      this.societyTickTimer += dt;
+      while (this.societyTickTimer >= 1) {
+        this.society.step(1);
+        this.societyTickTimer -= 1;
+      }
+      this.societyActors.update(dt, this.society.snapshot(), true);
+    } else {
+      this.societyActors.update(dt, this.society.snapshot(), false);
     }
 
     this.renderer.render(this.scene, this.camera);
@@ -2259,6 +2276,7 @@ export class GameEngine {
     dom.removeEventListener('wheel', this.onWheel);
     dom.removeEventListener('webglcontextlost', this.onContextLost);
 
+    this.societyActors.dispose();
     this.textures.dispose();
     this.scene.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) {
