@@ -8,6 +8,8 @@ interface SocietyActorView {
   legs: THREE.Mesh[];
   badge: THREE.Mesh;
   nameTag: THREE.Sprite;
+  socialBubble: THREE.Sprite;
+  socialBubbleTimer: number;
   phase: number;
 }
 
@@ -29,6 +31,7 @@ const STATUS_COLORS: Record<SimulatedAgent['status'], number> = {
 export class SocietyActors {
   private readonly actors = new Map<string, SocietyActorView>();
   private readonly constructions = new Map<string, THREE.Group>();
+  private readonly processedSocialEventIds = new Set<string>();
 
   constructor(private readonly scene: THREE.Scene) {}
 
@@ -123,6 +126,32 @@ export class SocietyActors {
     nameTag.scale.set(1.35, 0.34, 1);
     root.add(nameTag);
 
+    const bubbleCanvas = document.createElement('canvas');
+    bubbleCanvas.width = 128;
+    bubbleCanvas.height = 72;
+    const bubbleContext = bubbleCanvas.getContext('2d');
+    if (bubbleContext) {
+      bubbleContext.fillStyle = 'rgba(8, 16, 30, 0.9)';
+      bubbleContext.beginPath();
+      bubbleContext.roundRect(8, 6, 112, 52, 22);
+      bubbleContext.fill();
+      bubbleContext.fillStyle = '#67e8f9';
+      for (const x of [42, 64, 86]) {
+        bubbleContext.beginPath();
+        bubbleContext.arc(x, 32, 6, 0, Math.PI * 2);
+        bubbleContext.fill();
+      }
+    }
+    const socialBubble = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(bubbleCanvas),
+      transparent: true,
+      depthWrite: false,
+    }));
+    socialBubble.position.set(0, 1.92, 0);
+    socialBubble.scale.set(0.62, 0.35, 1);
+    socialBubble.visible = false;
+    root.add(socialBubble);
+
     const shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.42, 12),
       new THREE.MeshBasicMaterial({ color: 0x050b14, transparent: true, opacity: 0.22 }),
@@ -132,7 +161,7 @@ export class SocietyActors {
     root.add(shadow);
 
     this.scene.add(root);
-    return { root, body, head, legs, badge, nameTag, phase: agent.id.length * 0.73 };
+    return { root, body, head, legs, badge, nameTag, socialBubble, socialBubbleTimer: 0, phase: agent.id.length * 0.73 };
   }
 
   public update(
@@ -178,8 +207,28 @@ export class SocietyActors {
       actor.head.position.y = agent.status === 'resting' ? 0.56 : 0.68;
     }
 
+    for (const event of snapshot.events) {
+      if (event.kind !== 'social_interaction' || this.processedSocialEventIds.has(event.id)) continue;
+      this.processedSocialEventIds.add(event.id);
+      const payload = event.payload as { fromAgentId?: unknown; toAgentId?: unknown };
+      for (const agentId of [payload.fromAgentId, payload.toAgentId]) {
+        if (typeof agentId !== 'string') continue;
+        const actor = this.actors.get(agentId);
+        if (actor) actor.socialBubbleTimer = 2.4;
+      }
+    }
+    if (this.processedSocialEventIds.size > 512) {
+      this.processedSocialEventIds.clear();
+      for (const event of snapshot.events) {
+        if (event.kind === 'social_interaction') this.processedSocialEventIds.add(event.id);
+      }
+    }
+
     for (const [id, actor] of this.actors) {
       if (!activeIds.has(id)) actor.root.visible = false;
+      actor.socialBubbleTimer = Math.max(0, actor.socialBubbleTimer - dt);
+      actor.socialBubble.visible = visible && actor.socialBubbleTimer > 0;
+      actor.socialBubble.material.opacity = Math.min(1, actor.socialBubbleTimer * 2);
     }
 
     // Uma estrutura só aparece após a tarefa de construção ser concluída.
