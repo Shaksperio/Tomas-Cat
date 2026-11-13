@@ -2,7 +2,49 @@ export interface SocietyResources {
   food: number;
   wood: number;
   stone: number;
+  planks: number;
+  coins: number;
 }
+
+type TradeableResource = 'food' | 'wood' | 'stone' | 'planks';
+
+/** Capacidade do armazém comunitário por recurso (moedas ficam no cofre, sem limite prático). */
+const STORAGE_CAPACITY: Record<keyof SocietyResources, number> = {
+  food: 60,
+  wood: 60,
+  stone: 60,
+  planks: 60,
+  coins: 999,
+};
+
+/** Estoque que a comunidade mantém antes de vender excedente. */
+const TARGET_STOCK: Record<TradeableResource, number> = { food: 20, wood: 12, stone: 8, planks: 6 };
+/** Preço de venda por unidade, em moedas. */
+const SELL_PRICE: Record<TradeableResource, number> = { food: 2, wood: 1, stone: 2, planks: 3 };
+const FOOD_BUY_PRICE = 3;
+const FOOD_SHORTAGE_THRESHOLD = 8;
+const MAX_UNITS_PER_TRADE = 4;
+/** Madeira reservada para a construção: o carpinteiro nunca a consome. */
+const CONSTRUCTION_WOOD_RESERVE = 4;
+const TRADE_ORDER: TradeableResource[] = ['food', 'wood', 'stone', 'planks'];
+/** Tarefas concluídas são mantidas por este número de ticks; depois são arquivadas. */
+const FINISHED_TASK_RETENTION_TICKS = 200;
+
+/**
+ * Local de trabalho de cada profissão. Os alvos das tarefas são sorteados ao
+ * redor deste ponto (e não da posição atual), para que profissões que repetem
+ * tarefas não se afastem do bairro. A plantação visível fica em (10, 4).
+ */
+const WORKPLACES: Record<AgentProfession, { x: number; z: number }> = {
+  engineer: { x: -4, z: 2 },
+  worker: { x: 3, z: 0 },
+  agent: { x: -2, z: -4 },
+  farmer: { x: 10, z: 4 },
+  lumberjack: { x: -8, z: 4 },
+  miner: { x: 9, z: -5 },
+  carpenter: { x: -6, z: -2 },
+  merchant: { x: 3, z: 6 },
+};
 
 import {
   type AgentProfession,
@@ -58,6 +100,10 @@ const TASK_DURATION: Record<AgentTask['kind'], number> = {
   investigate_event: 4,
   cultivate_field: 5,
   harvest_food: 4,
+  chop_wood: 5,
+  mine_stone: 6,
+  craft_planks: 5,
+  trade_goods: 5,
 };
 
 const clampNeed = (value: number): number => Math.max(0, Math.min(100, value));
@@ -121,7 +167,7 @@ export class SocietySimulation {
   private readonly relationships = new Map<string, AgentRelationship>();
   private readonly events: WorldEvent[] = [];
   private eventSequence = 0;
-  private readonly resources: SocietyResources = { food: 12, wood: 0, stone: 0 };
+  private readonly resources: SocietyResources = { food: 12, wood: 0, stone: 0, planks: 0, coins: 0 };
 
   constructor() {
     this.addAgent(makeAgent('engineer-01', 'Íris', 'engineer', -4, 2));
@@ -129,15 +175,28 @@ export class SocietySimulation {
     this.addAgent(makeAgent('worker-02', 'Nina', 'worker', 4, -2));
     this.addAgent(makeAgent('agent-01', 'Bento', 'agent', -2, -4));
     this.addAgent(makeAgent('farmer-01', 'Amora', 'farmer', 6, 3));
+    this.addAgent(makeAgent('lumberjack-01', 'Cedro', 'lumberjack', -7, 4));
+    this.addAgent(makeAgent('miner-01', 'Brita', 'miner', 8, -5));
+    this.addAgent(makeAgent('carpenter-01', 'Serafim', 'carpenter', -6, -2));
+    this.addAgent(makeAgent('merchant-01', 'Mercê', 'merchant', 3, 6));
 
     this.addRelationship('engineer-01', 'worker-01', 62, 48);
     this.addRelationship('engineer-01', 'worker-02', 58, 54);
     this.addRelationship('worker-01', 'worker-02', 72, 78);
+    this.addRelationship('lumberjack-01', 'carpenter-01', 66, 60);
+    this.addRelationship('miner-01', 'worker-01', 55, 50);
+    this.addRelationship('merchant-01', 'farmer-01', 60, 64);
 
     this.enqueueTask(makeTask('task-survey-01', 'survey_site', 'engineer', 0));
     this.enqueueTask(makeTask('task-gather-01', 'gather_materials', 'worker', 0));
     this.enqueueTask(makeTask('task-patrol-01', 'patrol_area', 'agent', 0));
     this.enqueueTask(makeTask('task-farm-01', 'cultivate_field', 'farmer', 0));
+    this.enqueueTask(makeTask('task-lumber-01', 'chop_wood', 'lumberjack', 0));
+    this.enqueueTask(makeTask('task-quarry-01', 'mine_stone', 'miner', 0));
+    const firstCrafting = makeTask('task-craft-01', 'craft_planks', 'carpenter', 0);
+    firstCrafting.requiredResources = { wood: 3 };
+    this.enqueueTask(firstCrafting);
+    this.enqueueTask(makeTask('task-trade-01', 'trade_goods', 'merchant', 0));
   }
 
   private addAgent(agent: SimulatedAgent): void {
@@ -182,7 +241,7 @@ export class SocietySimulation {
       payload,
       schemaVersion: 1,
     });
-    if (this.events.length > 200) this.events.shift();
+    if (this.events.length > 500) this.events.shift();
   }
 
   private assignQueuedTasks(): void {
@@ -191,10 +250,12 @@ export class SocietySimulation {
       .sort((a, b) => a.createdAtTick - b.createdAtTick || a.id.localeCompare(b.id));
 
     for (const task of queued) {
-      const dependenciesComplete = task.dependencies.every((dependencyId) =>
-        this.tasks.get(dependencyId)?.status === 'completed',
-      );
-      if (!dependenciesComplete || !this.hasResources(task.requiredResources)) continue;
+      // Dependência ausente = tarefa concluída que já foi arquivada por pruneFinishedTasks.
+      const dependenciesComplete = task.dependencies.every((dependencyId) => {
+        const dependency = this.tasks.get(dependencyId);
+        return !dependency || dependency.status === 'completed';
+      });
+      if (!dependenciesComplete || !this.hasResources(task.requiredResources, this.reserveFor(task))) continue;
 
       const candidate = [...this.agents.values()]
         .filter((agent) => canAgentAcceptTask(agent, task).valid)
@@ -204,9 +265,10 @@ export class SocietySimulation {
       const seed = [...task.id].reduce((value, char) => value + char.charCodeAt(0), 0);
       const angle = (seed % 360) * (Math.PI / 180);
       const radius = 2.5 + (seed % 4);
+      const workplace = WORKPLACES[candidate.profession];
       task.target = {
-        x: candidate.position.x + Math.cos(angle) * radius,
-        z: candidate.position.z + Math.sin(angle) * radius,
+        x: workplace.x + Math.cos(angle) * radius,
+        z: workplace.z + Math.sin(angle) * radius,
         sectorId: task.sectorId,
       };
       task.status = 'assigned';
@@ -220,15 +282,20 @@ export class SocietySimulation {
     }
   }
 
-  private hasResources(required: Record<string, number>): boolean {
+  private hasResources(required: Record<string, number>, reserve: Record<string, number> = {}): boolean {
     return Object.entries(required).every(([resource, amount]) =>
-      (this.resources[resource as keyof SocietyResources] ?? 0) >= amount,
+      (this.resources[resource as keyof SocietyResources] ?? 0) >= amount + (reserve[resource] ?? 0),
     );
+  }
+
+  /** O carpinteiro só trabalha com a madeira que sobra depois da reserva de construção. */
+  private reserveFor(task: AgentTask): Record<string, number> {
+    return task.kind === 'craft_planks' ? { wood: CONSTRUCTION_WOOD_RESERVE } : {};
   }
 
   private changeResource(resource: keyof SocietyResources, amount: number, reason: string, sourceId: string): void {
     const previous = this.resources[resource];
-    const next = Math.max(0, previous + amount);
+    const next = Math.max(0, Math.min(STORAGE_CAPACITY[resource], previous + amount));
     if (next === previous) return;
     this.resources[resource] = next;
     this.emit('resource_changed', sourceId, {
@@ -247,6 +314,77 @@ export class SocietySimulation {
       this.changeResource('food', -1, 'community_meal', `meal:${agent.id}:${this.tickCount}`);
       agent.needs.hunger = clampNeed(agent.needs.hunger - 28);
       agent.needs.morale = clampNeed(agent.needs.morale + 1.5);
+    }
+  }
+
+  /** Descarta tarefas concluídas antigas para o estado não crescer sem limite. */
+  private pruneFinishedTasks(): void {
+    if (this.tickCount % 100 !== 0) return;
+    for (const [id, task] of this.tasks) {
+      if (task.status === 'completed' && this.tickCount - task.updatedAtTick > FINISHED_TASK_RETENTION_TICKS) {
+        this.tasks.delete(id);
+        this.taskRuntime.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Comércio determinístico: a mercadora vende o excedente acima do estoque-alvo
+   * e, havendo escassez de comida, compra alimento com as moedas do cofre.
+   */
+  private executeTrade(merchant: SimulatedAgent, task: AgentTask): void {
+    const sold: Partial<Record<TradeableResource, number>> = {};
+    const bought: Partial<Record<TradeableResource, number>> = {};
+
+    for (const resource of TRADE_ORDER) {
+      const surplus = this.resources[resource] - TARGET_STOCK[resource];
+      if (surplus <= 0) continue;
+      const units = Math.min(surplus, MAX_UNITS_PER_TRADE);
+      this.changeResource(resource, -units, 'trade_sale', `${task.id}:${resource}`);
+      this.changeResource('coins', units * SELL_PRICE[resource], 'trade_sale', `${task.id}:coins-in`);
+      sold[resource] = units;
+    }
+
+    if (this.resources.food < FOOD_SHORTAGE_THRESHOLD) {
+      const affordable = Math.floor(this.resources.coins / FOOD_BUY_PRICE);
+      const units = Math.min(MAX_UNITS_PER_TRADE, affordable);
+      if (units > 0) {
+        this.changeResource('coins', -units * FOOD_BUY_PRICE, 'trade_purchase', `${task.id}:coins-out`);
+        this.changeResource('food', units, 'trade_purchase', `${task.id}:food`);
+        bought.food = units;
+      }
+    }
+
+    if (Object.keys(sold).length > 0 || Object.keys(bought).length > 0) {
+      this.emit('trade_completed', task.id, {
+        merchantId: merchant.id,
+        sold,
+        bought,
+        coins: this.resources.coins,
+      });
+    }
+  }
+
+  /**
+   * Necessidades materiais periódicas da comunidade: lenha para aquecimento e
+   * tábuas para manutenção. Necessidade não atendida reduz o moral de todos.
+   */
+  private consumeCommunityNeeds(): void {
+    const needs: Array<{ need: string; every: number; resource: keyof SocietyResources; reason: string }> = [
+      { need: 'firewood', every: 60, resource: 'wood', reason: 'community_firewood' },
+      { need: 'maintenance', every: 120, resource: 'planks', reason: 'community_maintenance' },
+    ];
+    for (const { need, every, resource, reason } of needs) {
+      if (this.tickCount % every !== 0) continue;
+      const met = this.resources[resource] >= 1;
+      if (met) {
+        this.changeResource(resource, -1, reason, `need:${need}:${this.tickCount}`);
+      } else {
+        for (const agent of this.agents.values()) {
+          agent.needs.morale = clampNeed(agent.needs.morale - 3);
+        }
+      }
+      this.emit('community_need_changed', `need:${need}`, { need, met });
     }
   }
 
@@ -287,9 +425,10 @@ export class SocietySimulation {
       if (!agent || !runtime || agent.status === 'resting' || agent.energy <= 0) continue;
 
       if (task.status === 'assigned') {
-        if (!this.hasResources(task.requiredResources)) continue;
+        if (!this.hasResources(task.requiredResources, this.reserveFor(task))) continue;
+        const consumptionReason = task.kind === 'build_module' ? 'construction_consumption' : 'crafting_consumption';
         for (const [resource, amount] of Object.entries(task.requiredResources)) {
-          this.changeResource(resource as keyof SocietyResources, -amount, 'construction_consumption', task.id);
+          this.changeResource(resource as keyof SocietyResources, -amount, consumptionReason, `${task.id}:${resource}`);
         }
         task.status = 'in_progress';
         task.updatedAtTick = this.tickCount;
@@ -326,6 +465,15 @@ export class SocietySimulation {
       if (task.kind === 'gather_materials') {
         this.changeResource('wood', 8, 'material_gathering', task.id);
         this.changeResource('stone', 4, 'material_gathering', task.id);
+      }
+      if (task.kind === 'chop_wood') {
+        this.changeResource('wood', 6, 'lumber_production', task.id);
+      } else if (task.kind === 'mine_stone') {
+        this.changeResource('stone', 4, 'quarry_production', task.id);
+      } else if (task.kind === 'craft_planks') {
+        this.changeResource('planks', 2, 'carpentry_production', task.id);
+      } else if (task.kind === 'trade_goods') {
+        this.executeTrade(agent, task);
       }
       this.emit('task_completed', task.id, {
         taskId: task.id,
@@ -366,6 +514,14 @@ export class SocietySimulation {
     } else if (agent.profession === 'farmer') {
       nextKind = completed.kind === 'cultivate_field' ? 'harvest_food'
         : completed.kind === 'harvest_food' ? 'cultivate_field' : undefined;
+    } else if (agent.profession === 'lumberjack') {
+      nextKind = 'chop_wood';
+    } else if (agent.profession === 'miner') {
+      nextKind = 'mine_stone';
+    } else if (agent.profession === 'carpenter') {
+      nextKind = 'craft_planks';
+    } else if (agent.profession === 'merchant') {
+      nextKind = 'trade_goods';
     }
     if (!nextKind) return;
 
@@ -373,6 +529,7 @@ export class SocietySimulation {
     if (this.tasks.has(id)) return;
     const nextTask = makeTask(id, nextKind, agent.profession, this.tickCount);
     if (nextKind === 'build_module') nextTask.requiredResources = { wood: 4, stone: 2 };
+    if (nextKind === 'craft_planks') nextTask.requiredResources = { wood: 3 };
     this.enqueueTask(nextTask);
     const followUp = this.tasks.get(id);
     if (followUp) followUp.dependencies = [completed.id];
@@ -429,6 +586,8 @@ export class SocietySimulation {
       this.progressTasks();
       this.updateSocialRelationships();
       this.feedResidents();
+      this.consumeCommunityNeeds();
+      this.pruneFinishedTasks();
     }
     return this.snapshot();
   }

@@ -8,7 +8,15 @@
 
 export const SOCIETY_CONTRACT_VERSION = 1 as const;
 
-export type AgentProfession = 'engineer' | 'worker' | 'agent' | 'farmer';
+export type AgentProfession =
+  | 'engineer'
+  | 'worker'
+  | 'agent'
+  | 'farmer'
+  | 'lumberjack'
+  | 'miner'
+  | 'carpenter'
+  | 'merchant';
 export type SocietyAgentStatus = 'idle' | 'working' | 'resting' | 'travelling' | 'disabled';
 export type AgentTaskKind =
   | 'survey_site'
@@ -22,7 +30,11 @@ export type AgentTaskKind =
   | 'patrol_area'
   | 'investigate_event'
   | 'cultivate_field'
-  | 'harvest_food';
+  | 'harvest_food'
+  | 'chop_wood'
+  | 'mine_stone'
+  | 'craft_planks'
+  | 'trade_goods';
 export type AgentTaskStatus = 'queued' | 'assigned' | 'in_progress' | 'blocked' | 'completed' | 'cancelled';
 export type ConstructionProjectStatus = 'proposed' | 'validated' | 'active' | 'paused' | 'completed' | 'rejected';
 export type WorldEventKind =
@@ -34,6 +46,8 @@ export type WorldEventKind =
   | 'project_started'
   | 'project_completed'
   | 'resource_changed'
+  | 'trade_completed'
+  | 'community_need_changed'
   | 'territory_changed'
   | 'wildlife_encounter'
   | 'social_interaction'

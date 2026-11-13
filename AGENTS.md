@@ -60,18 +60,22 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - Exposição do renderizador e luzes foram aumentadas para o jogo não ficar escuro demais.
 
 ### 4.2 Sociedade artificial (`src/game/society/`) — simulação local
-- `contracts.ts`: tipos `SocietyAgent`, `AgentTask`, `ConstructionProject`, `WorldEvent` (com chave de idempotência), profissões (`engineer`, `worker`, `agent`, `farmer`), validações.
-- `simulation.ts`: `SocietySimulation`, determinística, em ticks lógicos (1 por segundo no jogo, avanço limitado por chamada). 5 habitantes: Íris (engenheira), Tico e Nina (operários), Bento (agente), Amora (agricultora).
+- `contracts.ts`: tipos `SocietyAgent`, `AgentTask`, `ConstructionProject`, `WorldEvent` (com chave de idempotência), 8 profissões (`engineer`, `worker`, `agent`, `farmer`, `lumberjack`, `miner`, `carpenter`, `merchant`), validações.
+- `simulation.ts`: `SocietySimulation`, determinística, em ticks lógicos (1 por segundo no jogo, avanço limitado por chamada). 9 habitantes: Íris (engenheira), Tico e Nina (operários), Bento (agente), Amora (agricultora), Cedro (lenhador), Brita (mineira), Serafim (carpinteiro) e Mercê (mercadora). Cada profissão tem um local de trabalho fixo (`WORKPLACES`), ao redor do qual sorteia os alvos das tarefas.
   - Necessidades (fome, convivência, moral), descanso, deslocamento até o local de trabalho.
   - Cadeia engenheiro → operário → construção, com custos.
-  - Recursos comunitários: comida, madeira, pedra. Agricultura (cultivo e colheita), refeições comunitárias.
+  - Recursos comunitários: comida, madeira, pedra, tábuas e moedas, com capacidade máxima de armazém (60 por recurso; moedas até 999).
+  - Produção: agricultura (cultivo e colheita), lenhador (+6 madeira), mineiro (+4 pedra), carpinteiro (3 madeira → 2 tábuas; nunca usa os 4 de madeira reservados à construção).
+  - Consumo: refeições comunitárias (1 comida por habitante a cada 40 ticks), lenha (1 madeira a cada 60) e manutenção (1 tábua a cada 120); necessidade não atendida reduz o moral de todos.
+  - Comércio: a mercadora vende o excedente acima do estoque-alvo (comida 20, madeira 12, pedra 8, tábuas 6) por moedas e compra comida quando ela fica abaixo de 8.
+  - Tarefas concluídas são arquivadas após 200 ticks, para o estado não crescer sem limite.
   - Relações (confiança e afinidade, limite 100), interações sociais e eventos.
 - `SocietyActors.ts`: personagens 3D, placas de nome, indicadores de estado, balões de conversa, plantação 3D (3 fileiras de 12 plantas) e armazém comunitário com estoque visual.
 - Testes: `contracts.test.ts` e `simulation.test.ts`.
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
 
 ### 4.3 O que NÃO existe ainda
-Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; economia com salários e comércio; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; oxigênio, mergulho, pesca, caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
+Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; salários e preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; oxigênio, mergulho, pesca, caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
 ### 4.4 Lacunas de jogabilidade conhecidas
 - Alvorecer, tarde, anoitecer e madrugada não têm paleta própria de iluminação.
@@ -98,7 +102,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 | 2 | Visualização 3D dos habitantes, interação social, balões | Feito |
 | 3 | Economia básica e agricultura (estoque, custos, colheita, refeições) | Feito |
 | 4 | Projetos e construções modulares visíveis no mundo | Parcial (falta catálogo de módulos aprovados) |
-| 5 | Profissões especializadas, economia com salários e comércio | Pendente |
+| 5 | Profissões especializadas, economia com salários e comércio | Parcial (4 profissões produtivas, consumo e comércio básico; faltam salários, preços dinâmicos, saúde, ensino etc.) |
 | 6 | Persistência remota e sincronização (Worker, DO, D1) | Pendente |
 | 7 | Mundo evoluindo sem jogadores conectados | Pendente |
 | 8 | Integração da Cowila | Pendente |

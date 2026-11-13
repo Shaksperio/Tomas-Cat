@@ -18,6 +18,10 @@ const PROFESSION_COLORS: Record<SimulatedAgent['profession'], number> = {
   worker: 0xf59e0b,
   agent: 0xa78bfa,
   farmer: 0x84cc16,
+  lumberjack: 0xb45309,
+  miner: 0x94a3b8,
+  carpenter: 0xd97706,
+  merchant: 0xec4899,
 };
 
 const STATUS_COLORS: Record<SimulatedAgent['status'], number> = {

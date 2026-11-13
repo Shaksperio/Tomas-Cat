@@ -2,22 +2,24 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SocietySimulation } from './simulation';
 
-test('creates a deterministic starter neighborhood with three professions', () => {
+test('creates a deterministic starter neighborhood with eight professions', () => {
   const simulation = new SocietySimulation();
   const snapshot = simulation.snapshot();
-  assert.equal(snapshot.agents.length, 5);
+  assert.equal(snapshot.agents.length, 9);
   assert.deepEqual(
     [...new Set(snapshot.agents.map((agent) => agent.profession))].sort(),
-    ['agent', 'engineer', 'farmer', 'worker'],
+    ['agent', 'carpenter', 'engineer', 'farmer', 'lumberjack', 'merchant', 'miner', 'worker'],
   );
-  assert.equal(snapshot.relationships.length, 3);
+  assert.equal(snapshot.relationships.length, 6);
 });
 
 test('assigns work to matching professions and completes tasks over logical ticks', () => {
   const simulation = new SocietySimulation();
   const first = simulation.step(1);
   const assignedTasks = first.tasks.filter((task) => task.status === 'assigned' || task.status === 'in_progress');
-  assert.equal(assignedTasks.length, 4);
+  // O carpinteiro aguarda madeira acima da reserva de construção; os demais já recebem trabalho.
+  assert.equal(assignedTasks.length, 7);
+  assert.equal(first.tasks.find((task) => task.id === 'task-craft-01')?.status, 'queued');
   assert.ok(assignedTasks.every((task) => {
     const agent = first.agents.find((candidate) => candidate.id === task.assignedAgentId);
     return agent?.activeTaskId === task.id;
@@ -81,14 +83,14 @@ test('agents travel toward deterministic work sites before completing tasks', ()
 
 test('worker completes the material-to-construction chain and emits a project completion event', () => {
   const simulation = new SocietySimulation();
-  const snapshot = simulation.step(320);
+  const snapshot = simulation.step(120);
   assert.ok(snapshot.tasks.some((task) => task.kind === 'prepare_site'));
   assert.ok(snapshot.tasks.some((task) => task.kind === 'build_module'));
   assert.ok(snapshot.tasks.some((task) => task.kind === 'build_module' && task.status === 'completed'));
   assert.ok(snapshot.events.some((event) => event.kind === 'project_started'));
   assert.ok(snapshot.events.some((event) => event.kind === 'project_completed'));
-  assert.equal(snapshot.resources.wood, 4);
-  assert.equal(snapshot.resources.stone, 2);
+  assert.ok(snapshot.events.some((event) => event.kind === 'resource_changed'
+    && event.payload.reason === 'construction_consumption'));
   assert.ok(snapshot.events.filter((event) => event.kind === 'resource_changed').length >= 4);
 });
 
@@ -116,4 +118,98 @@ test('records deterministic social interactions and relationship growth', () => 
     && relationship.affinity >= 0 && relationship.affinity <= 100,
   ));
   assert.ok(snapshot.relationships.some((relationship) => relationship.interactionCount >= 5));
+});
+
+
+test('lumberjack, miner and carpenter produce and transform materials', () => {
+  const snapshot = new SocietySimulation().step(150);
+  const reasons = new Set(snapshot.events
+    .filter((event) => event.kind === 'resource_changed')
+    .map((event) => event.payload.reason));
+  for (const reason of ['lumber_production', 'quarry_production', 'carpentry_production', 'crafting_consumption']) {
+    assert.ok(reasons.has(reason), `missing resource reason: ${reason}`);
+  }
+  assert.ok(snapshot.resources.planks > 0);
+});
+
+test('the carpenter never consumes the wood reserved for construction', () => {
+  const simulation = new SocietySimulation();
+  for (let tick = 0; tick < 400; tick += 1) {
+    const snapshot = simulation.step(1);
+    const craftingEvents = snapshot.events.filter((event) => event.tick === snapshot.tick
+      && event.kind === 'resource_changed' && event.payload.reason === 'crafting_consumption');
+    for (const event of craftingEvents) {
+      assert.ok(Number(event.payload.current) >= 4, `wood fell below the reserve at tick ${snapshot.tick}`);
+    }
+  }
+});
+
+test('the merchant sells surplus goods for coins and buys food during shortages', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(200);
+  const trades = snapshot.events.filter((event) => event.kind === 'trade_completed');
+  assert.ok(trades.length > 0);
+  assert.ok(snapshot.resources.coins > 0);
+  assert.ok(snapshot.events.some((event) => event.kind === 'resource_changed'
+    && event.payload.reason === 'trade_sale'));
+
+  const internals = simulation as unknown as { resources: { food: number; coins: number } };
+  internals.resources.food = 0;
+  internals.resources.coins = 30;
+  const afterShortage = simulation.step(40);
+  assert.ok(afterShortage.events.some((event) => event.kind === 'resource_changed'
+    && event.payload.reason === 'trade_purchase'));
+});
+
+test('the community consumes firewood and maintenance planks, and unmet needs lower morale', () => {
+  const met = new SocietySimulation().step(130);
+  assert.ok(met.events.some((event) => event.kind === 'community_need_changed'
+    && event.payload.need === 'firewood' && event.payload.met === true));
+  assert.ok(met.events.some((event) => event.kind === 'resource_changed'
+    && event.payload.reason === 'community_firewood'));
+  assert.ok(met.events.some((event) => event.kind === 'resource_changed'
+    && event.payload.reason === 'community_maintenance'));
+
+  const simulation = new SocietySimulation();
+  simulation.step(59);
+  const internals = simulation as unknown as { resources: { wood: number } };
+  const moraleBefore = simulation.snapshot().agents.map((agent) => agent.needs.morale);
+  internals.resources.wood = 0;
+  const after = simulation.step(1);
+  assert.ok(after.events.some((event) => event.kind === 'community_need_changed'
+    && event.payload.need === 'firewood' && event.payload.met === false));
+  after.agents.forEach((agent, index) => {
+    assert.ok(agent.needs.morale < moraleBefore[index] + 0.5, 'morale should not rise when a need is unmet');
+  });
+});
+
+test('storage never exceeds warehouse capacity or goes negative over a long run', () => {
+  const simulation = new SocietySimulation();
+  for (let block = 0; block < 30; block += 1) {
+    const { resources } = simulation.step(100);
+    for (const resource of ['food', 'wood', 'stone', 'planks'] as const) {
+      assert.ok(resources[resource] >= 0 && resources[resource] <= 60, `${resource}=${resources[resource]}`);
+    }
+    assert.ok(resources.coins >= 0 && resources.coins <= 999);
+  }
+});
+
+test('the community keeps eating and working after a long run, without unbounded task growth', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(1000);
+  const later = simulation.step(1000);
+  assert.ok(later.tasks.length < 160, `task list grew to ${later.tasks.length}`);
+  assert.ok(later.tasks.some((task) => task.kind === 'harvest_food' && task.status !== 'queued'));
+  assert.ok(later.agents.every((agent) => agent.needs.hunger < 100));
+  assert.ok(snapshot.tick === 1000 && later.tick === 2000);
+});
+
+test('repeating professions stay near their workplaces instead of drifting away', () => {
+  const simulation = new SocietySimulation();
+  simulation.step(1000);
+  const snapshot = simulation.step(1000);
+  for (const agent of snapshot.agents) {
+    assert.ok(Math.hypot(agent.position.x, agent.position.z) < 25,
+      `${agent.id} wandered to (${agent.position.x.toFixed(1)}, ${agent.position.z.toFixed(1)})`);
+  }
 });
