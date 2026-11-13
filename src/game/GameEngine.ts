@@ -33,6 +33,9 @@ const _dayColor = new THREE.Color(0x5d83a8);
 const _duskColor = new THREE.Color(0x3f263a);
 const _nightColor = new THREE.Color(0x0b1220);
 const _acidColor = new THREE.Color(0x162b22);
+const _rainColor = new THREE.Color(0x526579);
+const _snowColor = new THREE.Color(0x9aaec2);
+const _stormColor = new THREE.Color(0x34465e);
 
 export interface EngineCallbacks {
   onHudUpdate: (snapshot: HudSnapshot) => void;
@@ -1949,8 +1952,13 @@ export class GameEngine {
     this.world.skyDome.position.set(this.catPos.x, 0, this.catPos.z);
 
     const daylight = THREE.MathUtils.clamp((sunElev + 0.32) * 1.22, 0, 1);
-    this.sunLight.intensity = 0.62 + daylight * 1.55;
-    this.hemiLight.intensity = 0.82 + daylight * 0.72;
+    const weatherLightFactor =
+      this.weather === 'freezing' ? 0.58 :
+      this.weather === 'cold_wind' ? 0.7 :
+      this.weather === 'rain' ? 0.82 :
+      this.weather === 'snow' ? 0.9 : 1;
+    this.sunLight.intensity = (0.62 + daylight * 1.55) * weatherLightFactor;
+    this.hemiLight.intensity = (0.82 + daylight * 0.72) * (this.weather === 'freezing' ? 0.76 : 1);
 
     // The moon rises during the night and its direct glow awakens Tomas's lunar strength.
     const isNight = this.timeOfDay < 0.22 || this.timeOfDay > 0.72;
@@ -1979,6 +1987,9 @@ export class GameEngine {
     else if (daylight > 0.55) _skyColor.copy(_dayColor);
     else if (daylight > 0.18) _skyColor.copy(_duskColor).lerp(_dayColor, (daylight - 0.18) / 0.37);
     else _skyColor.copy(_nightColor).lerp(_duskColor, daylight / 0.18);
+    if (this.weather === 'rain') _skyColor.lerp(_rainColor, 0.42);
+    if (this.weather === 'snow') _skyColor.lerp(_snowColor, 0.34);
+    if (this.weather === 'cold_wind' || this.weather === 'freezing') _skyColor.lerp(_stormColor, this.weather === 'freezing' ? 0.62 : 0.44);
 
     (this.scene.background as THREE.Color).lerp(_skyColor, 1 - Math.exp(-2.5 * dt));
     const skyMat = this.world.skyDome.material as THREE.MeshBasicMaterial;
@@ -1989,7 +2000,11 @@ export class GameEngine {
 
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.color.copy(this.scene.background as THREE.Color);
-      const targetFog = this.weather === 'acid_rain' ? 0.0085 : 0.0020;
+      const targetFog =
+        this.weather === 'acid_rain' ? 0.0085 :
+        this.weather === 'freezing' ? 0.007 :
+        this.weather === 'snow' ? 0.0055 :
+        this.weather === 'rain' || this.weather === 'cold_wind' ? 0.004 : 0.002;
       this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, targetFog, 2, dt);
     }
 
