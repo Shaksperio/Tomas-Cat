@@ -59,6 +59,9 @@ export class GameEngine {
   private readonly sunLight: THREE.DirectionalLight;
   private readonly hemiLight: THREE.HemisphereLight;
   private readonly catTorch: THREE.PointLight;
+  private readonly moonMesh: THREE.Mesh;
+  private readonly moonLight: THREE.PointLight;
+  private moonPowerActive = false;
 
   private readonly sonarRing: THREE.Mesh;
   private sonarWaveProgress = -1;
@@ -132,6 +135,7 @@ export class GameEngine {
   private sonarRevealTimer = 0;
   private attackCooldown = 0;
   private meowCooldown = 0;
+  private moonPowerNoticeCooldown = 0;
   private isInsideShelter = false;
   private currentShelterId: string | null = null;
   private activeInteractableId: string | null = null;
@@ -167,7 +171,8 @@ export class GameEngine {
     });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.18;
+    // Keep the city readable on mobile displays without flattening night lighting.
+    this.renderer.toneMappingExposure = 1.48;
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
     const isSmallScreen = width < 768;
@@ -186,10 +191,10 @@ export class GameEngine {
 
     this.camera = new THREE.PerspectiveCamera(64, width / height, 0.15, 900);
 
-    this.hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 0.95);
+    this.hemiLight = new THREE.HemisphereLight(0xc7ddf5, 0x35445a, 1.25);
     this.scene.add(this.hemiLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xffedd5, 1.55);
+    this.sunLight = new THREE.DirectionalLight(0xfff1d6, 1.8);
     this.sunLight.position.set(28, 44, 22);
     this.sunLight.castShadow = !this.isSoftwareGl;
     const shadowSize = isSmallScreen ? 512 : 1024;
@@ -206,6 +211,13 @@ export class GameEngine {
     this.sunLight.shadow.normalBias = 0.02;
     this.scene.add(this.sunLight);
     this.scene.add(this.sunLight.target);
+
+    const moonMaterial = new THREE.MeshBasicMaterial({ color: 0xf1f5ff });
+    this.moonMesh = new THREE.Mesh(new THREE.SphereGeometry(5.8, 24, 16), moonMaterial);
+    this.moonMesh.visible = false;
+    this.scene.add(this.moonMesh);
+    this.moonLight = new THREE.PointLight(0xc8dcff, 0, 110, 1.6);
+    this.scene.add(this.moonLight);
 
     this.catTorch = new THREE.PointLight(0x22d3ee, 0.9, 12);
     this.catTorch.position.set(0, 1.4, 0);
@@ -322,11 +334,11 @@ export class GameEngine {
   }
 
   private getCurrentAttackDamage(): number {
-    return Math.round(
+    const baseDamage =
       EVOLUTION_STAGES[this.stageIndex].attackDamage +
-        (this.level - 1) * 1.4 +
-        (this.level >= MAX_CAT_LEVEL ? 25 : 0),
-    );
+      (this.level - 1) * 1.4 +
+      (this.level >= MAX_CAT_LEVEL ? 25 : 0);
+    return Math.round(baseDamage * (this.moonPowerActive ? 1.65 : 1));
   }
 
   private getRankTitle(): string {
@@ -705,19 +717,19 @@ export class GameEngine {
     if (this.isClimbing) {
       // Wall jump upward/away
       this.isClimbing = false;
-      this.catVelY = EVOLUTION_STAGES[this.stageIndex].jumpForce * 0.85;
+      this.catVelY = EVOLUTION_STAGES[this.stageIndex].jumpForce * 0.85 * (this.moonPowerActive ? 1.22 : 1);
       gameAudio.playJump(false);
       return;
     }
     const def = EVOLUTION_STAGES[this.stageIndex];
     if (this.isGrounded || this.coyoteTimer > 0) {
-      this.catVelY = def.jumpForce;
+      this.catVelY = def.jumpForce * (this.moonPowerActive ? 1.22 : 1);
       this.isGrounded = false;
       this.coyoteTimer = 0;
       this.jumpsUsed = 1;
       gameAudio.playJump(false);
     } else if (def.canDoubleJump && this.jumpsUsed < 2 && this.stamina >= 15) {
-      this.catVelY = def.jumpForce * 0.92;
+      this.catVelY = def.jumpForce * 0.92 * (this.moonPowerActive ? 1.22 : 1);
       this.jumpsUsed = 2;
       this.stamina = Math.max(0, this.stamina - 15);
       gameAudio.playJump(true);
@@ -1884,12 +1896,35 @@ export class GameEngine {
 
     this.world.skyDome.position.set(this.catPos.x, 0, this.catPos.z);
 
-    const daylight = THREE.MathUtils.clamp((sunElev + 0.25) * 1.1, 0, 1);
-    this.sunLight.intensity = 0.4 + daylight * 1.35;
-    this.hemiLight.intensity = 0.45 + daylight * 0.55;
+    const daylight = THREE.MathUtils.clamp((sunElev + 0.32) * 1.22, 0, 1);
+    this.sunLight.intensity = 0.62 + daylight * 1.55;
+    this.hemiLight.intensity = 0.82 + daylight * 0.72;
+
+    // The moon rises during the night and its direct glow awakens Tomas's lunar strength.
+    const isNight = this.timeOfDay < 0.22 || this.timeOfDay > 0.72;
+    const nightProgress = this.timeOfDay > 0.72
+      ? (this.timeOfDay - 0.72) / 0.28
+      : this.timeOfDay / 0.22;
+    const moonStrength = isNight
+      ? THREE.MathUtils.clamp(0.58 + Math.sin(nightProgress * Math.PI) * 0.42, 0, 1)
+      : 0;
+    this.moonMesh.position.set(this.catPos.x + 92, 76, this.catPos.z - 142);
+    this.moonLight.position.copy(this.moonMesh.position);
+    this.moonMesh.visible = moonStrength > 0.08;
+    this.moonLight.intensity = moonStrength * 2.7;
+    const lunarPowerNow = moonStrength >= 0.72;
+    if (lunarPowerNow && !this.moonPowerActive) {
+      this.moonPowerActive = true;
+      this.cat.triggerAction('meow');
+      gameAudio.playMeow();
+      this.callbacks.onToast('A Lua despertou a força de Tomas Vagabundo! Ataque e salto fortalecidos.', 'success');
+    } else if (!lunarPowerNow && this.moonPowerActive) {
+      this.moonPowerActive = false;
+      this.callbacks.onToast('A força lunar de Tomas está adormecendo.', 'info');
+    }
 
     if (this.weather === 'acid_rain') _skyColor.copy(_acidColor);
-    else if (daylight > 0.55) _skyColor.copy(_dayColor);
+    else if (daylight > 0.55) _skyColor.copy(new THREE.Color(0x5d83a8));
     else if (daylight > 0.18) _skyColor.copy(_duskColor).lerp(_dayColor, (daylight - 0.18) / 0.37);
     else _skyColor.copy(_nightColor).lerp(_duskColor, daylight / 0.18);
 
@@ -1906,7 +1941,7 @@ export class GameEngine {
       this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, targetFog, 2, dt);
     }
 
-    const neonStrength = 0.55 + (1 - daylight) * 1.45;
+    const neonStrength = 0.45 + (1 - daylight) * 1.25;
     for (const mat of this.world.neonMaterials) {
       mat.emissiveIntensity = neonStrength;
     }
