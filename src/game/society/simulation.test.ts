@@ -16,7 +16,12 @@ test('creates a deterministic starter neighborhood with three professions', () =
 test('assigns work to matching professions and completes tasks over logical ticks', () => {
   const simulation = new SocietySimulation();
   const first = simulation.step(1);
-  assert.ok(first.agents.every((agent) => agent.activeTaskId !== null));
+  const assignedTasks = first.tasks.filter((task) => task.status === 'assigned' || task.status === 'in_progress');
+  assert.equal(assignedTasks.length, 3);
+  assert.ok(assignedTasks.every((task) => {
+    const agent = first.agents.find((candidate) => candidate.id === task.assignedAgentId);
+    return agent?.activeTaskId === task.id;
+  }));
   const finished = simulation.step(40);
   assert.ok(finished.tasks.some((task) => task.status === 'completed'));
   assert.ok(finished.events.some((event) => event.kind === 'task_completed'));
