@@ -33,7 +33,9 @@ export type WorldEventKind =
   | 'project_completed'
   | 'resource_changed'
   | 'territory_changed'
-  | 'wildlife_encounter';
+  | 'wildlife_encounter'
+  | 'social_interaction'
+  | 'relationship_changed';
 
 export interface WorldPosition {
   x: number;
