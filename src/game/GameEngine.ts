@@ -1588,29 +1588,64 @@ export class GameEngine {
 
     this.weatherTimer -= dt;
     if (this.weatherTimer <= 0) {
-      if (this.weather === 'clear') {
-        this.weather = 'acid_warning';
-        this.weatherTimer = 15;
-        this.callbacks.onToast('Alerta: Chuva Ácida em 15s! Entre em uma casa ou abrigo.', 'warn');
-      } else if (this.weather === 'acid_warning') {
-        this.weather = 'acid_rain';
-        this.weatherTimer = 26;
-      } else {
-        this.weather = 'clear';
-        this.weatherTimer = 65 + Math.random() * 25;
-      }
+      const nextWeather: Record<WeatherState, WeatherState> = {
+        clear: 'rain',
+        rain: 'snow',
+        snow: 'cold_wind',
+        cold_wind: 'freezing',
+        freezing: 'acid_warning',
+        acid_warning: 'acid_rain',
+        acid_rain: 'clear',
+      };
+      this.weather = nextWeather[this.weather];
+      const durations: Record<WeatherState, number> = {
+        clear: 58 + Math.random() * 22,
+        rain: 34,
+        snow: 38,
+        cold_wind: 32,
+        freezing: 28,
+        acid_warning: 15,
+        acid_rain: 24,
+      };
+      this.weatherTimer = durations[this.weather];
+      const alerts: Partial<Record<WeatherState, string>> = {
+        rain: 'A chuva começou. Procure uma marquise ou entre em um prédio.',
+        snow: 'Começou a nevar. Tomas precisa encontrar um lugar protegido.',
+        cold_wind: 'Vento gelado! Entre em uma construção para conservar calor.',
+        freezing: 'Frio congelante! Abrigue Tomas imediatamente.',
+        acid_warning: 'Alerta: chuva ácida em 15 segundos! Procure abrigo.',
+        acid_rain: 'Chuva ácida iniciada. Evite ficar exposto.',
+      };
+      const alert = alerts[this.weather];
+      if (alert) this.callbacks.onToast(alert, this.weather === 'acid_warning' || this.weather === 'freezing' ? 'warn' : 'info');
     }
 
     this.updateEnvironmentLighting(dt);
 
-    this.rainPoints.visible = this.weather === 'acid_rain';
+    const hasPrecipitation = ['rain', 'snow', 'freezing', 'acid_rain'].includes(this.weather);
+    this.rainPoints.visible = hasPrecipitation || this.weather === 'cold_wind';
     if (this.rainPoints.visible) {
       this.rainPoints.position.set(this.catPos.x, 0, this.catPos.z);
+      const particleMat = this.rainPoints.material as THREE.PointsMaterial;
+      const isSnow = this.weather === 'snow' || this.weather === 'freezing';
+      const isAcid = this.weather === 'acid_rain';
+      particleMat.color.setHex(isAcid ? 0xa3e635 : isSnow ? 0xe0f2fe : this.weather === 'cold_wind' ? 0x93c5fd : 0x60a5fa);
+      particleMat.size = isSnow ? 0.23 : 0.14;
+      particleMat.opacity = this.weather === 'cold_wind' ? 0.38 : 0.68;
       const posAttr = this.rainPoints.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const fallSpeed = isSnow ? 5.5 : this.weather === 'cold_wind' ? 1.2 : 22;
+      const windDrift = this.weather === 'cold_wind' || this.weather === 'freezing' ? 8 : 1.4;
       for (let i = 0; i < posAttr.count; i++) {
-        let y = posAttr.getY(i) - 22 * dt;
-        if (y < 0) y = 18;
-        posAttr.setY(i, y);
+        let y = posAttr.getY(i) - fallSpeed * dt;
+        let x = posAttr.getX(i) + windDrift * dt;
+        let z = posAttr.getZ(i) + windDrift * 0.22 * dt;
+        if (y < 0) {
+          y = 18;
+          x = (Math.random() - 0.5) * 44;
+          z = (Math.random() - 0.5) * 44;
+        }
+        if (x > 22) x = -22;
+        posAttr.setXYZ(i, x, y, z);
       }
       posAttr.needsUpdate = true;
     }
@@ -1681,6 +1716,16 @@ export class GameEngine {
       } else {
         ringMat.opacity = 0;
       }
+    }
+    // Hollow buildings are genuine weather shelters, not just visual scenery.
+    if (this.world.indoorZones.some((zone) =>
+      this.catPos.x > zone.minX &&
+      this.catPos.x < zone.maxX &&
+      this.catPos.z > zone.minZ &&
+      this.catPos.z < zone.maxZ &&
+      this.catPos.y < zone.ceilingY
+    )) {
+      this.isInsideShelter = true;
     }
     this.activeInteractableId = closestId;
 
@@ -1815,7 +1860,7 @@ export class GameEngine {
     // 7. Survival Needs simulation
     const isNight = this.timeOfDay < 0.24 || this.timeOfDay > 0.76;
     const hungerDrain = (0.7 + (wantsSprint ? 0.7 : 0)) * dt;
-    const thirstDrain = (0.9 + (this.weather === 'acid_rain' ? 0.3 : 0)) * dt;
+    const thirstDrain = (0.9 + (this.weather === 'acid_rain' || this.weather === 'rain' ? 0.3 : 0)) * dt;
 
     this.hunger = Math.max(0, this.hunger - hungerDrain);
     this.thirst = Math.max(0, this.thirst - thirstDrain);
@@ -1825,11 +1870,18 @@ export class GameEngine {
       this.health = Math.min(maxHealth, this.health + 3.0 * dt);
     } else {
       let warmthDelta = isNight ? -1.2 : 0.45;
+      if (this.weather === 'rain') warmthDelta -= 1.8;
+      if (this.weather === 'snow') warmthDelta -= 3.2;
+      if (this.weather === 'cold_wind') warmthDelta -= 4.2;
+      if (this.weather === 'freezing') warmthDelta -= 5.5;
       if (this.weather === 'acid_rain') {
         const acidMult = 1 - def.acidResistance;
         warmthDelta -= 3.0 * acidMult;
         this.health -= 3.8 * acidMult * dt;
         this.lastThreatCause = 'Exposição à Chuva Ácida';
+      }
+      if (this.weather === 'rain' || this.weather === 'snow' || this.weather === 'cold_wind' || this.weather === 'freezing') {
+        this.lastThreatCause = this.weather === 'rain' ? 'Exposição à chuva' : this.weather === 'snow' ? 'Exposição à neve' : 'Exposição ao frio intenso';
       }
       this.warmth = THREE.MathUtils.clamp(this.warmth + warmthDelta * dt, 0, def.maxWarmth);
     }
