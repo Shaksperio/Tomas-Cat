@@ -766,6 +766,7 @@ export class GameEngine {
       const dz = pred.group.position.z - this.catPos.z;
       const dist = Math.hypot(dx, dz);
       const dy = Math.abs(pred.group.position.y - this.catPos.y);
+      if (pred.isFriendly) continue;
       if (dist <= hitRange && dy < 2.4) {
         hits++;
         pred.hp -= dmg;
@@ -1781,6 +1782,38 @@ export class GameEngine {
       const px = pred.group.position.x;
       const pz = pred.group.position.z;
       const distToCat = Math.hypot(this.catPos.x - px, this.catPos.z - pz);
+
+      if (pred.isFriendly) {
+        // Friendly strays keep their distance, then approach cautiously to inspect Tomas.
+        const dx = this.catPos.x - px;
+        const dz = this.catPos.z - pz;
+        const distance = Math.max(0.001, distToCat);
+        let friendlySpeed = 0;
+        if (distToCat > 5.2 && distToCat < 15) {
+          friendlySpeed = pred.speed;
+          pred.group.position.x += (dx / distance) * friendlySpeed * dt;
+          pred.group.position.z += (dz / distance) * friendlySpeed * dt;
+          pred.group.rotation.y = Math.atan2(dx, dz);
+        } else if (distToCat <= 5.2) {
+          pred.group.rotation.y = Math.atan2(dx, dz);
+          pred.bodyMesh.rotation.y = Math.sin(this.elapsed * 2.2) * 0.08;
+        } else {
+          const homeDistance = Math.hypot(pred.homePos.x - px, pred.homePos.z - pz);
+          if (homeDistance > 1.2) {
+            friendlySpeed = pred.speed * 0.45;
+            pred.group.position.x += ((pred.homePos.x - px) / homeDistance) * friendlySpeed * dt;
+            pred.group.position.z += ((pred.homePos.z - pz) / homeDistance) * friendlySpeed * dt;
+            pred.group.rotation.y = Math.atan2(pred.homePos.x - px, pred.homePos.z - pz);
+          } else {
+            pred.group.rotation.y += Math.sin(this.elapsed * 0.7) * dt * 0.25;
+          }
+        }
+        const gait = this.elapsed * 7;
+        pred.legs.forEach((leg, idx) => {
+          leg.rotation.x = friendlySpeed > 0.2 ? Math.sin(gait + (idx % 2 === 0 ? 0 : Math.PI)) * 0.38 : THREE.MathUtils.damp(leg.rotation.x, 0, 7, dt);
+        });
+        continue;
+      }
 
       if (pred.distractTimer > 0) {
         pred.distractTimer -= dt;
