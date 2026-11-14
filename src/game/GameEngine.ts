@@ -927,7 +927,7 @@ export class GameEngine {
     const maxHp = this.getEffectiveMaxHealth();
     const maxStam = this.getEffectiveMaxStamina();
 
-    if (item.kind === 'food' || item.kind === 'prey') {
+    if (item.kind === 'food' || item.kind === 'prey' || item.kind === 'fish') {
       this.hunger = Math.min(def.maxHunger, this.hunger + item.amount);
       this.health = Math.min(maxHp, this.health + 12);
       this.gainXp(item.xpGain);
@@ -937,7 +937,7 @@ export class GameEngine {
       item.respawnTimer = item.maxRespawn;
       this.cat.triggerAction('eat');
       gameAudio.playEat();
-      this.callbacks.onToast(`+${item.amount} Fome (${item.name})`, 'success');
+      this.callbacks.onToast(item.kind === 'fish' ? `Peixe pescado: +${item.amount} Fome` : `+${item.amount} Fome (${item.name})`, 'success');
     } else if (item.kind === 'water') {
       this.thirst = Math.min(def.maxThirst, this.thirst + item.amount);
       this.stamina = Math.min(maxStam, this.stamina + 25);
@@ -1742,7 +1742,7 @@ export class GameEngine {
         continue;
       }
 
-      if (item.kind === 'scrap' || item.kind === 'food') {
+      if (item.kind === 'scrap' || item.kind === 'food' || item.kind === 'fish') {
         item.mesh.rotation.y += dt * 1.1;
       }
 
@@ -2108,13 +2108,13 @@ export class GameEngine {
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return null;
 
-    if (item.kind === 'food' || item.kind === 'prey') {
+    if (item.kind === 'food' || item.kind === 'prey' || item.kind === 'fish') {
       return {
         id: item.id,
         kind: item.kind,
         label: item.name,
         detail: `+${item.amount} Fome · +${item.xpGain} XP`,
-        actionText: 'Comer',
+        actionText: item.kind === 'fish' ? 'Pescar' : 'Comer',
       };
     }
     if (item.kind === 'water') {
