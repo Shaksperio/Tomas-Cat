@@ -40,6 +40,8 @@ const WAGES: Record<AgentProfession, number> = {
   merchant: 5,
 };
 const MAX_WALLET = 999;
+/** Economias iniciais de cada habitante (permite apostas em duelos desde o começo). */
+export const INITIAL_WALLET = 40;
 /** Tarefas concluídas são mantidas por este número de ticks; depois são arquivadas. */
 const FINISHED_TASK_RETENTION_TICKS = 200;
 
@@ -144,7 +146,7 @@ function makeAgent(
     activeTaskId: null,
     version: 1,
     needs: { hunger: 12, social: 18, morale: 75 },
-    wallet: 0,
+    wallet: INITIAL_WALLET,
   };
 }
 
@@ -622,6 +624,19 @@ export class SocietySimulation {
         agent.needs.social = clampNeed(agent.needs.social - 0.7);
       }
     }
+  }
+
+  /**
+   * Aplica o resultado de um duelo a um habitante (moedas e energia vital).
+   * Só valores já validados por `settleDuel` chegam aqui; limites são reforçados.
+   */
+  public applyDuelOutcome(agentId: string, change: { coins: number; health: number }): boolean {
+    const agent = this.agents.get(agentId);
+    if (!agent) return false;
+    agent.wallet = Math.max(0, agent.wallet + Math.trunc(change.coins));
+    agent.health = Math.min(100, Math.max(25, agent.health + Math.trunc(change.health)));
+    agent.version += 1;
+    return true;
   }
 
   /** Avança exatamente um passo lógico da simulação. */

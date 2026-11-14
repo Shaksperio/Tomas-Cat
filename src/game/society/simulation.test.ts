@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { SocietySimulation } from './simulation';
+import { INITIAL_WALLET, SocietySimulation } from './simulation';
 
 test('creates a deterministic starter neighborhood with eight professions', () => {
   const simulation = new SocietySimulation();
@@ -222,9 +222,9 @@ test('the treasury pays wages on payday to everyone who worked, and wallets matc
   const paid = payday.payload.paid as Array<{ agentId: string; amount: number }>;
   assert.ok(paid.length > 0);
   const totalPaid = paid.reduce((sum, entry) => sum + entry.amount, 0);
-  assert.equal(snapshot.agents.reduce((sum, agent) => sum + agent.wallet, 0), totalPaid);
+  assert.equal(snapshot.agents.reduce((sum, agent) => sum + agent.wallet - INITIAL_WALLET, 0), totalPaid);
   for (const entry of paid) {
-    assert.equal(snapshot.agents.find((agent) => agent.id === entry.agentId)?.wallet, entry.amount);
+    assert.equal(snapshot.agents.find((agent) => agent.id === entry.agentId)?.wallet, INITIAL_WALLET + entry.amount);
   }
 });
 
@@ -241,7 +241,21 @@ test('unpaid wages are reported and lower morale when the treasury is empty', ()
   assert.ok(unpaid.length > 0, 'expected unpaid agents with an empty treasury');
   for (const id of unpaid) {
     const agent = snapshot.agents.find((candidate) => candidate.id === id)!;
-    assert.equal(agent.wallet, 0);
+    assert.equal(agent.wallet, INITIAL_WALLET);
     assert.ok(agent.needs.morale < (moraleBefore.get(id) ?? 100));
   }
+});
+
+test('duel outcomes move coins and health of a resident within safe limits', () => {
+  const simulation = new SocietySimulation();
+  const id = simulation.snapshot().agents[0].id;
+  assert.equal(simulation.applyDuelOutcome(id, { coins: -30, health: -20 }), true);
+  let agent = simulation.snapshot().agents[0];
+  assert.equal(agent.wallet, INITIAL_WALLET - 30);
+  assert.equal(agent.health, 80);
+  simulation.applyDuelOutcome(id, { coins: -9999, health: -9999 });
+  agent = simulation.snapshot().agents[0];
+  assert.equal(agent.wallet, 0);
+  assert.ok(agent.health >= 25, 'a duel never leaves a resident with less than 25 health');
+  assert.equal(simulation.applyDuelOutcome('ninguem', { coins: 1, health: 1 }), false);
 });

@@ -28,6 +28,8 @@ const INITIAL_HUD: HudSnapshot = {
   attackPower: EVOLUTION_STAGES[0].attackDamage,
   stageIndex: 0,
   scrap: 0,
+  coins: 60,
+  duel: null,
   day: 1,
   timeOfDay: 0.34,
   weather: 'clear',
@@ -196,6 +198,10 @@ export default function App() {
           onInteract={() => engineRef.current?.triggerInteract()}
           onUpgradeShelter={() => engineRef.current?.triggerShelterUpgrade()}
           onClawAttack={() => engineRef.current?.triggerClawAttack()}
+          onChallenge={() => engineRef.current?.challengeNearest()}
+          onDuelOffer={(kind, amount) => engineRef.current?.submitDuelOffer(kind, amount)}
+          onDuelCancel={() => engineRef.current?.cancelDuelOffer()}
+          onDuelForfeit={() => engineRef.current?.forfeitDuel()}
           onMeow={() => engineRef.current?.triggerMeow()}
           onSonar={() => engineRef.current?.triggerSonar()}
           onJump={() => engineRef.current?.triggerJump()}

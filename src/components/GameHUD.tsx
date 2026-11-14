@@ -40,6 +40,7 @@ import {
   MAX_CAT_LEVEL,
 } from '../types/game';
 import { getDayPeriod } from '../game/dayCycle';
+import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
 
 interface GameHUDProps {
@@ -55,6 +56,10 @@ interface GameHUDProps {
   onInteract: () => void;
   onUpgradeShelter: () => void;
   onClawAttack: () => void;
+  onChallenge: () => void;
+  onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number) => void;
+  onDuelCancel: () => void;
+  onDuelForfeit: () => void;
   onMeow: () => void;
   onSonar: () => void;
   onJump: () => void;
@@ -67,6 +72,138 @@ interface GameHUDProps {
   onCycleCamera: () => void;
   onRestart: () => void;
   onVirtualInput: (mx: number, my: number, sprint: boolean) => void;
+}
+
+function VigorBar({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="flex-1 min-w-0">
+      <div className="flex justify-between text-[11px] text-slate-300 font-mono-tabular">
+        <span className="truncate">{label}</span>
+        <span>{Math.round(value)}</span>
+      </div>
+      <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+        <div className={`h-full ${tone} transition-all`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function DuelPanel({
+  duel,
+  onOffer,
+  onCancel,
+  onForfeit,
+}: {
+  duel: DuelHud;
+  onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number) => void;
+  onCancel: () => void;
+  onForfeit: () => void;
+}) {
+  const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
+  const [amount, setAmount] = useState(duel.defaultCoins);
+  const limit =
+    kind === 'coins' ? duel.limits.coins : kind === 'item' ? duel.limits.scrap : kind === 'vitality' ? duel.limits.vitality : duel.limits.oxygen;
+  const options: Array<['coins' | 'item' | 'vitality' | 'oxygen', string]> = [
+    ['coins', 'Moedas'],
+    ['item', 'Sucata (item)'],
+    ['vitality', 'Energia vital'],
+    ['oxygen', 'Oxigênio'],
+  ];
+
+  return (
+    <div className="pointer-events-auto fixed top-20 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,26rem)] rounded-xl border border-fuchsia-400/40 bg-[#0B0F17]/95 p-3.5 shadow-2xl">
+      {duel.phase === 'offer' && (
+        <div className="space-y-2.5">
+          <div className="font-display text-sm font-bold text-fuchsia-200">
+            Desafiar {duel.opponentName} para uma batalha 1x1
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Os dois apostam o mesmo valor; quem vencer leva o que o perdedor apostou. A luta é estilizada, sem ferimentos.
+            Energia vital e oxigênio nunca podem ser apostados por inteiro.
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {options.map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  setKind(k);
+                  setAmount(k === 'coins' ? duel.defaultCoins : Math.max(1, Math.min(5, k === 'item' ? duel.limits.scrap : k === 'vitality' ? duel.limits.vitality : duel.limits.oxygen)));
+                }}
+                className={`rounded-lg border px-2 py-1.5 text-xs font-semibold cursor-pointer ${
+                  kind === k ? 'bg-fuchsia-500/30 border-fuchsia-300 text-white' : 'bg-[#141C2B] border-white/15 text-slate-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            Quantidade
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, limit)}
+              value={amount}
+              onChange={(e) => setAmount(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+              className="w-20 rounded-md border border-white/15 bg-[#141C2B] px-2 py-1 text-white font-mono-tabular"
+            />
+            <span className="text-[11px] text-slate-400">máx. {limit}</span>
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={limit < 1}
+              onClick={() => onOffer(kind, amount)}
+              className="flex-1 rounded-lg bg-fuchsia-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-40 cursor-pointer"
+            >
+              Lançar desafio
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg border border-white/15 bg-[#141C2B] px-3 py-2 text-xs font-semibold text-slate-200 cursor-pointer"
+            >
+              Cancelar [B]
+            </button>
+          </div>
+        </div>
+      )}
+
+      {duel.phase === 'fighting' && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-fuchsia-200">Batalha vs {duel.opponentName}</span>
+            <span className="text-slate-300 font-mono-tabular">Aposta: {duel.stakeText} · {Math.ceil(duel.timeLeft)}s</span>
+          </div>
+          <div className="flex gap-3">
+            <VigorBar label="Tomas" value={duel.playerVigor} tone="bg-cyan-400" />
+            <VigorBar label={duel.opponentName} value={duel.opponentVigor} tone="bg-rose-400" />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400">Ataque com J/C. Pule ou afaste-se para esquivar.</span>
+            <button
+              type="button"
+              onClick={onForfeit}
+              className="rounded-lg border border-white/15 bg-[#141C2B] px-2.5 py-1 text-[11px] font-semibold text-slate-200 cursor-pointer"
+            >
+              Desistir
+            </button>
+          </div>
+        </div>
+      )}
+
+      {duel.phase === 'result' && (
+        <div
+          className={`text-center text-sm font-bold ${
+            duel.resultWon === true ? 'text-emerald-300' : duel.resultWon === false ? 'text-rose-300' : 'text-amber-200'
+          }`}
+        >
+          {duel.resultText}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function formatClock(timeOfDay: number): string {
@@ -213,6 +350,10 @@ export function GameHUD({
   onInteract,
   onUpgradeShelter,
   onClawAttack,
+  onChallenge,
+  onDuelOffer,
+  onDuelCancel,
+  onDuelForfeit,
   onMeow,
   onSonar,
   onJump,
@@ -358,7 +499,8 @@ export function GameHUD({
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono-tabular">
                       Ataque: <span className="text-rose-300">{hud.attackPower}</span> · Sucatas:{' '}
-                      <span className="text-amber-400">{hud.scrap}</span>
+                      <span className="text-amber-400">{hud.scrap}</span> · Moedas:{' '}
+                      <span className="text-yellow-300">{hud.coins}</span>
                     </div>
                   </div>
                   <button
@@ -709,6 +851,10 @@ export function GameHUD({
           </div>
         )}
 
+        {phase === 'playing' && hud.duel && (
+          <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} />
+        )}
+
         {isTouchDevice && phase === 'playing' && (
           <div className="pointer-events-auto w-full flex items-end justify-between px-1 pb-1">
             <VirtualJoystick sprint={touchSprint} onMove={onVirtualInput} />
@@ -727,6 +873,13 @@ export function GameHUD({
                 className="h-10 px-3 rounded-lg bg-[#141C2B]/90 text-amber-200 border border-amber-400/35 text-xs font-semibold whitespace-nowrap"
               >
                 Miar
+              </button>
+              <button
+                type="button"
+                onClick={onChallenge}
+                className="h-10 px-3 rounded-lg bg-[#141C2B]/90 text-rose-200 border border-rose-400/35 text-xs font-semibold whitespace-nowrap"
+              >
+                Duelo
               </button>
               <button
                 type="button"
@@ -779,6 +932,15 @@ export function GameHUD({
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>[V] Miar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onChallenge}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/15 border border-fuchsia-500/35 px-3 py-1.5 text-xs font-semibold text-fuchsia-200 hover:bg-fuchsia-500/25 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Swords className="w-3.5 h-3.5" />
+                <span>[B] Desafiar</span>
               </button>
 
               <button

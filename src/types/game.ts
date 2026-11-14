@@ -226,6 +226,22 @@ export interface BossHudInfo {
   distance: number;
 }
 
+export type DuelStakeKind = 'coins' | 'item' | 'vitality' | 'oxygen';
+
+export interface DuelHud {
+  phase: 'offer' | 'fighting' | 'result';
+  opponentName: string;
+  stakeText: string;
+  playerVigor: number;
+  opponentVigor: number;
+  timeLeft: number;
+  /** Limites que o jogador pode apostar agora (já aplicando as regras de segurança). */
+  limits: { coins: number; scrap: number; vitality: number; oxygen: number };
+  defaultCoins: number;
+  resultText: string;
+  resultWon: boolean | null;
+}
+
 export interface HudSnapshot {
   health: number;
   maxHealth: number;
@@ -248,6 +264,8 @@ export interface HudSnapshot {
   attackPower: number;
   stageIndex: number;
   scrap: number;
+  coins: number;
+  duel: DuelHud | null;
   day: number;
   timeOfDay: number;
   weather: WeatherState;
@@ -308,6 +326,7 @@ export interface SavedGameState {
   starProgress: number;
   chances: number;
   scrap: number;
+  coins?: number;
   day: number;
   timeOfDay: number;
   currentPhase: number;

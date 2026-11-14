@@ -6,6 +6,7 @@ import {
   EVOLUTION_STAGES,
   GamePhase,
   HudSnapshot,
+  DuelHud,
   LoreLog,
   MAX_CAT_LEVEL,
   MAX_CHANCES,
@@ -22,6 +23,23 @@ import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuil
 import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
+import {
+  DEFAULT_COIN_STAKE,
+  DUEL_TIME_LIMIT_SECONDS,
+  type DuelCombatState,
+  type DuelFighter,
+  type DuelStake,
+  createDuelCombat,
+  decideChallengeResponse,
+  describeStake,
+  forfeitDuel,
+  maxResourceStake,
+  playerStrike,
+  seedFromString,
+  settleDuel,
+  tickDuel,
+  validateMatchedStake,
+} from './battle/duel';
 import {
   SWIM_SURFACE_SPEED_FACTOR,
   SWIM_UNDERWATER_SPEED_FACTOR,
@@ -138,6 +156,15 @@ export class GameEngine {
   private conqueredTerritories = new Set<string>();
   private announcedRivals = new Set<string>();
   private scrap = 0;
+  private coins = 60;
+  private duelPhase: 'idle' | 'offer' | 'fighting' | 'result' = 'idle';
+  private duelOpponentId: string | null = null;
+  private duelStake: DuelStake | null = null;
+  private duelCombat: DuelCombatState | null = null;
+  private duelResultText = '';
+  private duelResultWon: boolean | null = null;
+  private duelResultTimer = 0;
+  private readonly duelOpponentPos = new THREE.Vector3();
   private day = 1;
   private timeOfDay = 0.34;
   private weather: WeatherState = 'clear';
@@ -389,6 +416,8 @@ export class GameEngine {
     this.conqueredTerritories.clear();
     this.announcedRivals.clear();
     this.scrap = 0;
+    this.coins = 60;
+    this.resetDuel();
     this.day = 1;
     this.timeOfDay = 0.34;
     this.weather = 'clear';
@@ -626,6 +655,7 @@ export class GameEngine {
       this.conqueredTerritories = new Set(saved.conqueredTerritories || []);
       this.announcedRivals = new Set(saved.conqueredTerritories || []);
       this.scrap = saved.scrap || 0;
+      this.coins = typeof saved.coins === 'number' ? Math.max(0, saved.coins) : 60;
       this.day = saved.day || 1;
       this.timeOfDay = saved.timeOfDay ?? 0.34;
       this.health = Math.min(this.getEffectiveMaxHealth(), Math.max(25, saved.health || def.maxHealth));
@@ -769,6 +799,246 @@ export class GameEngine {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Modo batalha 1x1 (regras em src/game/battle/duel.ts)
+  // ---------------------------------------------------------------------
+
+  private resetDuel(): void {
+    this.duelPhase = 'idle';
+    this.duelOpponentId = null;
+    this.duelStake = null;
+    this.duelCombat = null;
+    this.duelResultText = '';
+    this.duelResultWon = null;
+    this.duelResultTimer = 0;
+  }
+
+  private buildPlayerFighter(): DuelFighter {
+    return {
+      id: 'tomas',
+      name: 'Tomas Vagabundo',
+      coins: this.coins,
+      items: { scrap: this.scrap },
+      health: this.health,
+      maxHealth: this.getEffectiveMaxHealth(),
+      oxygen: this.oxygen,
+      maxOxygen: 100,
+    };
+  }
+
+  private buildAgentFighter(agent: { id: string; displayName: string; wallet: number; health: number }): DuelFighter {
+    return {
+      id: agent.id,
+      name: agent.displayName,
+      coins: agent.wallet,
+      // Habitantes carregam um pouco de sucata (valor abstrato, não rastreado na simulação).
+      items: { scrap: 12 },
+      health: agent.health,
+      maxHealth: 100,
+      oxygen: 100,
+      maxOxygen: 100,
+    };
+  }
+
+  /** Posição dos habitantes para os atores 3D; o duelista fica na arena. */
+  private snapshotForActors() {
+    const snap = this.society.snapshot();
+    if (this.duelPhase === 'fighting' && this.duelOpponentId) {
+      const agent = snap.agents.find((a) => a.id === this.duelOpponentId);
+      if (agent) agent.position = { x: this.duelOpponentPos.x, y: agent.position.y, z: this.duelOpponentPos.z };
+    }
+    return snap;
+  }
+
+  public challengeNearest(): void {
+    if (this.phase !== 'playing' || this.duelPhase !== 'idle') return;
+    if (this.waterSample.inWater) {
+      this.callbacks.onToast('Não dá para duelar nadando.', 'warn');
+      return;
+    }
+    const snap = this.society.snapshot();
+    let best: (typeof snap.agents)[number] | null = null;
+    let bestDist = 7;
+    for (const agent of snap.agents) {
+      if (agent.status === 'disabled') continue;
+      const d = Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z);
+      if (d < bestDist) {
+        best = agent;
+        bestDist = d;
+      }
+    }
+    if (!best) {
+      this.callbacks.onToast('Nenhum habitante por perto para desafiar (chegue a 7 m).', 'info');
+      return;
+    }
+    this.duelOpponentId = best.id;
+    this.duelPhase = 'offer';
+  }
+
+  public cancelDuelOffer(): void {
+    if (this.duelPhase === 'offer') this.resetDuel();
+  }
+
+  public submitDuelOffer(kind: DuelStake['kind'], amount: number): void {
+    if (this.phase !== 'playing' || this.duelPhase !== 'offer' || !this.duelOpponentId) return;
+    const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
+    if (!agent) {
+      this.resetDuel();
+      return;
+    }
+    const stake: DuelStake = kind === 'item' ? { kind, amount, itemId: 'scrap' } : { kind, amount };
+    const me = this.buildPlayerFighter();
+    const foe = this.buildAgentFighter(agent);
+    const invalid = validateMatchedStake(me, foe, stake);
+    if (invalid) {
+      this.callbacks.onToast(invalid, 'warn');
+      return;
+    }
+    const answer = decideChallengeResponse(
+      me,
+      foe,
+      { morale: agent.needs.morale, health: agent.health, busyResting: agent.status === 'resting' },
+      stake,
+    );
+    if (!answer.accepted) {
+      this.callbacks.onToast(answer.reason, 'warn');
+      this.resetDuel();
+      return;
+    }
+    this.duelStake = stake;
+    this.duelCombat = createDuelCombat(seedFromString(`${agent.id}:${this.society.snapshot().tick}`));
+    this.duelOpponentPos.set(
+      this.catPos.x + Math.sin(this.catYaw) * 2.4,
+      0,
+      this.catPos.z + Math.cos(this.catYaw) * 2.4,
+    );
+    this.duelPhase = 'fighting';
+    this.callbacks.onToast(`${answer.reason} Aposta: ${describeStake(stake)} cada. Ataque com J/C!`, 'success');
+    gameAudio.playAlert();
+  }
+
+  public forfeitDuel(): void {
+    if (this.duelPhase !== 'fighting' || !this.duelCombat) return;
+    forfeitDuel(this.duelCombat);
+    this.finishDuel();
+  }
+
+  private duelDistance(): number {
+    return Math.hypot(this.duelOpponentPos.x - this.catPos.x, this.duelOpponentPos.z - this.catPos.z);
+  }
+
+  private duelStrike(damage: number): void {
+    if (this.duelPhase !== 'fighting' || !this.duelCombat) return;
+    const ev = playerStrike(this.duelCombat, this.duelDistance(), damage / 12);
+    if (ev === 'player_hit') gameAudio.playEnemyHit();
+    if (this.duelCombat.finished) this.finishDuel();
+  }
+
+  private updateDuel(dt: number): void {
+    if (this.duelPhase === 'result') {
+      this.duelResultTimer -= dt;
+      if (this.duelResultTimer <= 0) this.resetDuel();
+      return;
+    }
+    if (this.duelPhase === 'offer') {
+      const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
+      if (!agent || Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z) > 12) {
+        this.resetDuel();
+      }
+      return;
+    }
+    if (this.duelPhase !== 'fighting' || !this.duelCombat) return;
+    if (this.health <= 0 || this.waterSample.inWater) {
+      // Interrompido por outra ameaça: ninguém perde aposta.
+      this.callbacks.onToast('Duelo interrompido: nada foi apostado.', 'warn');
+      this.resetDuel();
+      return;
+    }
+    // O oponente persegue o gato e o encara.
+    const dx = this.catPos.x - this.duelOpponentPos.x;
+    const dz = this.catPos.z - this.duelOpponentPos.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 2.6) {
+      const step = Math.min(dist - 2.6, 3.6 * dt);
+      this.duelOpponentPos.x += (dx / dist) * step;
+      this.duelOpponentPos.z += (dz / dist) * step;
+    }
+    if (dist > 45) {
+      forfeitDuel(this.duelCombat);
+      this.finishDuel();
+      return;
+    }
+    const events = tickDuel(this.duelCombat, dt, dist, !this.isGrounded);
+    if (events.includes('opponent_hit')) gameAudio.playClawSlash();
+    if (this.duelCombat.finished) this.finishDuel();
+  }
+
+  private finishDuel(): void {
+    const combat = this.duelCombat;
+    const stake = this.duelStake;
+    const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
+    if (!combat || !stake || !agent) {
+      this.resetDuel();
+      return;
+    }
+    const me = this.buildPlayerFighter();
+    const foe = this.buildAgentFighter(agent);
+    const winnerId = combat.winner === 'player' ? me.id : combat.winner === 'opponent' ? foe.id : null;
+    const settlement = settleDuel(me, foe, stake, winnerId);
+
+    const mine = settlement.changes[me.id];
+    this.coins = Math.max(0, this.coins + mine.coins);
+    this.scrap = Math.max(0, this.scrap + (mine.items.scrap ?? 0));
+    const maxHp = this.getEffectiveMaxHealth();
+    this.health = THREE.MathUtils.clamp(this.health + mine.health, Math.min(maxHp, maxHp * 0.25), maxHp);
+    this.oxygen = THREE.MathUtils.clamp(this.oxygen + mine.oxygen, 25, 100);
+    const theirs = settlement.changes[foe.id];
+    this.society.applyDuelOutcome(foe.id, { coins: theirs.coins, health: theirs.health });
+
+    const stakeText = describeStake(stake);
+    if (settlement.draw) {
+      this.duelResultWon = null;
+      this.duelResultText = `Empate com ${foe.name}! Ninguém perdeu a aposta (${stakeText}).`;
+    } else if (winnerId === me.id) {
+      this.duelResultWon = true;
+      this.duelResultText = `Vitória sobre ${foe.name}! Você ganhou ${stakeText}.`;
+      this.gainXp(20);
+    } else {
+      this.duelResultWon = false;
+      this.duelResultText =
+        combat.reason === 'forfeit'
+          ? `Você desistiu. ${foe.name} levou ${stakeText}.`
+          : `${foe.name} venceu. Você perdeu ${stakeText}.`;
+    }
+    this.duelPhase = 'result';
+    this.duelResultTimer = 5;
+    this.callbacks.onToast(this.duelResultText, this.duelResultWon === false ? 'warn' : 'success');
+    this.saveGame();
+  }
+
+  private buildDuelHud(): DuelHud | null {
+    if (this.duelPhase === 'idle') return null;
+    const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
+    const me = this.buildPlayerFighter();
+    return {
+      phase: this.duelPhase === 'offer' ? 'offer' : this.duelPhase === 'fighting' ? 'fighting' : 'result',
+      opponentName: agent?.displayName ?? '—',
+      stakeText: this.duelStake ? describeStake(this.duelStake) : '',
+      playerVigor: this.duelCombat?.playerVigor ?? 100,
+      opponentVigor: this.duelCombat?.opponentVigor ?? 100,
+      timeLeft: this.duelCombat ? Math.max(0, DUEL_TIME_LIMIT_SECONDS - this.duelCombat.elapsed) : DUEL_TIME_LIMIT_SECONDS,
+      limits: {
+        coins: me.coins,
+        scrap: this.scrap,
+        vitality: maxResourceStake(me.health, me.maxHealth),
+        oxygen: maxResourceStake(me.oxygen, me.maxOxygen),
+      },
+      defaultCoins: DEFAULT_COIN_STAKE,
+      resultText: this.duelResultText,
+      resultWon: this.duelResultWon,
+    };
+  }
+
   public triggerClawAttack(): void {
     if (this.phase !== 'playing' || this.attackCooldown > 0) return;
     const def = EVOLUTION_STAGES[this.stageIndex];
@@ -786,6 +1056,8 @@ export class GameEngine {
       this.catPos.x = lungeX;
       this.catPos.z = lungeZ;
     }
+
+    this.duelStrike(dmg);
 
     const hitRange = 3.2 * def.scale;
     let hits = 0;
@@ -857,6 +1129,7 @@ export class GameEngine {
     pred.group.visible = false;
     this.enemiesDefeated++;
     this.scrap += pred.scrapReward;
+    this.coins += Math.max(1, Math.round(pred.scrapReward / 2));
 
     if (pred.isTerritoryRival) {
       pred.conquered = true;
@@ -1145,6 +1418,7 @@ export class GameEngine {
         starProgress: this.starProgress,
         chances: this.chances,
         scrap: this.scrap,
+        coins: this.coins,
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
@@ -1215,6 +1489,9 @@ export class GameEngine {
         this.triggerShelterUpgrade();
       } else if (code === 'KeyJ' || code === 'KeyC') {
         this.triggerClawAttack();
+      } else if (code === 'KeyB') {
+        if (this.duelPhase === 'offer') this.cancelDuelOffer();
+        else this.challengeNearest();
       } else if (code === 'KeyV') {
         this.triggerMeow();
       } else if (code === 'Equal' || code === 'NumpadAdd' || code === 'KeyZ') {
@@ -1334,7 +1611,7 @@ export class GameEngine {
         this.society.step(1);
         this.societyTickTimer -= 1;
       }
-      this.societyActors.update(dt, this.society.snapshot(), true);
+      this.societyActors.update(dt, this.snapshotForActors(), true);
     } else {
       this.societyActors.update(dt, this.society.snapshot(), false);
     }
@@ -1722,6 +1999,7 @@ export class GameEngine {
       if (alert) this.callbacks.onToast(alert, this.weather === 'acid_warning' || this.weather === 'freezing' ? 'warn' : 'info');
     }
 
+    this.updateDuel(dt);
     this.updateEnvironmentLighting(dt);
 
     const hasPrecipitation = ['rain', 'snow', 'freezing', 'acid_rain'].includes(this.weather);
@@ -2308,6 +2586,8 @@ export class GameEngine {
       attackPower: this.getCurrentAttackDamage(),
       stageIndex: this.stageIndex,
       scrap: this.scrap,
+      coins: this.coins,
+      duel: this.buildDuelHud(),
       day: this.day,
       timeOfDay: this.timeOfDay,
       weather: this.weather,

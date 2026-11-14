@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-14. Estado do código descrito: `main` após o commit de natação e mergulho (ver `git log`).
+> Última atualização: 2026-11-14. Estado do código descrito: `main` após o modo batalha 1x1 (ver `git log`).
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
@@ -35,7 +35,7 @@
 ```bash
 npm install          # o repositório tem bun.lock, não package-lock.json; o workflow usa npm install
 npm run dev          # servidor local na porta 3000
-npm test             # tsx --test src/game/society/*.test.ts
+npm test             # tsx --test: society, survival, dayCycle e battle
 npm run lint         # tsc --noEmit
 npm run build        # gera dist/
 ```
@@ -62,6 +62,8 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - **Água, natação e mergulho:** `src/game/survival/water.ts` (lógica pura, com testes em `water.test.ts`). As 8 poças viraram bacias reais (o chão tem buracos; parede, fundo e superfície rebaixada em y = −0,3). Tomas cai na bacia, flutua com a cabeça fora; **Espaço** sobe, **Shift** (ou botão de sprint) mergulha. Velocidade cai na água; oxigênio dura ~28 s submerso, recupera a 45/s na superfície e a 0 causa afogamento (9 de vida/s). Debaixo d'água a névoa fica azul-esverdeada. Saindo da bacia, o gato sobe suavemente à calçada.
 - **Iluminação (ajuste de 2026-11-14):** o escuro vinha das texturas de asfalto e fachadas, quase pretas; foram clareadas, junto com as estradas e o piso ambiente noturno (hemisfério 1,55+). Verificado renderizando o GameEngine headless (manhã, meio-dia, noite).
 
+- **Modo batalha 1x1:** `src/game/battle/duel.ts` (lógica pura, testada) + integração no motor e HUD. **B** (ou botão "Desafiar") convida o habitante mais próximo (até 7 m). Os dois apostam o MESMO valor: **moedas** (padrão 30), **item** (sucata), **energia vital** ou **oxigênio**; vence quem esgotar o vigor do outro (luta estilizada, sem ferimentos; 90 s, J/C ataca, pular ou afastar-se esquiva, "Desistir" entrega a vitória). Regras públicas de segurança: vida/oxigênio apostados no máximo 50% do atual e ninguém cai abaixo de 25% do máximo; sem saldo suficiente a aposta é recusada; o habitante pode recusar (descansando, moral < 25, cansado demais para apostar energia). Empate não transfere nada. O jogador agora tem **moedas** (começa com 60, +metade da sucata de cada predador abatido; salvas no jogo); habitantes começam com 40 moedas (`INITIAL_WALLET`). Resolução vem de `settleDuel` — o servidor futuro (fase 6+) deve ser o único a chamá-la.
+
 ### 4.2 Sociedade artificial (`src/game/society/`) — simulação local
 - `contracts.ts`: tipos `SocietyAgent`, `AgentTask`, `ConstructionProject`, `WorldEvent` (com chave de idempotência), 8 profissões (`engineer`, `worker`, `agent`, `farmer`, `lumberjack`, `miner`, `carpenter`, `merchant`), validações.
 - `simulation.ts`: `SocietySimulation`, determinística, em ticks lógicos (1 por segundo no jogo, avanço limitado por chamada). 9 habitantes: Íris (engenheira), Tico e Nina (operários), Bento (agente), Amora (agricultora), Cedro (lenhador), Brita (mineira), Serafim (carpinteiro) e Mercê (mercadora). Cada profissão tem um local de trabalho fixo (`WORKPLACES`), ao redor do qual sorteia os alvos das tarefas.
@@ -82,9 +84,8 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
 ### 4.4 Lacunas de jogabilidade conhecidas
-- Alvorecer, tarde, anoitecer e madrugada não têm paleta própria de iluminação.
-- O céu ainda não tem sol visível nem estrelas; a lua continua sendo uma esfera simples.
 - O céu não tem sol visível nem estrelas; a lua é uma esfera simples.
+- Duelos: só contra habitantes da sociedade local (sem multiplayer); habitantes não desafiam o jogador por conta própria; a luta não tem animação própria de golpes no oponente.
 - Natação/mergulho existem nas 8 bacias de água (profundidade 1,0–3,4 m), mas faltam predadores aquáticos, animação de nado própria no modelo do gato, bolhas/sons e água em escala de lago/rio.
 - Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).
 - A pesca está funcional como coleta renovável, mas ainda não há animação de nado própria para o gato, bolhas/sons, predadores aquáticos nem água em escala de lago/rio.
