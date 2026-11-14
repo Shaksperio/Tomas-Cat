@@ -39,6 +39,9 @@ export class SocietyActors {
   private farm: THREE.Group | null = null;
   private readonly crops: THREE.Group[] = [];
   private storage: THREE.Group | null = null;
+  private market: THREE.Group | null = null;
+  private marketSignTexture: THREE.CanvasTexture | null = null;
+  private marketSignCanvas: HTMLCanvasElement | null = null;
   private readonly stockBars = new Map<keyof SocietySimulationSnapshot['resources'], THREE.Mesh>();
   private readonly processedSocialEventIds = new Set<string>();
 
@@ -218,16 +221,16 @@ export class SocietyActors {
     base.position.y = 0.09;
     storage.add(base);
     const resources: Array<[keyof SocietySimulationSnapshot['resources'], number]> = [
-      ['food', -0.85], ['wood', 0], ['stone', 0.85],
+      ['food', -1.6], ['wood', -0.8], ['stone', 0], ['planks', 0.8], ['coins', 1.6],
     ];
     for (const [resource, x] of resources) {
-      const crate = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.62, 0.68), wood);
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.62), wood);
       crate.position.set(x, 0.49, 0);
       crate.castShadow = true;
       storage.add(crate);
       const bar = new THREE.Mesh(
         new THREE.BoxGeometry(0.46, 0.08, 0.08),
-        new THREE.MeshBasicMaterial({ color: resource === 'food' ? 0x84cc16 : resource === 'wood' ? 0xf59e0b : 0x94a3b8 }),
+        new THREE.MeshBasicMaterial({ color: resource === 'food' ? 0x84cc16 : resource === 'wood' ? 0xf59e0b : resource === 'stone' ? 0x94a3b8 : resource === 'planks' ? 0xd97706 : 0xfacc15 }),
       );
       bar.position.set(x, 0.92, 0.37);
       storage.add(bar);
@@ -239,10 +242,64 @@ export class SocietyActors {
     this.storage = storage;
   }
 
+  private createMarket(): void {
+    const market = new THREE.Group();
+    const timber = new THREE.MeshStandardMaterial({ color: 0x805333, roughness: 0.86 });
+    const fabric = new THREE.MeshStandardMaterial({ color: 0xbe3455, roughness: 0.92 });
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.82, 0.85), timber);
+    counter.position.y = 0.42;
+    counter.castShadow = true;
+    market.add(counter);
+
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.16, 1.45), fabric);
+    roof.position.y = 2.05;
+    roof.castShadow = true;
+    market.add(roof);
+    for (const x of [-1.25, 1.25]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 2.05, 8), timber);
+      post.position.set(x, 1.05, -0.48);
+      post.castShadow = true;
+      market.add(post);
+    }
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.48, 0.16), fabric);
+    canopy.position.set(0, 1.78, 0.67);
+    market.add(canopy);
+
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 512;
+    signCanvas.height = 128;
+    const context = signCanvas.getContext('2d');
+    if (context) {
+      context.fillStyle = '#111827';
+      context.fillRect(0, 0, 512, 128);
+      context.fillStyle = '#f8fafc';
+      context.font = 'bold 48px sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText('MERCADO', 256, 64);
+    }
+    this.marketSignCanvas = signCanvas;
+    this.marketSignTexture = new THREE.CanvasTexture(signCanvas);
+    const sign = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: this.marketSignTexture,
+      transparent: false,
+      depthWrite: false,
+    }));
+    sign.position.set(0, 2.45, 0.15);
+    sign.scale.set(2.1, 0.52, 1);
+    market.add(sign);
+
+    market.position.set(3, 0, 6);
+    market.visible = false;
+    this.scene.add(market);
+    this.market = market;
+  }
+
   private updateCommunityVisuals(snapshot: SocietySimulationSnapshot, visible: boolean): void {
     if (!this.farm) this.createFarm();
     if (!this.storage) this.createStorage();
-    if (!this.farm || !this.storage) return;
+    if (!this.market) this.createMarket();
+    if (!this.farm || !this.storage || !this.market) return;
 
     const farmerTask = snapshot.tasks.find((task) =>
       task.assignedAgentId === 'farmer-01'
@@ -260,11 +317,26 @@ export class SocietyActors {
     }
     this.farm.visible = visible;
     this.storage.visible = visible;
+    this.market.visible = visible;
     const maximum = Math.max(10, snapshot.resources.food, snapshot.resources.wood, snapshot.resources.stone);
     for (const [resource, bar] of this.stockBars) {
       const amount = snapshot.resources[resource];
       bar.scale.x = 0.35 + (amount / maximum) * 1.1;
       bar.visible = amount > 0;
+    }
+    const context = this.marketSignCanvas?.getContext('2d');
+    if (context && this.marketSignTexture) {
+      context.fillStyle = '#111827';
+      context.fillRect(0, 0, 512, 128);
+      context.fillStyle = '#f8fafc';
+      context.font = 'bold 42px sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText('MERCADO', 256, 42);
+      context.fillStyle = '#facc15';
+      context.font = 'bold 30px sans-serif';
+      context.fillText(`\u25C6 ${snapshot.resources.coins} moedas`, 256, 91);
+      this.marketSignTexture.needsUpdate = true;
     }
   }
 
@@ -410,7 +482,7 @@ export class SocietyActors {
       this.scene.remove(structure);
     }
     this.constructions.clear();
-    for (const group of [this.farm, this.storage]) {
+    for (const group of [this.farm, this.storage, this.market]) {
       if (!group) continue;
       group.traverse((object) => {
         if (object instanceof THREE.Mesh) {
@@ -423,6 +495,10 @@ export class SocietyActors {
     }
     this.farm = null;
     this.storage = null;
+    this.market = null;
+    this.marketSignTexture?.dispose();
+    this.marketSignTexture = null;
+    this.marketSignCanvas = null;
     this.crops.length = 0;
     this.stockBars.clear();
   }
