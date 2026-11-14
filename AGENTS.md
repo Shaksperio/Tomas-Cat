@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-13. Estado do código descrito: commit `8d8f247` da branch `main`.
+> Última atualização: 2026-11-14. Estado do código descrito: `main` após o commit de natação e mergulho (ver `git log`).
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
@@ -51,13 +51,16 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - `GameHUD.tsx`, `TitleScreen.tsx`, `App.tsx`: interface em React.
 - **Progressão:** níveis 1–99, 4 estágios de evolução do gato, 5 chances, checkpoints após cada chefe.
 - **Fases e chefes:** 1 Subúrbio (Rei Rato Gigante), 2 Telhados (Gato Cicatriz), 3 Hospital (Cão Alfa Cibernético), 4 Estádio (Leão Apex).
-- **Sobrevivência:** vida, fome, sede, calor, energia/resistência e indicador de oxigênio (reserva recupera na superfície; consumo subaquático ainda não implementado). Fome, sede e exaustão reduzem mobilidade e a desidratação/fome extremas reduzem a recuperação de resistência. Interações: comida, presas, água, abrigo, sucata, terminais.
+- **Sobrevivência:** vida, fome, sede, calor, energia/resistência e oxigênio real (consome com a cabeça submersa, recupera na superfície, afogamento a 0; ver `src/game/survival/water.ts`). Fome, sede e exaustão reduzem mobilidade e a desidratação/fome extremas reduzem a recuperação de resistência. Interações: comida, presas, água, abrigo, sucata, terminais.
 - **Ciclo do dia:** a HUD mostra 7 períodos (Madrugada, Alvorecer, Manhã, Dia, Tarde, Anoitecer, Noite). A iluminação só tem paletas de dia, crepúsculo e noite.
 - **Lua:** à noite aparece uma lua com luz própria; o modo "força lunar" dá 1,65× de dano e 1,22× de salto, e o gato mia ao ativar.
 - **Clima:** chuva, neve, vento gelado, frio congelante e chuva ácida, em ciclo, com partículas, neblina e perda de calor.
 - **Abrigos climáticos:** prédios ocos (`indoorZones`) e abrigos protegem do clima; a câmera não atravessa as paredes por dentro.
 - **Extras:** o gato dorme abrigado à noite e se lambe parado; gatos amigos Mingau e Canela.
 - Exposição do renderizador e luzes foram aumentadas para o jogo não ficar escuro demais.
+
+- **Água, natação e mergulho:** `src/game/survival/water.ts` (lógica pura, com testes em `water.test.ts`). As 8 poças viraram bacias reais (o chão tem buracos; parede, fundo e superfície rebaixada em y = −0,3). Tomas cai na bacia, flutua com a cabeça fora; **Espaço** sobe, **Shift** (ou botão de sprint) mergulha. Velocidade cai na água; oxigênio dura ~28 s submerso, recupera a 45/s na superfície e a 0 causa afogamento (9 de vida/s). Debaixo d'água a névoa fica azul-esverdeada. Saindo da bacia, o gato sobe suavemente à calçada.
+- **Iluminação (ajuste de 2026-11-14):** o escuro vinha das texturas de asfalto e fachadas, quase pretas; foram clareadas, junto com as estradas e o piso ambiente noturno (hemisfério 1,55+). Verificado renderizando o GameEngine headless (manhã, meio-dia, noite).
 
 ### 4.2 Sociedade artificial (`src/game/society/`) — simulação local
 - `contracts.ts`: tipos `SocietyAgent`, `AgentTask`, `ConstructionProject`, `WorldEvent` (com chave de idempotência), 8 profissões (`engineer`, `worker`, `agent`, `farmer`, `lumberjack`, `miner`, `carpenter`, `merchant`), validações.
@@ -76,15 +79,15 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
 
 ### 4.3 O que NÃO existe ainda
-Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; salários e preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; oxigênio, mergulho, pesca, caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
+Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; salários e preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
 ### 4.4 Lacunas de jogabilidade conhecidas
 - Alvorecer, tarde, anoitecer e madrugada não têm paleta própria de iluminação.
 - A lua e a força lunar começam às 17h17 e terminam às 5h17 (`timeOfDay > 0.72 || < 0.22`), o que não bate com os rótulos da HUD (Tarde 16–18h, Alvorecer 5–7h).
 - O céu não tem sol visível nem estrelas; a lua é uma esfera simples.
-- Oxigênio está exposto na HUD e recupera na superfície; ainda não há volumes de água profunda, natação, consumo subaquático ou mergulho jogável.
+- Natação/mergulho existem nas 8 bacias de água (profundidade 1,0–3,4 m), mas faltam predadores aquáticos, animação de nado própria no modelo do gato, bolhas/sons e água em escala de lago/rio.
 - Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).
-- A última execução do Actions (nº 59, commit `8d8f247`) estava em andamento quando este arquivo foi escrito.
+- Resultado do Actions dos commits recentes não foi verificado por quem escreveu este arquivo; confira a execução no GitHub antes de afirmar que passou.
 
 ## 5. Roteiro e decisões do autor
 
@@ -161,7 +164,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - "Infinito" na prática: mundos procedurais, simulação por regiões, arquivo histórico comprimido, estados resumidos, instâncias criadas e encerradas, IDs permanentes, relógio lógico independente dos jogadores, recuperação automática.
 
 ### 5.4 Sequência recomendada (a partir de agora)
-1. Sistema de sobrevivência do gato (fome, sede, oxigênio, energia vital, resistência).
+1. Sistema de sobrevivência do gato (fome, sede, oxigênio, energia vital, resistência). **Oxigênio, natação e mergulho: feitos (ver 4.1).**
 2. Recursos naturais, coleta, pesca, caça e construção de abrigos.
 3. IA de predadores, presas e ecossistemas.
 4. Máquina de estados da civilização (normal, crise, colapso, Era Selvagem, reconstrução, renascimento).

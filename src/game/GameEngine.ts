@@ -21,6 +21,14 @@ import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuilder';
 import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
+import {
+  SWIM_SURFACE_SPEED_FACTOR,
+  SWIM_UNDERWATER_SPEED_FACTOR,
+  WaterSample,
+  sampleWater,
+  stepOxygen,
+  swimVerticalVelocity,
+} from './survival/water';
 
 const SAVE_KEY = 'felis09_save_v4';
 
@@ -38,6 +46,7 @@ const _acidColor = new THREE.Color(0x162b22);
 const _rainColor = new THREE.Color(0x526579);
 const _snowColor = new THREE.Color(0x9aaec2);
 const _stormColor = new THREE.Color(0x34465e);
+const _underwaterColor = new THREE.Color(0x0b5a73);
 
 export interface EngineCallbacks {
   onHudUpdate: (snapshot: HudSnapshot) => void;
@@ -140,6 +149,12 @@ export class GameEngine {
   private warmth = 96;
   private stamina = 100;
   private oxygen = 100;
+  private waterSample: WaterSample = { body: null, inWater: false, footDepth: 0, submerged: false, floorY: 0 };
+  private swimAscendTimer = 0;
+  private wasSwimming = false;
+  private underwaterBlend = 0;
+  private baseFogDensity = 0.002;
+  private oxygenWarned = false;
   private sonarCooldown = 0;
   private sonarRevealTimer = 0;
   private attackCooldown = 0;
@@ -733,6 +748,11 @@ export class GameEngine {
       this.isClimbing = false;
       this.catVelY = EVOLUTION_STAGES[this.stageIndex].jumpForce * 0.85 * (this.moonPowerActive ? 1.22 : 1);
       gameAudio.playJump(false);
+      return;
+    }
+    if (this.waterSample.inWater) {
+      // Na água, pular = nadar para cima (também funciona com toque no celular).
+      this.swimAscendTimer = 0.45;
       return;
     }
     const def = EVOLUTION_STAGES[this.stageIndex];
@@ -1380,10 +1400,19 @@ export class GameEngine {
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) inX += 1;
 
     const inputLen = Math.hypot(inX, inZ);
-    const wantsSprint =
-      (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.virtualSprint) &&
-      inputLen > 0.1 &&
-      this.stamina > 2;
+    const headHeight = 0.7 * def.scale;
+    this.waterSample = sampleWater(
+      this.world.waterBodies,
+      this.catPos.x,
+      this.catPos.y,
+      this.catPos.z,
+      headHeight,
+    );
+    const water = this.waterSample;
+    const shiftHeld = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.virtualSprint;
+    // Na água, Shift/sprint vira mergulho e não gasta energia de corrida.
+    const wantsSprint = !water.inWater && shiftHeld && inputLen > 0.1 && this.stamina > 2;
+    if (this.swimAscendTimer > 0) this.swimAscendTimer = Math.max(0, this.swimAscendTimer - dt);
 
     if (wantsSprint || this.isClimbing) {
       this.stamina = Math.max(0, this.stamina - (this.isClimbing ? 11 : 20) * dt);
@@ -1425,7 +1454,12 @@ export class GameEngine {
       while (deltaYaw < -Math.PI) deltaYaw += Math.PI * 2;
       this.catYaw += deltaYaw * Math.min(1, dt * 18);
 
-      const stepDist = Math.max(this.currentSpeed, targetSpeed * 0.4) * dt;
+      const waterFactor = !water.inWater
+        ? 1
+        : water.submerged
+          ? SWIM_UNDERWATER_SPEED_FACTOR
+          : SWIM_SURFACE_SPEED_FACTOR;
+      const stepDist = Math.max(this.currentSpeed, targetSpeed * 0.4) * dt * waterFactor;
       const nextX = THREE.MathUtils.clamp(
         this.catPos.x + _moveDir.x * stepDist,
         -WORLD_BOUNDS,
@@ -1459,7 +1493,7 @@ export class GameEngine {
         }
       }
 
-      if (this.isGrounded && !this.isClimbing) {
+      if (this.isGrounded && !this.isClimbing && !water.inWater) {
         gameAudio.playStep(wantsSprint);
       }
     } else {
@@ -1491,6 +1525,18 @@ export class GameEngine {
         this.catVelY = 0;
         this.isGrounded = true;
       }
+    } else if (water.inWater && water.body) {
+      // Natação: flutua por padrão; Shift mergulha, Espaço sobe.
+      this.wasSwimming = true;
+      this.catVelY = swimVerticalVelocity(this.catPos.y, headHeight, water.body.surfaceY, {
+        ascend: this.keys.has('Space') || this.swimAscendTimer > 0,
+        dive: shiftHeld,
+      });
+      this.catPos.y = Math.max(water.floorY, this.catPos.y + this.catVelY * dt);
+      this.peakFallSpeed = 0;
+      this.isGrounded = false;
+      this.jumpsUsed = 0;
+      this.coyoteTimer = 0.14;
     } else {
       this.catVelY -= 25 * dt;
       if (this.catVelY < this.peakFallSpeed) {
@@ -1498,7 +1544,8 @@ export class GameEngine {
       }
       this.catPos.y += this.catVelY * dt;
 
-      let groundHeight = 0;
+      // Dentro de uma bacia o "chão" é o fundo; fora, é a rua (y = 0).
+      let groundHeight = water.floorY;
       const footRadius = 0.36 * def.scale;
       for (const box of this.world.colliders) {
         if (box.topY < 0 || box.isBarrier) continue;
@@ -1514,7 +1561,14 @@ export class GameEngine {
         }
       }
 
-      if (this.catPos.y <= groundHeight) {
+      if (this.wasSwimming && groundHeight - this.catPos.y > 0.02) {
+        // Saindo da água: sobe suavemente até a calçada em vez de teleportar.
+        this.catPos.y = Math.min(groundHeight, this.catPos.y + 5 * dt);
+        this.catVelY = 0;
+        this.peakFallSpeed = 0;
+        this.isGrounded = true;
+      } else if (this.catPos.y <= groundHeight) {
+        this.wasSwimming = false;
         if (!this.isGrounded && this.peakFallSpeed < -6.5) {
           // Always land cleanly on all four paws with cushioned reflex!
           this.cat.triggerFourPawLanding();
@@ -1984,9 +2038,21 @@ export class GameEngine {
       this.lastThreatCause = 'Hipotermia noturna';
     }
 
-    // Até existirem volumes de água profunda e natação, Tomas permanece
-    // na superfície: a reserva de oxigênio recupera sem simular asfixia falsa.
-    this.oxygen = THREE.MathUtils.clamp(this.oxygen + 24 * dt, 0, 100);
+    // Oxigênio real: consome com a cabeça submersa, recupera na superfície
+    // e causa afogamento quando acaba (lógica pura em survival/water.ts).
+    const air = stepOxygen(this.oxygen, this.waterSample.submerged, dt);
+    this.oxygen = air.oxygen;
+    if (air.drowningDamage > 0) {
+      this.health -= air.drowningDamage;
+      this.lastThreatCause = 'Afogamento';
+    }
+    if (air.warning && !this.oxygenWarned) {
+      this.oxygenWarned = true;
+      this.callbacks.onToast('Oxigênio baixo! Suba para a superfície e respire.', 'warn');
+    } else if (!air.warning && this.oxygen > 60) {
+      this.oxygenWarned = false;
+    }
+    this.underwaterBlend = THREE.MathUtils.damp(this.underwaterBlend, this.waterSample.submerged ? 1 : 0, 6, dt);
 
     gameAudio.updateAmbience(this.weather === 'acid_rain', this.isInsideShelter);
 
@@ -2091,7 +2157,10 @@ export class GameEngine {
         this.weather === 'freezing' ? 0.007 :
         this.weather === 'snow' ? 0.0055 :
         this.weather === 'rain' || this.weather === 'cold_wind' ? 0.004 : 0.002;
-      this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, targetFog, 2, dt);
+      this.baseFogDensity = THREE.MathUtils.damp(this.baseFogDensity, targetFog, 2, dt);
+      // Debaixo d'água: névoa azul-esverdeada densa.
+      this.scene.fog.color.lerp(_underwaterColor, this.underwaterBlend);
+      this.scene.fog.density = this.baseFogDensity + (0.07 - this.baseFogDensity) * this.underwaterBlend;
     }
 
     const neonStrength = 0.45 + (1 - daylight) * 1.25;

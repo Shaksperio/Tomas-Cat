@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHAPTER_PHASES, InteractionKind, LoreLog } from '../types/game';
 import { createPredatorMesh, PredatorActor } from './enemyModels';
+import { createWaterBody, type WaterBody } from './survival/water';
 import { ProceduralTextureSet } from './textures';
 
 export interface ColliderBox {
@@ -57,6 +58,7 @@ export interface BuiltWorld {
   predators: PredatorActor[];
   neonMaterials: THREE.MeshStandardMaterial[];
   waterMeshes: THREE.Mesh[];
+  waterBodies: WaterBody[];
   skyDome: THREE.Mesh;
   getSectorName: (x: number, z: number) => string;
 }
@@ -138,7 +140,35 @@ export function buildPostApocalypticWorld(
     roughness: 0.92,
     metalness: 0.08,
   });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(580, 580), groundMat);
+  const waterSpots: [string, number, number, number][] = [
+    ['Poça da Quarentena', -10, 16, 2.4],
+    ['Hidrante Norte', 12, -52, 2.2],
+    ['Fonte da Torre Leste', 78, 36, 2.6],
+    ['Reserva dos Arranha-Céus', 138, -2, 2.8],
+    ['Pátio Inundado (Hospital)', -84, -30, 3.6],
+    ['Aqueduto Oeste', -144, 10, 3.4],
+    ['Fonte do Bio-Domo', -18, 92, 3.0],
+    ['Lago da Arena Sul', 18, 152, 3.2],
+  ];
+  // Bacias reais: o chão tem buracos circulares onde ficam lagos e poças com profundidade.
+  const waterBodies: WaterBody[] = waterSpots.map(([name, x, z, r], idx) =>
+    createWaterBody(`water-${idx}`, name, x, z, r),
+  );
+  const groundShape = new THREE.Shape();
+  groundShape.moveTo(-290, -290);
+  groundShape.lineTo(290, -290);
+  groundShape.lineTo(290, 290);
+  groundShape.lineTo(-290, 290);
+  groundShape.lineTo(-290, -290);
+  for (const body of waterBodies) {
+    const hole = new THREE.Path();
+    // O chão é girado -90° em X: y da forma vira -z do mundo.
+    hole.absarc(body.x, -body.z, body.radius, 0, Math.PI * 2, true);
+    groundShape.holes.push(hole);
+  }
+  // UVs da ShapeGeometry são em metros: mantém o mesmo ladrilhamento do plano antigo (72 repetições em 580 m).
+  textures.asphalt.repeat.set(72 / 580, 72 / 580);
+  const ground = new THREE.Mesh(new THREE.ShapeGeometry(groundShape, 32), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -666,28 +696,28 @@ export function buildPostApocalypticWorld(
     transparent: true,
     opacity: 0.88,
   });
-  const waterSpots: [string, number, number, number][] = [
-    ['Poça da Quarentena', -10, 16, 2.4],
-    ['Hidrante Norte', 12, -52, 2.2],
-    ['Fonte da Torre Leste', 78, 36, 2.6],
-    ['Reserva dos Arranha-Céus', 138, -2, 2.8],
-    ['Pátio Inundado (Hospital)', -84, -30, 3.6],
-    ['Aqueduto Oeste', -144, 10, 3.4],
-    ['Fonte do Bio-Domo', -18, 92, 3.0],
-    ['Lago da Arena Sul', 18, 152, 3.2],
-  ];
+  const basinMat = new THREE.MeshStandardMaterial({ color: 0x1e3a4a, roughness: 0.9, side: THREE.DoubleSide });
   waterSpots.forEach(([name, x, z, r], idx) => {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.18, 6, 20), darkSteelMat);
     rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.09;
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(r * 0.94, 24), waterMat);
+    rim.position.y = 0.05;
+    const body = waterBodies[idx];
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(r, 32), waterMat);
     pool.rotation.x = -Math.PI / 2;
-    pool.position.y = 0.06;
+    pool.position.y = body.surfaceY;
     waterMeshes.push(pool);
+    const basinWall = new THREE.Mesh(
+      new THREE.CylinderGeometry(r, r * 0.9, -body.floorY, 32, 1, true),
+      basinMat,
+    );
+    basinWall.position.y = body.floorY / 2;
+    const basinFloor = new THREE.Mesh(new THREE.CircleGeometry(r * 0.9, 32), basinMat);
+    basinFloor.rotation.x = -Math.PI / 2;
+    basinFloor.position.y = body.floorY;
     const beaconRing = createBeaconRing(0x06b6d4);
-    group.add(rim, pool, beaconRing);
+    group.add(rim, pool, basinWall, basinFloor, beaconRing);
     scene.add(group);
 
     interactables.push({
@@ -1243,6 +1273,7 @@ export function buildPostApocalypticWorld(
     predators,
     neonMaterials,
     waterMeshes,
+    waterBodies,
     skyDome,
     getSectorName,
   };
