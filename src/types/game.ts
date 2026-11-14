@@ -12,6 +12,7 @@ export type WeatherState =
 export type InteractionKind =
   | 'food'
   | 'prey'
+  | 'fish'
   | 'water'
   | 'shelter'
   | 'scrap'
