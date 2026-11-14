@@ -1984,18 +1984,9 @@ export class GameEngine {
       this.lastThreatCause = 'Hipotermia noturna';
     }
 
-    // A superfície atual ainda não tem zonas de mergulho; a condição de
-    // submersão fica pronta para os volumes aquáticos da próxima fase.
-    const isSubmerged = this.catPos.y < -0.5;
-    this.oxygen = THREE.MathUtils.clamp(
-      this.oxygen + (isSubmerged ? -18 : 24) * dt,
-      0,
-      100,
-    );
-    if (isSubmerged && this.oxygen <= 0) {
-      this.health -= 8 * dt;
-      this.lastThreatCause = 'Asfixia por falta de oxigênio';
-    }
+    // Até existirem volumes de água profunda e natação, Tomas permanece
+    // na superfície: a reserva de oxigênio recupera sem simular asfixia falsa.
+    this.oxygen = THREE.MathUtils.clamp(this.oxygen + 24 * dt, 0, 100);
 
     gameAudio.updateAmbience(this.weather === 'acid_rain', this.isInsideShelter);
 
