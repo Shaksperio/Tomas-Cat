@@ -47,6 +47,7 @@ export type WorldEventKind =
   | 'project_completed'
   | 'resource_changed'
   | 'trade_completed'
+  | 'wage_paid'
   | 'community_need_changed'
   | 'territory_changed'
   | 'wildlife_encounter'

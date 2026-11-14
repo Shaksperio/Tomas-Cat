@@ -68,6 +68,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
   - Produção: agricultura (cultivo e colheita), lenhador (+6 madeira), mineiro (+4 pedra), carpinteiro (3 madeira → 2 tábuas; nunca usa os 4 de madeira reservados à construção).
   - Consumo: refeições comunitárias (1 comida por habitante a cada 40 ticks), lenha (1 madeira a cada 60) e manutenção (1 tábua a cada 120); necessidade não atendida reduz o moral de todos.
   - Comércio: a mercadora vende o excedente acima do estoque-alvo (comida 20, madeira 12, pedra 8, tábuas 6) por moedas e compra comida quando ela fica abaixo de 8.
+  - Salários: a cada 100 ticks o cofre paga quem concluiu trabalho no período (engenheiro 6, agente 5, carpinteiro 5, mercadora 5, demais 4) para a carteira (`wallet`) do habitante; sem moedas, o salário não é pago e o moral cai. Evento `wage_paid`.
   - Tarefas concluídas são arquivadas após 200 ticks, para o estado não crescer sem limite.
   - Relações (confiança e afinidade, limite 100), interações sociais e eventos.
 - `SocietyActors.ts`: personagens 3D, placas de nome, indicadores de estado, balões de conversa, plantação 3D (3 fileiras de 12 plantas) e armazém comunitário com estoque visual.

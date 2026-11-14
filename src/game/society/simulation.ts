@@ -27,6 +27,19 @@ const MAX_UNITS_PER_TRADE = 4;
 /** Madeira reservada para a construção: o carpinteiro nunca a consome. */
 const CONSTRUCTION_WOOD_RESERVE = 4;
 const TRADE_ORDER: TradeableResource[] = ['food', 'wood', 'stone', 'planks'];
+/** Dia de pagamento: a cada este número de ticks o cofre paga quem trabalhou no período. */
+const PAYDAY_INTERVAL = 100;
+const WAGES: Record<AgentProfession, number> = {
+  engineer: 6,
+  worker: 4,
+  agent: 5,
+  farmer: 4,
+  lumberjack: 4,
+  miner: 4,
+  carpenter: 5,
+  merchant: 5,
+};
+const MAX_WALLET = 999;
 /** Tarefas concluídas são mantidas por este número de ticks; depois são arquivadas. */
 const FINISHED_TASK_RETENTION_TICKS = 200;
 
@@ -71,6 +84,8 @@ export interface AgentRelationship {
 
 export interface SimulatedAgent extends SocietyAgent {
   needs: AgentNeeds;
+  /** Moedas pessoais recebidas como salário. */
+  wallet: number;
 }
 
 export interface SocietySimulationSnapshot {
@@ -129,6 +144,7 @@ function makeAgent(
     activeTaskId: null,
     version: 1,
     needs: { hunger: 12, social: 18, morale: 75 },
+    wallet: 0,
   };
 }
 
@@ -167,6 +183,8 @@ export class SocietySimulation {
   private readonly relationships = new Map<string, AgentRelationship>();
   private readonly events: WorldEvent[] = [];
   private eventSequence = 0;
+  /** Tarefas concluídas por agente desde o último pagamento. */
+  private readonly completedSincePayday = new Map<string, number>();
   private readonly resources: SocietyResources = { food: 12, wood: 0, stone: 0, planks: 0, coins: 0 };
 
   constructor() {
@@ -317,6 +335,35 @@ export class SocietySimulation {
     }
   }
 
+  /**
+   * Salários: no dia de pagamento o cofre paga quem concluiu trabalho no período.
+   * Sem moedas suficientes o salário não é pago e o moral do agente cai.
+   */
+  private payWages(): void {
+    if (this.tickCount % PAYDAY_INTERVAL !== 0) return;
+    const paid: Array<{ agentId: string; amount: number }> = [];
+    const unpaid: string[] = [];
+    const agents = [...this.agents.values()].sort((a, b) => a.id.localeCompare(b.id));
+    for (const agent of agents) {
+      if ((this.completedSincePayday.get(agent.id) ?? 0) === 0) continue;
+      const wage = WAGES[agent.profession];
+      if (this.resources.coins >= wage) {
+        this.changeResource('coins', -wage, 'wages', `wage:${agent.id}:${this.tickCount}`);
+        agent.wallet = Math.min(MAX_WALLET, agent.wallet + wage);
+        agent.needs.morale = clampNeed(agent.needs.morale + 2);
+        agent.version += 1;
+        paid.push({ agentId: agent.id, amount: wage });
+      } else {
+        agent.needs.morale = clampNeed(agent.needs.morale - 4);
+        unpaid.push(agent.id);
+      }
+    }
+    this.completedSincePayday.clear();
+    if (paid.length > 0 || unpaid.length > 0) {
+      this.emit('wage_paid', 'payday', { paid, unpaid, treasury: this.resources.coins });
+    }
+  }
+
   /** Descarta tarefas concluídas antigas para o estado não crescer sem limite. */
   private pruneFinishedTasks(): void {
     if (this.tickCount % 100 !== 0) return;
@@ -459,6 +506,7 @@ export class SocietySimulation {
       agent.status = 'idle';
       agent.needs.morale = clampNeed(agent.needs.morale + 8);
       agent.version += 1;
+      this.completedSincePayday.set(agent.id, (this.completedSincePayday.get(agent.id) ?? 0) + 1);
       if (task.kind === 'harvest_food') {
         this.changeResource('food', 10, 'crop_harvest', task.id);
       }
@@ -587,6 +635,7 @@ export class SocietySimulation {
       this.updateSocialRelationships();
       this.feedResidents();
       this.consumeCommunityNeeds();
+      this.payWages();
       this.pruneFinishedTasks();
     }
     return this.snapshot();
@@ -599,6 +648,7 @@ export class SocietySimulation {
         ...agent,
         position: { ...agent.position },
         needs: { ...agent.needs },
+        wallet: agent.wallet,
       })),
       tasks: [...this.tasks.values()].map((task) => ({
         ...task,

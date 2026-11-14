@@ -213,3 +213,35 @@ test('repeating professions stay near their workplaces instead of drifting away'
       `${agent.id} wandered to (${agent.position.x.toFixed(1)}, ${agent.position.z.toFixed(1)})`);
   }
 });
+
+test('the treasury pays wages on payday to everyone who worked, and wallets match the payments', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.step(100);
+  const payday = snapshot.events.find((event) => event.kind === 'wage_paid');
+  assert.ok(payday, 'expected a wage_paid event at tick 100');
+  const paid = payday.payload.paid as Array<{ agentId: string; amount: number }>;
+  assert.ok(paid.length > 0);
+  const totalPaid = paid.reduce((sum, entry) => sum + entry.amount, 0);
+  assert.equal(snapshot.agents.reduce((sum, agent) => sum + agent.wallet, 0), totalPaid);
+  for (const entry of paid) {
+    assert.equal(snapshot.agents.find((agent) => agent.id === entry.agentId)?.wallet, entry.amount);
+  }
+});
+
+test('unpaid wages are reported and lower morale when the treasury is empty', () => {
+  const simulation = new SocietySimulation();
+  simulation.step(99);
+  const internals = simulation as unknown as { resources: { coins: number } };
+  const moraleBefore = new Map(simulation.snapshot().agents.map((agent) => [agent.id, agent.needs.morale]));
+  internals.resources.coins = 0;
+  const snapshot = simulation.step(1);
+  const payday = snapshot.events.find((event) => event.kind === 'wage_paid' && event.tick === 100);
+  assert.ok(payday);
+  const unpaid = payday.payload.unpaid as string[];
+  assert.ok(unpaid.length > 0, 'expected unpaid agents with an empty treasury');
+  for (const id of unpaid) {
+    const agent = snapshot.agents.find((candidate) => candidate.id === id)!;
+    assert.equal(agent.wallet, 0);
+    assert.ok(agent.needs.morale < (moraleBefore.get(id) ?? 100));
+  }
+});
