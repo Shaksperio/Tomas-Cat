@@ -2761,6 +2761,15 @@ export class GameEngine {
 
     this.societyActors.dispose();
     this.textures.dispose();
+    // THREE.Points is not covered by the Mesh-only traversal below.
+    // Dispose the pooled underwater particle resources explicitly.
+    this.bubblePoints.geometry.dispose();
+    const bubbleMaterial = this.bubblePoints.material;
+    if (Array.isArray(bubbleMaterial)) {
+      bubbleMaterial.forEach((material) => material.dispose());
+    } else {
+      bubbleMaterial.dispose();
+    }
     this.scene.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) {
         const mesh = obj as THREE.Mesh;
