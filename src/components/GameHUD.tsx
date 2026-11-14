@@ -276,6 +276,7 @@ export function GameHUD({
       : Math.min(100, (hud.starProgress / Math.max(1, hud.starNext)) * 100);
   const energyPct = Math.max(0, Math.min(100, (hud.stamina / Math.max(1, hud.maxStamina)) * 100));
   const healthPct = Math.max(0, Math.min(100, (hud.health / Math.max(1, hud.maxHealth)) * 100));
+  const oxygenPct = Math.max(0, Math.min(100, (hud.oxygen / Math.max(1, hud.maxOxygen)) * 100));
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
@@ -298,6 +299,16 @@ export function GameHUD({
                   <div
                     className="h-full bg-sky-400 transition-all duration-150"
                     style={{ width: `${energyPct}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-medium">
+                  <span className="text-cyan-300">Oxigênio</span>
+                  <span className="font-mono-tabular text-slate-300">{Math.round(hud.oxygen)}</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className={`h-full transition-all duration-150 ${oxygenPct < 25 ? 'bg-red-500' : 'bg-cyan-400'}`}
+                    style={{ width: `${oxygenPct}%` }}
                   />
                 </div>
                 <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800">
@@ -388,7 +399,14 @@ export function GameHUD({
                     icon={<Droplets className="w-3.5 h-3.5 text-cyan-400" />}
                   />
                   <StatBar
-                    label={hud.isInsideShelter ? 'Abrigo (Protegido)' : 'Calor'}
+                    label="Oxigênio"
+                    value={hud.oxygen}
+                    max={hud.maxOxygen}
+                    colorClass="bg-cyan-400"
+                    icon={<Droplets className="w-3.5 h-3.5 text-cyan-300" />}
+                  />
+                  <StatBar
+                    label={hud.isInsideShelter ? 'Abrigo (Protegido)' : 'Calor'
                     value={hud.warmth}
                     max={hud.maxWarmth}
                     colorClass="bg-amber-500"
