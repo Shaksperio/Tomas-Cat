@@ -886,7 +886,7 @@ export class GameEngine {
     const snap = this.society.snapshot();
     if (this.duelPhase === 'fighting' && this.duelOpponentId) {
       const agent = snap.agents.find((a) => a.id === this.duelOpponentId);
-      if (agent) agent.position = { x: this.duelOpponentPos.x, y: agent.position.y, z: this.duelOpponentPos.z };
+      if (agent) agent.position = { x: this.duelOpponentPos.x, z: this.duelOpponentPos.z, sectorId: agent.position.sectorId };
     }
     return snap;
   }
