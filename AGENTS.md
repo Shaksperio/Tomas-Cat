@@ -81,7 +81,8 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - Alvorecer, tarde, anoitecer e madrugada não têm paleta própria de iluminação.
 - A lua e a força lunar começam às 17h17 e terminam às 5h17 (`timeOfDay > 0.72 || < 0.22`), o que não bate com os rótulos da HUD (Tarde 16–18h, Alvorecer 5–7h).
 - O céu não tem sol visível nem estrelas; a lua é uma esfera simples.
-- Oxigênio está exposto na HUD e possui consumo/recuperação determinísticos, mas o mundo ainda não possui volumes de água profunda nem mergulho jogável.\n- Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).
+- Oxigênio está exposto na HUD e possui consumo/recuperação determinísticos, mas o mundo ainda não possui volumes de água profunda nem mergulho jogável.
+- Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).
 - A última execução do Actions (nº 59, commit `8d8f247`) estava em andamento quando este arquivo foi escrito.
 
 ## 5. Roteiro e decisões do autor
