@@ -1658,7 +1658,7 @@ export class GameEngine {
         this.catPos.z + Math.cos(orbitAngle) * 7.6,
       );
       this.camera.lookAt(this.catPos.x, this.catPos.y + 0.85, this.catPos.z);
-      this.cat.update(dt, 0, true, false, false, false, 0, false, this.elapsed);
+      this.cat.update(dt, 0, true, false, false, false, false, 0, false, this.elapsed);
       this.updateEnvironmentLighting(dt);
     } else if (this.phase === 'playing') {
       this.updateGameplay(dt);
