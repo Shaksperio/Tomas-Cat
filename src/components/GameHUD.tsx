@@ -406,7 +406,7 @@ export function GameHUD({
                     icon={<Droplets className="w-3.5 h-3.5 text-cyan-300" />}
                   />
                   <StatBar
-                    label={hud.isInsideShelter ? 'Abrigo (Protegido)' : 'Calor'
+                    label={hud.isInsideShelter ? 'Abrigo (Protegido)' : 'Calor'}
                     value={hud.warmth}
                     max={hud.maxWarmth}
                     colorClass="bg-amber-500"
