@@ -119,6 +119,26 @@ class ProceduralAudioEngine {
     osc.stop(now + 0.055);
   }
 
+  public playSwimBubbles(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(210 + Math.random() * 90, now);
+    osc.frequency.exponentialRampToValueAtTime(520, now + 0.09);
+    filter.type = 'lowpass';
+    filter.frequency.value = 900;
+    gain.gain.setValueAtTime(0.025, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(now);
+    osc.stop(now + 0.13);
+  }
+
   public playJump(doubleJump = false): void {
     if (!this.ctx || !this.masterGain || this.muted) return;
     const now = this.ctx.currentTime;
