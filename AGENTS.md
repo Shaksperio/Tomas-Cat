@@ -84,7 +84,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
 ### 4.4 Lacunas de jogabilidade conhecidas
-- O céu não tem sol visível nem estrelas; a lua é uma esfera simples.
+- Sol (disco) e estrelas existem (estrelas à noite com tempo limpo), mas a lua ainda é uma esfera simples e não há nuvens nem fases lunares.
 - Duelos: só contra habitantes da sociedade local (sem multiplayer); habitantes não desafiam o jogador por conta própria; a luta não tem animação própria de golpes no oponente.
 - Natação/mergulho existem nas 8 bacias de água (profundidade 1,0–3,4 m), mas faltam predadores aquáticos, animação de nado própria no modelo do gato, bolhas/sons e água em escala de lago/rio.
 - Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).

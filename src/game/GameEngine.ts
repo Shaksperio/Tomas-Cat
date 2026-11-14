@@ -94,6 +94,8 @@ export class GameEngine {
   private readonly hemiLight: THREE.HemisphereLight;
   private readonly catTorch: THREE.PointLight;
   private readonly moonMesh: THREE.Mesh;
+  private readonly sunMesh: THREE.Mesh;
+  private readonly starField: THREE.Points;
   private readonly moonLight: THREE.PointLight;
   private moonPowerActive = false;
 
@@ -266,6 +268,45 @@ export class GameEngine {
     this.moonMesh = new THREE.Mesh(new THREE.SphereGeometry(5.8, 24, 16), moonMaterial);
     this.moonMesh.visible = false;
     this.scene.add(this.moonMesh);
+    this.sunMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(9, 24, 16),
+      new THREE.MeshBasicMaterial({ color: 0xfff1c2, fog: false, depthWrite: false }),
+    );
+    this.sunMesh.visible = false;
+    this.scene.add(this.sunMesh);
+    // Estrelas fixas (posições determinísticas) numa esfera ao redor do gato.
+    const starCount = 700;
+    const starPositions = new Float32Array(starCount * 3);
+    let starSeed = 12345;
+    const starRand = () => {
+      starSeed = (Math.imul(starSeed, 1664525) + 1013904223) >>> 0;
+      return starSeed / 4294967296;
+    };
+    for (let i = 0; i < starCount; i++) {
+      const theta = starRand() * Math.PI * 2;
+      const y = 0.12 + starRand() * 0.88; // só no hemisfério visível
+      const r = Math.sqrt(1 - y * y);
+      starPositions[i * 3] = Math.cos(theta) * r * 470;
+      starPositions[i * 3 + 1] = y * 470;
+      starPositions[i * 3 + 2] = Math.sin(theta) * r * 470;
+    }
+    const starGeometry = new THREE.BufferGeometry();
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    this.starField = new THREE.Points(
+      starGeometry,
+      new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 2.2,
+        sizeAttenuation: false,
+        transparent: true,
+        opacity: 0,
+        fog: false,
+        depthWrite: false,
+      }),
+    );
+    this.starField.visible = false;
+    this.starField.frustumCulled = false;
+    this.scene.add(this.starField);
     this.moonLight = new THREE.PointLight(0xc8dcff, 0, 140, 1.6);
     this.scene.add(this.moonLight);
 
@@ -2381,6 +2422,21 @@ export class GameEngine {
     this.world.skyDome.position.set(this.catPos.x, 0, this.catPos.z);
 
     const daylight = THREE.MathUtils.clamp((sunElev + 0.32) * 1.22, 0, 1);
+    // Sol visível acima do horizonte; estrelas aparecem conforme o dia escurece.
+    const sunDir = new THREE.Vector3(Math.cos(sunAngle) * 0.8, sunElev, -0.6).normalize();
+    this.sunMesh.position.set(
+      this.catPos.x + sunDir.x * 430,
+      sunDir.y * 430,
+      this.catPos.z + sunDir.z * 430,
+    );
+    this.sunMesh.visible = sunElev > -0.06 && this.weather === 'clear';
+    (this.sunMesh.material as THREE.MeshBasicMaterial).color
+      .setHex(0xfff1c2)
+      .lerp(_sunsetColor, 1 - THREE.MathUtils.clamp(sunElev / 0.5, 0, 1));
+    const starOpacity = this.weather === 'clear' ? THREE.MathUtils.clamp(1 - daylight * 1.6, 0, 1) : 0;
+    this.starField.visible = starOpacity > 0.02;
+    (this.starField.material as THREE.PointsMaterial).opacity = starOpacity;
+    this.starField.position.set(this.catPos.x, 0, this.catPos.z);
     const weatherLightFactor =
       this.weather === 'freezing' ? 0.58 :
       this.weather === 'cold_wind' ? 0.7 :
