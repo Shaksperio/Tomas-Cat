@@ -145,7 +145,7 @@ export function buildPostApocalypticWorld(
 
   // Main cross-city avenues & instanced dashed lane markings (single draw call!)
   const roadMat = new THREE.MeshStandardMaterial({
-    color: 0x111824,
+    color: 0x2b3648,
     roughness: 0.95,
     metalness: 0.05,
   });

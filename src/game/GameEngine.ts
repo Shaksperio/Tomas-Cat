@@ -2044,7 +2044,7 @@ export class GameEngine {
       this.weather === 'rain' ? 0.82 :
       this.weather === 'snow' ? 0.9 : 1;
     this.sunLight.intensity = (0.62 + daylight * 1.55) * weatherLightFactor;
-    this.hemiLight.intensity = (0.82 + daylight * 0.72) * (this.weather === 'freezing' ? 0.76 : 1);
+    this.hemiLight.intensity = (1.55 + daylight * 0.45) * (this.weather === 'freezing' ? 0.76 : 1);
 
     // The moon rises during the night and its direct glow awakens Tomas's lunar strength.
     const isNight = this.timeOfDay < 0.22 || this.timeOfDay > 0.72;
@@ -2057,7 +2057,7 @@ export class GameEngine {
     this.moonMesh.position.set(this.catPos.x + 40, 68, this.catPos.z - 65);
     this.moonLight.position.copy(this.moonMesh.position);
     this.moonMesh.visible = moonStrength > 0.08;
-    this.moonLight.intensity = moonStrength * 2.7;
+    this.moonLight.intensity = moonStrength * 3.6;
     const lunarPowerNow = moonStrength >= 0.72;
     if (lunarPowerNow && !this.moonPowerActive) {
       this.moonPowerActive = true;

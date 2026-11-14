@@ -22,13 +22,13 @@ function makeCanvas(width: number, height: number): [HTMLCanvasElement, CanvasRe
 export function createProceduralTextures(maxAnisotropy: number): ProceduralTextureSet {
   // 1. Post-apocalyptic cracked asphalt + faded street grid
   const [asphaltCanvas, actx] = makeCanvas(512, 512);
-  actx.fillStyle = '#181e29';
+  actx.fillStyle = '#4a5568';
   actx.fillRect(0, 0, 512, 512);
 
   for (let i = 0; i < 4200; i++) {
     const x = Math.random() * 512;
     const y = Math.random() * 512;
-    const v = 18 + Math.floor(Math.random() * 26);
+    const v = 62 + Math.floor(Math.random() * 30);
     actx.fillStyle = `rgb(${v}, ${v + 4}, ${v + 11})`;
     actx.fillRect(x, y, 2, 2);
   }
@@ -83,12 +83,12 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
 
   // 2. Futuristic ruined concrete facade with dark windows
   const [bCanvas, bctx] = makeCanvas(256, 512);
-  bctx.fillStyle = '#222a38';
+  bctx.fillStyle = '#586478';
   bctx.fillRect(0, 0, 256, 512);
 
   // Horizontal floor bands
   for (let y = 0; y < 512; y += 32) {
-    bctx.fillStyle = '#1b222e';
+    bctx.fillStyle = '#3a4456';
     bctx.fillRect(0, y, 256, 5);
   }
   // Windows grid (some faintly lit cyan/amber, most dark/broken)
@@ -100,7 +100,7 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
       } else if (roll < 0.11) {
         bctx.fillStyle = '#92400e';
       } else {
-        bctx.fillStyle = '#0c1018';
+        bctx.fillStyle = '#1e2838';
       }
       bctx.fillRect(x, y, 24, 16);
       bctx.strokeStyle = '#334155';
