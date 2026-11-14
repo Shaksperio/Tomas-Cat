@@ -758,7 +758,8 @@ export function buildPostApocalypticWorld(
     tail.rotation.z = Math.PI / 2;
     tail.position.x = -0.42;
     group.add(body, tail);
-    group.position.set(x, 0.28, z);
+    // Os peixes ficam abaixo da superfície rebaixada da bacia (y = -0,3).
+    group.position.set(x, -0.48, z);
     const beaconRing = createBeaconRing(0xf59e0b);
     group.add(beaconRing);
     scene.add(group);
@@ -766,7 +767,7 @@ export function buildPostApocalypticWorld(
       id: `fish-${idx}`,
       kind: 'fish',
       name,
-      position: new THREE.Vector3(x, 0.28, z),
+      position: new THREE.Vector3(x, -0.48, z),
       mesh: group,
       beaconRing,
       active: true,
