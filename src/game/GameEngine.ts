@@ -139,6 +139,7 @@ export class GameEngine {
   private thirst = 88;
   private warmth = 96;
   private stamina = 100;
+  private oxygen = 100;
   private sonarCooldown = 0;
   private sonarRevealTimer = 0;
   private attackCooldown = 0;
@@ -618,6 +619,7 @@ export class GameEngine {
       this.thirst = Math.min(def.maxThirst, saved.thirst ?? def.maxThirst);
       this.warmth = Math.min(def.maxWarmth, saved.warmth ?? def.maxWarmth);
       this.stamina = this.getEffectiveMaxStamina();
+      this.oxygen = THREE.MathUtils.clamp(saved.oxygen ?? 100, 0, 100);
       this.catPos.set(saved.catX || 0, saved.catY || 0, saved.catZ || 8);
       this.catVelY = 0;
       this.isClimbing = false;
@@ -1133,6 +1135,7 @@ export class GameEngine {
         hunger: this.hunger,
         thirst: this.thirst,
         warmth: this.warmth,
+        oxygen: this.oxygen,
         catX: this.catPos.x,
         catY: this.catPos.y,
         catZ: this.catPos.z,
@@ -1970,6 +1973,19 @@ export class GameEngine {
       this.lastThreatCause = 'Hipotermia noturna';
     }
 
+    // A superfície atual ainda não tem zonas de mergulho; a condição de
+    // submersão fica pronta para os volumes aquáticos da próxima fase.
+    const isSubmerged = this.catPos.y < -0.5;
+    this.oxygen = THREE.MathUtils.clamp(
+      this.oxygen + (isSubmerged ? -18 : 24) * dt,
+      0,
+      100,
+    );
+    if (isSubmerged && this.oxygen <= 0) {
+      this.health -= 8 * dt;
+      this.lastThreatCause = 'Asfixia por falta de oxigênio';
+    }
+
     gameAudio.updateAmbience(this.weather === 'acid_rain', this.isInsideShelter);
 
     if (this.health <= 0) {
@@ -2213,6 +2229,8 @@ export class GameEngine {
       maxWarmth: def.maxWarmth,
       stamina: this.stamina,
       maxStamina: this.getEffectiveMaxStamina(),
+      oxygen: this.oxygen,
+      maxOxygen: 100,
       level: this.level,
       stars: this.stars,
       starProgress: this.starProgress,
