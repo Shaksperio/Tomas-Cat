@@ -21,6 +21,7 @@ import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuilder';
 import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
+import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
 import {
   SWIM_SURFACE_SPEED_FACTOR,
   SWIM_UNDERWATER_SPEED_FACTOR,
@@ -39,13 +40,11 @@ const _right = new THREE.Vector3();
 const _camDesiredPos = new THREE.Vector3();
 const _camLookTarget = new THREE.Vector3();
 const _skyColor = new THREE.Color();
-const _dayColor = new THREE.Color(0x5d83a8);
-const _duskColor = new THREE.Color(0x3f263a);
-const _nightColor = new THREE.Color(0x0b1220);
 const _acidColor = new THREE.Color(0x162b22);
 const _rainColor = new THREE.Color(0x526579);
 const _snowColor = new THREE.Color(0x9aaec2);
 const _stormColor = new THREE.Color(0x34465e);
+const _sunsetColor = new THREE.Color(0xff9a5c);
 const _underwaterColor = new THREE.Color(0x0b5a73);
 
 export interface EngineCallbacks {
@@ -985,7 +984,7 @@ export class GameEngine {
       this.stamina = maxStam;
       this.gainXp(18);
       gameAudio.playMeow();
-      if (this.timeOfDay > 0.72 || this.timeOfDay < 0.22) {
+      if (isMoonTime(this.timeOfDay)) {
         this.timeOfDay = 0.28;
         this.day += 1;
         this.weather = 'clear';
@@ -1596,7 +1595,7 @@ export class GameEngine {
       this.isInsideShelter && this.currentSpeed < 0.2,
       this.isClimbing,
       this.catVelY,
-      this.isInsideShelter && (this.timeOfDay > 0.72 || this.timeOfDay < 0.22),
+      this.isInsideShelter && isMoonTime(this.timeOfDay),
       this.elapsed,
     );
 
@@ -1997,7 +1996,7 @@ export class GameEngine {
     }
 
     // 7. Survival Needs simulation
-    const isNight = this.timeOfDay < 0.24 || this.timeOfDay > 0.76;
+    const isNight = isMoonTime(this.timeOfDay) || this.timeOfDay > 0.75;
     const hungerDrain = (0.7 + (wantsSprint ? 0.7 : 0)) * dt;
     const thirstDrain = (0.9 + (this.weather === 'acid_rain' || this.weather === 'rain' ? 0.3 : 0)) * dt;
 
@@ -2110,13 +2109,13 @@ export class GameEngine {
       this.weather === 'rain' ? 0.82 :
       this.weather === 'snow' ? 0.9 : 1;
     this.sunLight.intensity = (0.62 + daylight * 1.55) * weatherLightFactor;
+    const horizonWarmth = daylight > 0 ? 1 - THREE.MathUtils.clamp(Math.abs(sunElev) / 0.4, 0, 1) : 0;
+    this.sunLight.color.setHex(0xfff1d6).lerp(_sunsetColor, horizonWarmth * 0.8);
     this.hemiLight.intensity = (1.55 + daylight * 0.45) * (this.weather === 'freezing' ? 0.76 : 1);
 
     // The moon rises during the night and its direct glow awakens Tomas's lunar strength.
-    const isNight = this.timeOfDay < 0.22 || this.timeOfDay > 0.72;
-    const nightProgress = this.timeOfDay > 0.72
-      ? (this.timeOfDay - 0.72) / 0.28
-      : this.timeOfDay / 0.22;
+    const isNight = isMoonTime(this.timeOfDay);
+    const nightProgress = moonProgress(this.timeOfDay);
     const moonStrength = isNight
       ? THREE.MathUtils.clamp(0.76 + Math.sin(nightProgress * Math.PI) * 0.24, 0, 1)
       : 0;
@@ -2136,9 +2135,7 @@ export class GameEngine {
     }
 
     if (this.weather === 'acid_rain') _skyColor.copy(_acidColor);
-    else if (daylight > 0.55) _skyColor.copy(_dayColor);
-    else if (daylight > 0.18) _skyColor.copy(_duskColor).lerp(_dayColor, (daylight - 0.18) / 0.37);
-    else _skyColor.copy(_nightColor).lerp(_duskColor, daylight / 0.18);
+    else _skyColor.setHex(skyColorAt(this.timeOfDay));
     if (this.weather === 'rain') _skyColor.lerp(_rainColor, 0.42);
     if (this.weather === 'snow') _skyColor.lerp(_snowColor, 0.34);
     if (this.weather === 'cold_wind' || this.weather === 'freezing') _skyColor.lerp(_stormColor, this.weather === 'freezing' ? 0.62 : 0.44);
@@ -2147,7 +2144,7 @@ export class GameEngine {
     const skyMat = this.world.skyDome.material as THREE.MeshBasicMaterial;
     skyMat.color.setHex(this.weather === 'acid_rain' ? 0x6ee7b7 : 0xffffff).lerp(
       this.scene.background as THREE.Color,
-      (1 - daylight) * 0.55,
+      1,
     );
 
     if (this.scene.fog instanceof THREE.FogExp2) {

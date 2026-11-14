@@ -39,6 +39,7 @@ import {
   LoreLog,
   MAX_CAT_LEVEL,
 } from '../types/game';
+import { getDayPeriod } from '../game/dayCycle';
 import { LORE_LOGS } from '../game/worldBuilder';
 
 interface GameHUDProps {
@@ -76,14 +77,7 @@ function formatClock(timeOfDay: number): string {
 }
 
 function formatDayPeriod(timeOfDay: number): string {
-  const hour = timeOfDay * 24;
-  if (hour >= 5 && hour < 7) return 'Alvorecer';
-  if (hour >= 7 && hour < 11) return 'Manhã';
-  if (hour >= 11 && hour < 16) return 'Dia';
-  if (hour >= 16 && hour < 18) return 'Tarde';
-  if (hour >= 18 && hour < 20) return 'Anoitecer';
-  if (hour >= 20) return 'Noite';
-  return 'Madrugada';
+  return getDayPeriod(timeOfDay);
 }
 
 function StatBar({

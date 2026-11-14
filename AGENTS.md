@@ -52,8 +52,8 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - **Progressão:** níveis 1–99, 4 estágios de evolução do gato, 5 chances, checkpoints após cada chefe.
 - **Fases e chefes:** 1 Subúrbio (Rei Rato Gigante), 2 Telhados (Gato Cicatriz), 3 Hospital (Cão Alfa Cibernético), 4 Estádio (Leão Apex).
 - **Sobrevivência:** vida, fome, sede, calor, energia/resistência e oxigênio real (consome com a cabeça submersa, recupera na superfície, afogamento a 0; ver `src/game/survival/water.ts`). Fome, sede e exaustão reduzem mobilidade e a desidratação/fome extremas reduzem a recuperação de resistência. Interações: comida, presas, água, abrigo, sucata, terminais.
-- **Ciclo do dia:** a HUD mostra 7 períodos (Madrugada, Alvorecer, Manhã, Dia, Tarde, Anoitecer, Noite). A iluminação só tem paletas de dia, crepúsculo e noite.
-- **Lua:** à noite aparece uma lua com luz própria; o modo "força lunar" dá 1,65× de dano e 1,22× de salto, e o gato mia ao ativar.
+- **Ciclo do dia:** 7 períodos (Madrugada 0–5h, Alvorecer 5–7, Manhã 7–11, Dia 11–16, Tarde 16–18, Anoitecer 18–20, Noite 20–24), definidos em `src/game/dayCycle.ts` (puro, testado) e usados pela HUD e pelo motor. Cada período tem cor de céu/névoa própria (keyframes `SKY_KEYFRAMES`) e o sol esquenta de cor perto do horizonte.
+- **Lua:** da Noite (20h) até o fim da Madrugada (5h) aparece uma lua com luz própria; o modo "força lunar" dá 1,65× de dano e 1,22× de salto, e o gato mia ao ativar.
 - **Clima:** chuva, neve, vento gelado, frio congelante e chuva ácida, em ciclo, com partículas, neblina e perda de calor.
 - **Abrigos climáticos:** prédios ocos (`indoorZones`) e abrigos protegem do clima; a câmera não atravessa as paredes por dentro.
 - **Extras:** o gato dorme abrigado à noite e se lambe parado; gatos amigos Mingau e Canela.

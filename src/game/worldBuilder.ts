@@ -108,16 +108,16 @@ export function buildPostApocalypticWorld(
   const neonMaterials: THREE.MeshStandardMaterial[] = [];
   const waterMeshes: THREE.Mesh[] = [];
 
-  // Atmospheric Sky Dome with Horizon Gradient for real 3D expanse & depth
+  // Atmospheric Sky Dome (gradiente neutro; a cor do período vem do material, ver dayCycle.ts) with Horizon Gradient for real 3D expanse & depth
   const skyCanvas = document.createElement('canvas');
   skyCanvas.width = 4;
   skyCanvas.height = 128;
   const sctx = skyCanvas.getContext('2d')!;
   const sgrad = sctx.createLinearGradient(0, 0, 0, 128);
-  sgrad.addColorStop(0.0, '#09111f');
-  sgrad.addColorStop(0.45, '#1e3554');
-  sgrad.addColorStop(0.68, '#426a8c');
-  sgrad.addColorStop(1.0, '#132030');
+  sgrad.addColorStop(0.0, '#7d8ca6');
+  sgrad.addColorStop(0.45, '#aab9cf');
+  sgrad.addColorStop(0.68, '#ffffff');
+  sgrad.addColorStop(1.0, '#8f9bb0');
   sctx.fillStyle = sgrad;
   sctx.fillRect(0, 0, 4, 128);
   const skyTex = new THREE.CanvasTexture(skyCanvas);
