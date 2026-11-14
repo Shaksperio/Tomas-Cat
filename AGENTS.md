@@ -51,7 +51,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - `GameHUD.tsx`, `TitleScreen.tsx`, `App.tsx`: interface em React.
 - **Progressão:** níveis 1–99, 4 estágios de evolução do gato, 5 chances, checkpoints após cada chefe.
 - **Fases e chefes:** 1 Subúrbio (Rei Rato Gigante), 2 Telhados (Gato Cicatriz), 3 Hospital (Cão Alfa Cibernético), 4 Estádio (Leão Apex).
-- **Sobrevivência:** vida, fome, sede, calor, energia/resistência e oxigênio real (consome com a cabeça submersa, recupera na superfície, afogamento a 0; ver `src/game/survival/water.ts`). Fome, sede e exaustão reduzem mobilidade e a desidratação/fome extremas reduzem a recuperação de resistência. Interações: comida, presas, água, abrigo, sucata, terminais.
+- **Sobrevivência:** vida, fome, sede, calor, energia/resistência e oxigênio real (consome com a cabeça submersa, recupera na superfície, afogamento a 0; ver `src/game/survival/water.ts`). Fome, sede e exaustão reduzem mobilidade e a desidratação/fome extremas reduzem a recuperação de resistência. Interações: comida, presas, pesca renovável, água, abrigo, sucata, terminais.
 - **Ciclo do dia:** 7 períodos (Madrugada 0–5h, Alvorecer 5–7, Manhã 7–11, Dia 11–16, Tarde 16–18, Anoitecer 18–20, Noite 20–24), definidos em `src/game/dayCycle.ts` (puro, testado) e usados pela HUD e pelo motor. Cada período tem cor de céu/névoa própria (keyframes `SKY_KEYFRAMES`) e o sol esquenta de cor perto do horizonte.
 - **Lua:** da Noite (20h) até o fim da Madrugada (5h) aparece uma lua com luz própria; o modo "força lunar" dá 1,65× de dano e 1,22× de salto, e o gato mia ao ativar.
 - **Clima:** chuva, neve, vento gelado, frio congelante e chuva ácida, em ciclo, com partículas, neblina e perda de calor.
@@ -79,15 +79,15 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
 
 ### 4.3 O que NÃO existe ainda
-Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; salários e preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
+Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
 ### 4.4 Lacunas de jogabilidade conhecidas
 - Alvorecer, tarde, anoitecer e madrugada não têm paleta própria de iluminação.
-- A lua e a força lunar começam às 17h17 e terminam às 5h17 (`timeOfDay > 0.72 || < 0.22`), o que não bate com os rótulos da HUD (Tarde 16–18h, Alvorecer 5–7h).
+- O céu ainda não tem sol visível nem estrelas; a lua continua sendo uma esfera simples.
 - O céu não tem sol visível nem estrelas; a lua é uma esfera simples.
 - Natação/mergulho existem nas 8 bacias de água (profundidade 1,0–3,4 m), mas faltam predadores aquáticos, animação de nado própria no modelo do gato, bolhas/sons e água em escala de lago/rio.
 - Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).
-- Resultado do Actions dos commits recentes não foi verificado por quem escreveu este arquivo; confira a execução no GitHub antes de afirmar que passou.
+- A pesca está funcional como coleta renovável, mas ainda não há animação de nado própria para o gato, bolhas/sons, predadores aquáticos nem água em escala de lago/rio.
 
 ## 5. Roteiro e decisões do autor
 
@@ -107,7 +107,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 | 2 | Visualização 3D dos habitantes, interação social, balões | Feito |
 | 3 | Economia básica e agricultura (estoque, custos, colheita, refeições) | Feito |
 | 4 | Projetos e construções modulares visíveis no mundo | Parcial (falta catálogo de módulos aprovados) |
-| 5 | Profissões especializadas, economia com salários e comércio | Parcial (4 profissões produtivas, consumo e comércio básico; faltam salários, preços dinâmicos, saúde, ensino etc.) |
+| 5 | Profissões especializadas, economia com salários e comércio | Parcial (8 profissões, salários, consumo e comércio básico; faltam preços dinâmicos, saúde, ensino etc.) |
 | 6 | Persistência remota e sincronização (Worker, DO, D1) | Pendente |
 | 7 | Mundo evoluindo sem jogadores conectados | Pendente |
 | 8 | Integração da Cowila | Pendente |
