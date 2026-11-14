@@ -1388,12 +1388,23 @@ export class GameEngine {
     if (wantsSprint || this.isClimbing) {
       this.stamina = Math.max(0, this.stamina - (this.isClimbing ? 11 : 20) * dt);
     } else {
-      this.stamina = Math.min(maxStamina, this.stamina + (this.isInsideShelter ? 32 : 16) * dt);
+      const recoveryFactor = this.hunger < 15 || this.thirst < 15 ? 0.45 : 1;
+      this.stamina = Math.min(
+        maxStamina,
+        this.stamina + (this.isInsideShelter ? 32 : 16) * recoveryFactor * dt,
+      );
     }
 
+    const hungerMobility = this.hunger < 15 ? 0.78 : this.hunger < 35 ? 0.9 : 1;
+    const thirstMobility = this.thirst < 15 ? 0.72 : this.thirst < 35 ? 0.88 : 1;
+    const exhaustionMobility = this.stamina < 8 ? 0.78 : this.stamina < 20 ? 0.9 : 1;
+    const survivalMobility = Math.min(hungerMobility, thirstMobility, exhaustionMobility);
     const targetSpeed =
       inputLen > 0.04
-        ? def.moveSpeed * (wantsSprint ? def.sprintMultiplier : 1) * Math.min(1, inputLen)
+        ? def.moveSpeed *
+          (wantsSprint ? def.sprintMultiplier : 1) *
+          survivalMobility *
+          Math.min(1, inputLen)
         : 0;
     this.currentSpeed = THREE.MathUtils.damp(this.currentSpeed, targetSpeed, 20, dt);
 
