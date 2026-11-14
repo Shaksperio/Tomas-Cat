@@ -105,6 +105,11 @@ export class GameEngine {
   private evoBurstTimer = 0;
   private readonly rainPoints: THREE.Points;
   private readonly rainPositions: Float32Array;
+  private readonly bubblePoints: THREE.Points;
+  private readonly bubblePositions = new Float32Array(18 * 3);
+  private readonly bubbleLife = new Float32Array(18);
+  private bubbleSpawnTimer = 0;
+  private bubbleAudioTimer = 0;
 
   private frameId = 0;
   private lastTime = performance.now();
@@ -392,6 +397,16 @@ export class GameEngine {
     );
     this.rainPoints.visible = false;
     this.scene.add(this.rainPoints);
+
+    // Bolhas subaquáticas reutilizadas (sem criar geometrias a cada quadro).
+    const bubbleGeo = new THREE.BufferGeometry();
+    bubbleGeo.setAttribute('position', new THREE.BufferAttribute(this.bubblePositions, 3));
+    this.bubblePoints = new THREE.Points(
+      bubbleGeo,
+      new THREE.PointsMaterial({ color: 0xb9f3ff, size: 0.075, transparent: true, opacity: 0.72, depthWrite: false }),
+    );
+    this.bubblePoints.visible = false;
+    this.scene.add(this.bubblePoints);
 
     this.bindEvents();
     this.syncHud();
@@ -1697,6 +1712,43 @@ export class GameEngine {
     return null;
   }
 
+  private updateWaterBubbles(dt: number, water: WaterSample): void {
+    const active = water.inWater && water.submerged && this.phase === 'playing';
+    this.bubblePoints.visible = active;
+    if (!active) {
+      this.bubbleLife.fill(0);
+      this.bubbleSpawnTimer = 0;
+      this.bubbleAudioTimer = 0;
+      return;
+    }
+
+    this.bubbleSpawnTimer -= dt;
+    if (this.bubbleSpawnTimer <= 0) {
+      const slot = this.bubbleLife.findIndex((life) => life <= 0);
+      if (slot >= 0) {
+        this.bubbleLife[slot] = 1.1 + Math.random() * 0.7;
+        this.bubblePositions[slot * 3] = this.catPos.x + (Math.random() - 0.5) * 0.42;
+        this.bubblePositions[slot * 3 + 1] = this.catPos.y + 0.2 + Math.random() * 0.25;
+        this.bubblePositions[slot * 3 + 2] = this.catPos.z + (Math.random() - 0.5) * 0.42;
+      }
+      this.bubbleSpawnTimer = 0.13 + Math.random() * 0.12;
+    }
+
+    for (let i = 0; i < this.bubbleLife.length; i++) {
+      if (this.bubbleLife[i] <= 0) continue;
+      this.bubbleLife[i] = Math.max(0, this.bubbleLife[i] - dt);
+      this.bubblePositions[i * 3 + 1] += dt * (0.42 + (1 - this.bubbleLife[i]) * 0.12);
+      this.bubblePositions[i * 3] += Math.sin(this.elapsed * 4 + i) * dt * 0.035;
+    }
+    (this.bubblePoints.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+
+    this.bubbleAudioTimer -= dt;
+    if (this.bubbleAudioTimer <= 0) {
+      gameAudio.playSwimBubbles();
+      this.bubbleAudioTimer = 0.72;
+    }
+  }
+
   private updateGameplay(dt: number): void {
     const def = EVOLUTION_STAGES[this.stageIndex];
     const maxStamina = this.getEffectiveMaxStamina();
@@ -1911,11 +1963,14 @@ export class GameEngine {
       this.isGrounded,
       wantsSprint,
       this.isInsideShelter && this.currentSpeed < 0.2,
+      water.inWater,
       this.isClimbing,
       this.catVelY,
       this.isInsideShelter && isMoonTime(this.timeOfDay),
       this.elapsed,
     );
+
+    this.updateWaterBubbles(dt, water);
 
     // Shadow grounded below cat
     let shadowY = 0;
