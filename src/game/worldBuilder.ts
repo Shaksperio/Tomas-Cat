@@ -705,6 +705,48 @@ export function buildPostApocalypticWorld(
     });
   });
 
+  // FISHING: fish schools appear in the larger reservoirs and return after a catch.
+  const fishBodyMat = new THREE.MeshStandardMaterial({
+    color: 0xf59e0b,
+    roughness: 0.42,
+    metalness: 0.12,
+    emissive: 0x78350f,
+    emissiveIntensity: 0.18,
+  });
+  const fishTailMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.5 });
+  const fishingSpots: [string, number, number][] = [
+    ['Cardume do Pátio Inundado', -81.8, -27.8],
+    ['Peixes do Aqueduto', -141.5, 12.2],
+    ['Cardume da Reserva', 135.8, 0.2],
+    ['Peixes do Lago Sul', 16.0, 154.2],
+  ];
+  fishingSpots.forEach(([name, x, z], idx) => {
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), fishBodyMat);
+    body.scale.set(1.35, 0.58, 0.72);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.34, 4), fishTailMat);
+    tail.rotation.z = Math.PI / 2;
+    tail.position.x = -0.42;
+    group.add(body, tail);
+    group.position.set(x, 0.28, z);
+    const beaconRing = createBeaconRing(0xf59e0b);
+    group.add(beaconRing);
+    scene.add(group);
+    interactables.push({
+      id: `fish-${idx}`,
+      kind: 'fish',
+      name,
+      position: new THREE.Vector3(x, 0.28, z),
+      mesh: group,
+      beaconRing,
+      active: true,
+      respawnTimer: 0,
+      maxRespawn: 38,
+      amount: 32,
+      xpGain: 28,
+    });
+  });
+
   // =========================================================================
   // FOOD CACHES (inside open houses, on rooftops, and alleys!)
   // =========================================================================
