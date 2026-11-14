@@ -236,6 +236,8 @@ export interface HudSnapshot {
   maxWarmth: number;
   stamina: number;
   maxStamina: number;
+  oxygen: number;
+  maxOxygen: number;
   level: number; // 1..99
   stars: number;
   starProgress: number;
@@ -314,6 +316,7 @@ export interface SavedGameState {
   hunger: number;
   thirst: number;
   warmth: number;
+  oxygen?: number;
   catX: number;
   catY: number;
   catZ: number;
