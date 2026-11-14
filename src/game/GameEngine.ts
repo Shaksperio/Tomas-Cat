@@ -1717,6 +1717,8 @@ export class GameEngine {
     this.bubblePoints.visible = active;
     if (!active) {
       this.bubbleLife.fill(0);
+      for (let i = 0; i < this.bubbleLife.length; i++) this.bubblePositions[i * 3 + 1] = -1000;
+      (this.bubblePoints.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
       this.bubbleSpawnTimer = 0;
       this.bubbleAudioTimer = 0;
       return;
@@ -1737,6 +1739,10 @@ export class GameEngine {
     for (let i = 0; i < this.bubbleLife.length; i++) {
       if (this.bubbleLife[i] <= 0) continue;
       this.bubbleLife[i] = Math.max(0, this.bubbleLife[i] - dt);
+      if (this.bubbleLife[i] <= 0) {
+        this.bubblePositions[i * 3 + 1] = -1000;
+        continue;
+      }
       this.bubblePositions[i * 3 + 1] += dt * (0.42 + (1 - this.bubbleLife[i]) * 0.12);
       this.bubblePositions[i * 3] += Math.sin(this.elapsed * 4 + i) * dt * 0.035;
     }
