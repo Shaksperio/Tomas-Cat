@@ -430,6 +430,7 @@ export class ArticulatedCat {
     isSprinting: boolean,
     isSheltered: boolean,
     isClimbing: boolean,
+    isSwimming: boolean,
     verticalVel: number,
     isSleeping: boolean,
     elapsed: number,
@@ -474,7 +475,23 @@ export class ArticulatedCat {
       this.idleGroomTimer = 0;
     }
 
-    if (isClimbing) {
+    if (isSwimming) {
+      // Natação felina: corpo horizontal e quatro patas remando alternadamente.
+      this.climbPhase += dt * (moving ? 10 : 5.5);
+      const paddle = Math.sin(this.climbPhase);
+      const counter = Math.sin(this.climbPhase + Math.PI);
+      this.bodyPivot.rotation.x = THREE.MathUtils.damp(this.bodyPivot.rotation.x, 0.12, 8, dt);
+      this.bodyPivot.rotation.z = THREE.MathUtils.damp(this.bodyPivot.rotation.z, 0, 8, dt);
+      this.bodyPivot.position.y = THREE.MathUtils.damp(this.bodyPivot.position.y, 0.43 + Math.sin(this.climbPhase * 2) * 0.025, 8, dt);
+      this.legs.fl.hip.rotation.x = -0.55 + paddle * 0.48;
+      this.legs.fr.hip.rotation.x = -0.55 + counter * 0.48;
+      this.legs.bl.hip.rotation.x = 0.42 + counter * 0.38;
+      this.legs.br.hip.rotation.x = 0.42 + paddle * 0.38;
+      this.legs.fl.shin.rotation.x = 0.35 + Math.max(0, paddle) * 0.25;
+      this.legs.fr.shin.rotation.x = 0.35 + Math.max(0, counter) * 0.25;
+      this.legs.bl.shin.rotation.x = -0.25 - Math.max(0, counter) * 0.2;
+      this.legs.br.shin.rotation.x = -0.25 - Math.max(0, paddle) * 0.2;
+    } else if (isClimbing) {
       // Vertical wall climbing posture!
       this.climbPhase += dt * (Math.abs(verticalVel) > 0.2 ? 12 : 2);
       const wave = Math.sin(this.climbPhase) * 0.5;
