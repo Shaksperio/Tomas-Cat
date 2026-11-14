@@ -17,6 +17,8 @@ const INITIAL_HUD: HudSnapshot = {
   maxWarmth: EVOLUTION_STAGES[0].maxWarmth,
   stamina: EVOLUTION_STAGES[0].maxStamina,
   maxStamina: EVOLUTION_STAGES[0].maxStamina,
+  oxygen: 100,
+  maxOxygen: 100,
   level: 1,
   stars: 0,
   starProgress: 0,
