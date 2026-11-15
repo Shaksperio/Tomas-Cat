@@ -1016,6 +1016,7 @@ export class GameEngine {
       },
     });
     this.duelPhase = 'fighting';
+    this.syncHud();
   }
 
   /** Comando do jogador (HUD, teclas 1–4 ou J/C = atacar). */
@@ -1059,6 +1060,12 @@ export class GameEngine {
     this.updateEnvironmentLighting(dt);
     this.cat.update(dt, 0, true, false, false, false, false, 0, false, this.elapsed);
     this.battleStage.update(dt);
+    // A interface só vê a batalha se o motor publicar o estado (o laço normal não roda aqui).
+    this.hudSyncTimer += dt;
+    if (this.hudSyncTimer >= 0.06) {
+      this.hudSyncTimer = 0;
+      this.syncHud();
+    }
     const battle = this.battle;
     if (!battle || this.battleStage.busy || this.battleEnding) return;
     if (battle.finished) {
@@ -1130,6 +1137,7 @@ export class GameEngine {
     this.duelResultTimer = 5;
     this.callbacks.onToast(this.duelResultText, this.duelResultWon === false ? 'warn' : 'success');
     this.saveGame();
+    this.syncHud();
   }
 
   private buildDuelHud(): DuelHud | null {
