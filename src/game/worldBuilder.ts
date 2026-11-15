@@ -3,6 +3,7 @@ import { CHAPTER_PHASES, InteractionKind, LoreLog } from '../types/game';
 import { createPredatorMesh, PredatorActor } from './enemyModels';
 import { createWaterBody, type WaterBody } from './survival/water';
 import { ProceduralTextureSet } from './textures';
+import { buildVegetation } from './style/vegetation';
 
 export interface ColliderBox {
   minX: number;
@@ -114,10 +115,10 @@ export function buildPostApocalypticWorld(
   skyCanvas.height = 128;
   const sctx = skyCanvas.getContext('2d')!;
   const sgrad = sctx.createLinearGradient(0, 0, 0, 128);
-  sgrad.addColorStop(0.0, '#7d8ca6');
-  sgrad.addColorStop(0.45, '#aab9cf');
+  sgrad.addColorStop(0.0, '#6f9fe0');
+  sgrad.addColorStop(0.45, '#b6d4f2');
   sgrad.addColorStop(0.68, '#ffffff');
-  sgrad.addColorStop(1.0, '#8f9bb0');
+  sgrad.addColorStop(1.0, '#a9c4e0');
   sctx.fillStyle = sgrad;
   sctx.fillRect(0, 0, 4, 128);
   const skyTex = new THREE.CanvasTexture(skyCanvas);
@@ -175,9 +176,9 @@ export function buildPostApocalypticWorld(
 
   // Main cross-city avenues & instanced dashed lane markings (single draw call!)
   const roadMat = new THREE.MeshStandardMaterial({
-    color: 0x2b3648,
-    roughness: 0.95,
-    metalness: 0.05,
+    color: 0xc9a46c,
+    roughness: 1,
+    metalness: 0,
   });
   const roadNS = new THREE.Mesh(new THREE.PlaneGeometry(14, 430), roadMat);
   roadNS.rotation.x = -Math.PI / 2;
@@ -197,7 +198,7 @@ export function buildPostApocalypticWorld(
   }
   const dashInst = new THREE.InstancedMesh(
     new THREE.PlaneGeometry(0.38, 5.5),
-    new THREE.MeshBasicMaterial({ color: 0x94a3b8 }),
+    new THREE.MeshBasicMaterial({ color: 0xe8d9b4 }),
     dashPositions.length,
   );
   const dashDummy = new THREE.Object3D();
@@ -212,12 +213,13 @@ export function buildPostApocalypticWorld(
 
   const buildingMat = new THREE.MeshStandardMaterial({
     map: textures.buildingConcrete,
-    roughness: 0.86,
-    metalness: 0.14,
+    roughness: 0.95,
+    metalness: 0,
+    flatShading: true,
   });
   const interiorFloorMat = new THREE.MeshStandardMaterial({
-    color: 0x262e3d,
-    roughness: 0.9,
+    color: 0x9c7448,
+    roughness: 0.95,
     metalness: 0.05,
   });
   const containerRedMat = new THREE.MeshStandardMaterial({
@@ -233,9 +235,9 @@ export function buildPostApocalypticWorld(
     metalness: 0.38,
   });
   const darkSteelMat = new THREE.MeshStandardMaterial({
-    color: 0x1e293b,
-    roughness: 0.45,
-    metalness: 0.78,
+    color: 0x6c7487,
+    roughness: 0.7,
+    metalness: 0.2,
   });
   const woodPlankMat = new THREE.MeshStandardMaterial({
     color: 0x6b4423,
@@ -249,8 +251,8 @@ export function buildPostApocalypticWorld(
     roughness: 0.6,
   });
   const bioMossMat = new THREE.MeshStandardMaterial({
-    color: 0x14532d,
-    roughness: 0.9,
+    color: 0x4fa83d,
+    roughness: 0.95,
     metalness: 0.05,
   });
 
@@ -409,9 +411,10 @@ export function buildPostApocalypticWorld(
   const skylineBodyInst = new THREE.InstancedMesh(
     new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshStandardMaterial({
-      color: 0x172338,
-      roughness: 0.85,
-      metalness: 0.25,
+      color: 0x9fb4d8,
+      roughness: 0.95,
+      metalness: 0,
+      flatShading: true,
     }),
     skylineCount,
   );
@@ -696,7 +699,7 @@ export function buildPostApocalypticWorld(
     transparent: true,
     opacity: 0.88,
   });
-  const basinMat = new THREE.MeshStandardMaterial({ color: 0x1e3a4a, roughness: 0.9, side: THREE.DoubleSide });
+  const basinMat = new THREE.MeshStandardMaterial({ color: 0x6b8f9c, roughness: 0.95, side: THREE.DoubleSide });
   waterSpots.forEach(([name, x, z, r], idx) => {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
@@ -1265,6 +1268,19 @@ export function buildPostApocalypticWorld(
     if (x < -46) return 'Hospital Submerso (Fase 3)';
     return 'Rua da Quarentena (Fase 1)';
   };
+
+  // Natureza estilizada e santuários de pedra (instanciados; posições determinísticas).
+  const vegetation = buildVegetation({
+    bounds: WORLD_BOUNDS,
+    spawnRadius: 14,
+    roadHalfWidth: 9,
+    isBlocked: (x, z, margin) =>
+      waterBodies.some((w) => Math.hypot(x - w.x, z - w.z) < w.radius + margin + 1) ||
+      colliders.some(
+        (c) => x > c.minX - margin && x < c.maxX + margin && z > c.minZ - margin && z < c.maxZ + margin,
+      ),
+  });
+  scene.add(vegetation.group);
 
   return {
     colliders,

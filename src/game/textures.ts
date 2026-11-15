@@ -20,58 +20,32 @@ function makeCanvas(width: number, height: number): [HTMLCanvasElement, CanvasRe
 }
 
 export function createProceduralTextures(maxAnisotropy: number): ProceduralTextureSet {
-  // 1. Post-apocalyptic cracked asphalt + faded street grid
+  // 1. Relva estilizada (chão): base viva, manchas de tom e tufos em traços curtos
   const [asphaltCanvas, actx] = makeCanvas(512, 512);
-  actx.fillStyle = '#4a5568';
+  actx.fillStyle = '#5fae3f';
   actx.fillRect(0, 0, 512, 512);
-
-  for (let i = 0; i < 4200; i++) {
+  for (let i = 0; i < 90; i++) {
+    const gx = Math.random() * 512;
+    const gy = Math.random() * 512;
+    const r = 24 + Math.random() * 46;
+    actx.fillStyle = Math.random() < 0.5 ? 'rgba(63,138,52,0.35)' : 'rgba(134,201,90,0.35)';
+    actx.beginPath();
+    actx.arc(gx, gy, r, 0, Math.PI * 2);
+    actx.fill();
+  }
+  for (let i = 0; i < 1400; i++) {
     const x = Math.random() * 512;
     const y = Math.random() * 512;
-    const v = 62 + Math.floor(Math.random() * 30);
-    actx.fillStyle = `rgb(${v}, ${v + 4}, ${v + 11})`;
-    actx.fillRect(x, y, 2, 2);
-  }
-
-  // Subtle tile expansion seams
-  actx.strokeStyle = 'rgba(8, 11, 17, 0.55)';
-  actx.lineWidth = 2;
-  for (let i = 0; i <= 512; i += 128) {
+    actx.strokeStyle = Math.random() < 0.5 ? '#3f8a34' : '#9ad766';
+    actx.lineWidth = 1.5;
     actx.beginPath();
-    actx.moveTo(i, 0);
-    actx.lineTo(i, 512);
-    actx.stroke();
-    actx.beginPath();
-    actx.moveTo(0, i);
-    actx.lineTo(512, i);
+    actx.moveTo(x, y);
+    actx.lineTo(x + (Math.random() - 0.5) * 4, y - 4 - Math.random() * 5);
     actx.stroke();
   }
-
-  // Cracks
-  actx.strokeStyle = 'rgba(5, 7, 12, 0.78)';
-  actx.lineWidth = 1.5;
-  for (let c = 0; c < 14; c++) {
-    let cx = Math.random() * 512;
-    let cy = Math.random() * 512;
-    actx.beginPath();
-    actx.moveTo(cx, cy);
-    for (let s = 0; s < 6; s++) {
-      cx += (Math.random() - 0.5) * 48;
-      cy += (Math.random() - 0.5) * 48;
-      actx.lineTo(cx, cy);
-    }
-    actx.stroke();
-  }
-
-  // Mossy dust patches
-  for (let m = 0; m < 16; m++) {
-    const mx = Math.random() * 512;
-    const my = Math.random() * 512;
-    const grad = actx.createRadialGradient(mx, my, 2, mx, my, 28);
-    grad.addColorStop(0, 'rgba(30, 56, 48, 0.25)');
-    grad.addColorStop(1, 'rgba(30, 56, 48, 0)');
-    actx.fillStyle = grad;
-    actx.fillRect(mx - 28, my - 28, 56, 56);
+  for (let i = 0; i < 30; i++) {
+    actx.fillStyle = 'rgba(176,138,86,0.35)';
+    actx.fillRect(Math.random() * 512, Math.random() * 512, 6 + Math.random() * 8, 4);
   }
 
   const asphalt = new THREE.CanvasTexture(asphaltCanvas);
@@ -81,37 +55,37 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   asphalt.repeat.set(72, 72);
   asphalt.anisotropy = maxAnisotropy;
 
-  // 2. Futuristic ruined concrete facade with dark windows
+  // 2. Fachada de reboco claro com vigas de madeira e janelas de vidro quente
   const [bCanvas, bctx] = makeCanvas(256, 512);
-  bctx.fillStyle = '#586478';
+  bctx.fillStyle = '#e8d9b4';
   bctx.fillRect(0, 0, 256, 512);
-
-  // Horizontal floor bands
-  for (let y = 0; y < 512; y += 32) {
-    bctx.fillStyle = '#3a4456';
-    bctx.fillRect(0, y, 256, 5);
+  for (let i = 0; i < 500; i++) {
+    bctx.fillStyle = `rgba(150,120,80,${Math.random() * 0.08})`;
+    bctx.fillRect(Math.random() * 256, Math.random() * 512, 10, 6);
   }
-  // Windows grid (some faintly lit cyan/amber, most dark/broken)
-  for (let y = 10; y < 500; y += 32) {
-    for (let x = 14; x < 240; x += 38) {
-      const roll = Math.random();
-      if (roll < 0.07) {
-        bctx.fillStyle = '#0e7490';
-      } else if (roll < 0.11) {
-        bctx.fillStyle = '#92400e';
-      } else {
-        bctx.fillStyle = '#1e2838';
-      }
-      bctx.fillRect(x, y, 24, 16);
-      bctx.strokeStyle = '#334155';
-      bctx.lineWidth = 1;
-      bctx.strokeRect(x, y, 24, 16);
+  for (let y = 0; y < 512; y += 64) {
+    bctx.fillStyle = '#7a5230';
+    bctx.fillRect(0, y, 256, 6);
+  }
+  for (let x = 0; x <= 256; x += 128) {
+    bctx.fillStyle = '#7a5230';
+    bctx.fillRect(x === 256 ? 250 : x, 0, 6, 512);
+  }
+  for (let y = 16; y < 500; y += 64) {
+    for (let x = 22; x < 240; x += 64) {
+      const lit = Math.random() < 0.4;
+      bctx.fillStyle = lit ? '#ffd98a' : '#7fc4e0';
+      bctx.fillRect(x, y, 30, 34);
+      bctx.strokeStyle = '#5b3a1e';
+      bctx.lineWidth = 3;
+      bctx.strokeRect(x, y, 30, 34);
+      bctx.beginPath();
+      bctx.moveTo(x + 15, y);
+      bctx.lineTo(x + 15, y + 34);
+      bctx.moveTo(x, y + 17);
+      bctx.lineTo(x + 30, y + 17);
+      bctx.stroke();
     }
-  }
-  // Weathering grime
-  for (let i = 0; i < 650; i++) {
-    bctx.fillStyle = `rgba(10, 12, 16, ${Math.random() * 0.22})`;
-    bctx.fillRect(Math.random() * 256, Math.random() * 512, 4, 10);
   }
 
   const buildingConcrete = new THREE.CanvasTexture(bCanvas);
@@ -122,14 +96,14 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
 
   // 3. Rusted corrugated shipping container / scrap metal
   const [mCanvas, mctx] = makeCanvas(256, 256);
-  mctx.fillStyle = '#3b2f2f';
+  mctx.fillStyle = '#8a5a3a';
   mctx.fillRect(0, 0, 256, 256);
   for (let x = 0; x < 256; x += 16) {
     mctx.fillStyle = x % 32 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.18)';
     mctx.fillRect(x, 0, 8, 256);
   }
   for (let r = 0; r < 180; r++) {
-    mctx.fillStyle = `rgba(154, 68, 28, ${0.15 + Math.random() * 0.25})`;
+    mctx.fillStyle = `rgba(196, 120, 60, ${0.12 + Math.random() * 0.2})`;
     mctx.beginPath();
     mctx.arc(Math.random() * 256, Math.random() * 256, 4 + Math.random() * 14, 0, Math.PI * 2);
     mctx.fill();
@@ -189,9 +163,9 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
 
   // 6. Water surface ripple pattern
   const [wCanvas, wctx] = makeCanvas(256, 256);
-  wctx.fillStyle = '#083344';
+  wctx.fillStyle = '#1f8fc0';
   wctx.fillRect(0, 0, 256, 256);
-  wctx.strokeStyle = 'rgba(34, 211, 238, 0.35)';
+  wctx.strokeStyle = 'rgba(200, 240, 255, 0.5)';
   wctx.lineWidth = 2;
   for (let i = 0; i < 12; i++) {
     wctx.beginPath();

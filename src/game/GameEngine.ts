@@ -240,7 +240,7 @@ export class GameEngine {
     const height = container.clientHeight || window.innerHeight;
     const isSmallScreen = width < 768;
     this.renderer.setPixelRatio(
-      this.isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, isSmallScreen ? 1.35 : 1.6),
+      this.isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, isSmallScreen ? 1.1 : 1.25),
     );
     this.renderer.setSize(width, height);
     this.renderer.shadowMap.enabled = !this.isSoftwareGl;

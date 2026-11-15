@@ -49,13 +49,13 @@ export function moonProgress(timeOfDay: number): number {
 export const SKY_KEYFRAMES: ReadonlyArray<readonly [number, number]> = [
   [0, 0x0f1a30],    // madrugada
   [4.5, 0x16264a],
-  [5.5, 0x7a5a86],  // alvorecer: lilás
-  [6.5, 0xd89a78],  // alvorecer: dourado rosado
-  [8, 0x6f99bf],    // manhã
-  [12, 0x7aa8cf],   // dia
-  [15.5, 0x6f9cc4],
-  [17, 0xc99a68],   // tarde: âmbar
-  [18.5, 0x7a4a5e], // anoitecer: magenta
+  [5.5, 0xa05cc0],  // alvorecer: lilás
+  [6.5, 0xff9a5c],  // alvorecer: dourado rosado
+  [8, 0x5a9cf0],    // manhã
+  [12, 0x4fa0ff],   // dia
+  [15.5, 0x5a9fee],
+  [17, 0xffa850],   // tarde: âmbar
+  [18.5, 0xb04a78], // anoitecer: magenta
   [20, 0x1f2748],   // noite
   [22, 0x0f1a30],
   [24, 0x0f1a30],
