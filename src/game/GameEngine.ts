@@ -614,7 +614,7 @@ export class GameEngine {
       return;
     }
     this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, cp.level));
-    this.unlockedMoves = new Set(mergeUnlockedMoves(this.level));
+    this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, cp.unlockedMoves ?? []));
     this.stars = cp.stars;
     this.starProgress = cp.starProgress;
     this.stageIndex = Math.max(0, Math.min(EVOLUTION_STAGES.length - 1, cp.stageIndex));
@@ -701,6 +701,7 @@ export class GameEngine {
       level: this.level,
       stars: this.stars,
       starProgress: this.starProgress,
+      unlockedMoves: Array.from(this.unlockedMoves),
       scrap: this.scrap,
       day: this.day,
       timeOfDay: this.timeOfDay,
