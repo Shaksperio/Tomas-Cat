@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { BattleAction, Side } from './atb';
+import { type BattleAction, FOE_SIDES, type FoeSide, type Side } from './atb';
 
 /**
  * Cena cinematográfica da batalha (estilo RPG clássico): cortes de câmera,
@@ -83,6 +83,10 @@ export class BattleStage {
   private clock = 0;
   private hitStop = 0;
   private fighters!: Record<Side, Fighter>;
+  /** Lados presentes nesta batalha (jogador + 1 a 4 oponentes). */
+  private activeSides: Side[] = ['player', 'opponent'];
+  /** Oponentes já derrubados (ficam deitados até o fim). */
+  private fallen = new Set<Side>();
   private active = false;
   private actionBusy = false;
   private actionDone: (() => void) | null = null;
@@ -99,13 +103,21 @@ export class BattleStage {
   private readonly camPosTarget = new THREE.Vector3();
   private readonly camLookTarget = new THREE.Vector3();
   private camK = 6;
+  /** Afasta a câmera conforme o tamanho do grupo. */
+  private spread = 1;
   private orbit: { around: Side | 'center'; radius: number; height: number; speed: number; phase: number } | null = null;
   private guardDomes: Record<Side, THREE.Mesh> | null = null;
   private onPlayerClaw: () => void = () => undefined;
   private onPlayerCheer: () => void = () => undefined;
 
   /** Vigor mostrado na HUD (cai no instante do impacto, não antes). */
-  public readonly displayVigor: Record<Side, number> = { player: 100, opponent: 100 };
+  public readonly displayVigor: Record<Side, number> = {
+    player: 100,
+    opponent: 100,
+    opponent2: 100,
+    opponent3: 100,
+    opponent4: 100,
+  };
   public banner: { text: string; id: number } | null = null;
   public darkness = 0;
   public whiteFlash = 0;
@@ -135,9 +147,9 @@ export class BattleStage {
 
   public begin(opts: {
     playerRoot: THREE.Object3D;
-    foeRoot: THREE.Object3D;
     playerPos: THREE.Vector3;
-    foePos: THREE.Vector3;
+    /** Um ou mais oponentes (em ordem de FOE_SIDES). */
+    foes: Array<{ root: THREE.Object3D; pos: THREE.Vector3 }>;
     cameraSide: 1 | -1;
     onPlayerClaw: () => void;
     onPlayerCheer: () => void;
@@ -149,25 +161,37 @@ export class BattleStage {
     this.clock = 0;
     this.introT = 0;
     this.events = [];
-    this.displayVigor.player = 100;
-    this.displayVigor.opponent = 100;
+    for (const k of Object.keys(this.displayVigor) as Side[]) this.displayVigor[k] = 100;
+    this.fallen.clear();
     this.darkness = 0;
     this.whiteFlash = 1;
     this.shake = 0;
 
-    this.axis.set(opts.foePos.x - opts.playerPos.x, 0, opts.foePos.z - opts.playerPos.z);
+    const foes = opts.foes.slice(0, FOE_SIDES.length);
+    const n = foes.length;
+    this.activeSides = ['player', ...FOE_SIDES.slice(0, n)];
+    const fcx = foes.reduce((sum, f) => sum + f.pos.x, 0) / n;
+    const fcz = foes.reduce((sum, f) => sum + f.pos.z, 0) / n;
+    this.axis.set(fcx - opts.playerPos.x, 0, fcz - opts.playerPos.z);
     if (this.axis.lengthSq() < 1e-4) this.axis.set(0, 0, 1);
     this.axis.normalize();
     this.perp.set(-this.axis.z, 0, this.axis.x).multiplyScalar(opts.cameraSide);
-    this.center.set(
-      (opts.foePos.x + opts.playerPos.x) / 2,
-      0,
-      (opts.foePos.z + opts.playerPos.z) / 2,
-    );
+    this.center.set((fcx + opts.playerPos.x) / 2, 0, (fcz + opts.playerPos.z) / 2);
+    this.spread = 1 + 0.17 * (n - 1);
     const half = 2.7;
-    const mk = (root: THREE.Object3D, from: THREE.Vector3, dir: number, yaw: number): Fighter => ({
+    const mk = (
+      root: THREE.Object3D,
+      from: THREE.Vector3,
+      dir: number,
+      yaw: number,
+      lateral = 0,
+      depth = 0,
+    ): Fighter => ({
       root,
-      home: new THREE.Vector3().copy(this.center).addScaledVector(this.axis, half * dir),
+      home: new THREE.Vector3()
+        .copy(this.center)
+        .addScaledVector(this.axis, half * dir + depth)
+        .addScaledVector(this.perp, lateral),
       start: from.clone(),
       offset: new THREE.Vector3(),
       tween: null,
@@ -180,10 +204,15 @@ export class BattleStage {
       squash: 0,
       yaw,
     });
+    const faceBack = Math.atan2(-this.axis.x, -this.axis.z);
     this.fighters = {
       player: mk(opts.playerRoot, opts.playerPos, -1, Math.atan2(this.axis.x, this.axis.z)),
-      opponent: mk(opts.foeRoot, opts.foePos, 1, Math.atan2(-this.axis.x, -this.axis.z)),
-    };
+    } as Record<Side, Fighter>;
+    foes.forEach((foe, i) => {
+      const lateral = (i - (n - 1) / 2) * 2.3;
+      const depth = Math.abs(i - (n - 1) / 2) * 0.5; // arco: os das pontas ficam um pouco mais atrás
+      this.fighters[FOE_SIDES[i]] = mk(foe.root, foe.pos, 1, faceBack, lateral, depth);
+    });
     this.fighters.player.home.y = opts.playerPos.y;
 
     // Domos de defesa.
@@ -196,7 +225,10 @@ export class BattleStage {
       this.group.add(m);
       return m;
     };
-    this.guardDomes = { player: mkDome(0x67e8f9), opponent: mkDome(0xfbbf24) };
+    this.guardDomes = { player: mkDome(0x67e8f9) } as Record<Side, THREE.Mesh>;
+    for (const side of this.activeSides) {
+      if (side !== 'player') this.guardDomes[side] = mkDome(0xfbbf24);
+    }
 
     this.camPos.copy(this.camera.position);
     this.camLook.copy(this.center).setY(1);
@@ -287,21 +319,30 @@ export class BattleStage {
   private wideShot(k = 4): void {
     const pos = new THREE.Vector3()
       .copy(this.center)
-      .addScaledVector(this.perp, 7.4)
+      .addScaledVector(this.perp, 7.4 * this.spread)
       .addScaledVector(this.axis, -0.8);
     pos.y = 2.5;
     this.shot(pos, new THREE.Vector3(this.center.x, 0.9, this.center.z), k, this.origFov - 8);
   }
 
-  private overShoulder(actor: Side, k = 9): void {
+  /** Direção horizontal (unitária) de quem age até o alvo. */
+  private dirBetween(from: Side, to: Side): THREE.Vector3 {
+    const a = this.fighters[from].home;
+    const b = this.fighters[to].home;
+    const d = new THREE.Vector3(b.x - a.x, 0, b.z - a.z);
+    if (d.lengthSq() < 1e-6) return this.axis.clone();
+    return d.normalize();
+  }
+
+  private overShoulder(actor: Side, target: Side, k = 9): void {
     const f = this.fighters[actor];
-    const dir = actor === 'player' ? 1 : -1;
+    const dir = this.dirBetween(actor, target);
     const pos = new THREE.Vector3()
       .copy(f.home)
-      .addScaledVector(this.axis, -3.4 * dir)
+      .addScaledVector(dir, -3.4)
       .addScaledVector(this.perp, 1.5);
     pos.y = 2.3;
-    const look = this.worldPos(actor === 'player' ? 'opponent' : 'player', 0.9);
+    const look = this.worldPos(target, 0.9);
     this.shot(pos, look, k, this.origFov - 6);
   }
 
@@ -540,10 +581,12 @@ export class BattleStage {
     const f = this.fighters[target];
     f.shiver = 0.35;
     // Recuo: empurra ao longo do eixo e volta.
-    const dir = target === 'opponent' ? 1 : -1;
+    const dir = this.dirBetween(action.actor, target);
     const kb = opts.knockback ?? 0.9;
-    this.moveTo(target, new THREE.Vector3(this.axis.x * dir * kb, 0, this.axis.z * dir * kb), 0.12);
-    this.after(0.22, () => this.moveTo(target, new THREE.Vector3(), 0.3));
+    this.moveTo(target, new THREE.Vector3(dir.x * kb, 0, dir.z * kb), 0.12);
+    this.after(0.22, () => {
+      if (!this.fallen.has(target)) this.moveTo(target, new THREE.Vector3(), 0.3);
+    });
     if (action.blocked && this.guardDomes) {
       const dome = this.guardDomes[target];
       (dome.material as THREE.MeshBasicMaterial).opacity = 0.75;
@@ -559,11 +602,12 @@ export class BattleStage {
     this.actionBusy = true;
     this.actionDone = onDone;
     const actor = action.actor;
-    const dirToTarget = actor === 'player' ? 1 : -1;
-    const stand = (dist: number) =>
-      new THREE.Vector3(this.axis.x * dirToTarget * dist, 0, this.axis.z * dirToTarget * dist);
-    // Distância de investida: até ficar a ~1,3 m do alvo.
-    const reach = 2.7 * 2 - 1.5;
+    const dirToTarget = this.dirBetween(actor, action.target);
+    const stand = (dist: number) => new THREE.Vector3(dirToTarget.x * dist, 0, dirToTarget.z * dist);
+    // Distância de investida: até ficar a ~1,5 m do alvo.
+    const hA = this.fighters[actor].home;
+    const hT = this.fighters[action.target].home;
+    const reach = Math.max(1.2, Math.hypot(hT.x - hA.x, hT.z - hA.z) - 1.5);
     const f = this.fighters[actor];
     // Ao agir, a defesa anterior de quem age termina.
     if (this.guardDomes) (this.guardDomes[actor].material as THREE.MeshBasicMaterial).opacity = 0;
@@ -573,7 +617,7 @@ export class BattleStage {
     let total = 1.5;
 
     if (action.command === 'attack') {
-      this.overShoulder(actor);
+      this.overShoulder(actor, action.target);
       this.moveTo(actor, stand(-0.45), 0.22);
       this.after(0.3, () => {
         this.moveTo(actor, stand(reach), 0.18);
@@ -589,7 +633,7 @@ export class BattleStage {
       });
       total = 1.5;
     } else if (action.command === 'flurry') {
-      this.overShoulder(actor);
+      this.overShoulder(actor, action.target);
       this.moveTo(actor, stand(-0.5), 0.25);
       this.after(0.3, () => this.moveTo(actor, stand(reach), 0.16));
       for (let i = 0; i < action.hits.length; i += 1) {
@@ -619,6 +663,17 @@ export class BattleStage {
     } else {
       this.playLimit(action, stand, reach);
       total = 4.2;
+    }
+
+    // Oponente derrubado no meio da batalha em grupo: cai e fica deitado.
+    if (action.knockedOut && !action.finishing && action.target !== 'player') {
+      const tgt = action.target;
+      this.after(Math.max(0.7, total - 0.5), () => {
+        this.fallen.add(tgt);
+        this.fighters[tgt].tiltTarget = Math.PI / 2;
+        this.ring(this.worldPos(tgt, 0.05), 0xffffff, 3.4, 0.7);
+        this.sparks(this.worldPos(tgt, 0.6), 0xfde68a, 22, 3.5);
+      });
     }
 
     this.after(total, () => {
@@ -697,37 +752,44 @@ export class BattleStage {
   }
 
   /** Final da batalha: derrotado cai, vencedor comemora. */
-  public playEnding(winner: Side | null, onDone: () => void): void {
+  public playEnding(winner: 'player' | 'opponent' | null, onDone: () => void): void {
     this.actionBusy = true;
     this.actionDone = onDone;
     this.orbit = null;
     if (winner) {
-      const loser: Side = winner === 'player' ? 'opponent' : 'player';
-      const lf = this.fighters[loser];
-      lf.tiltTarget = Math.PI / 2;
-      this.moveTo(loser, new THREE.Vector3(this.axis.x * (loser === 'opponent' ? 0.8 : -0.8), 0, this.axis.z * (loser === 'opponent' ? 0.8 : -0.8)), 0.4);
-      this.ring(this.worldPos(loser, 0.05), 0xffffff, 4, 0.8);
-      this.sparks(this.worldPos(loser, 0.6), 0xfde68a, 30, 4);
+      const foeSides = this.activeSides.filter((x): x is FoeSide => x !== 'player');
+      const standing = foeSides.filter((x) => !this.fallen.has(x));
+      const winSide: Side = winner === 'player' ? 'player' : (standing[0] ?? 'opponent');
+      const losers: Side[] = winner === 'player' ? foeSides.filter((x) => !this.fallen.has(x)) : ['player'];
+      for (const loser of losers) {
+        const lf = this.fighters[loser];
+        lf.tiltTarget = Math.PI / 2;
+        this.fallen.add(loser);
+        const dir = this.dirBetween(winSide, loser);
+        this.moveTo(loser, new THREE.Vector3(dir.x * 0.8, 0, dir.z * 0.8), 0.4);
+        this.ring(this.worldPos(loser, 0.05), 0xffffff, 4, 0.8);
+        this.sparks(this.worldPos(loser, 0.6), 0xfde68a, 30, 4);
+      }
       this.setBanner(winner === 'player' ? 'Vitória!' : 'Derrota...');
-      const wp = this.worldPos(winner, 2.0);
+      const wp = this.worldPos(winSide, 2.0);
       this.shot(
-        new THREE.Vector3().copy(this.fighters[winner].home).addScaledVector(this.perp, 4.2).setY(1.7),
+        new THREE.Vector3().copy(this.fighters[winSide].home).addScaledVector(this.perp, 4.2 * this.spread).setY(1.7),
         wp.setY(1.2),
         3,
         this.origFov - 8,
       );
       this.orbit = {
-        around: winner,
-        radius: 4.2,
+        around: winSide,
+        radius: 4.2 * this.spread,
         height: 1.7,
         speed: 0.45,
         phase: Math.atan2(this.perp.z, this.perp.x),
       };
       this.after(0.5, () => {
-        this.jump(winner, 1.1, 0.5);
+        this.jump(winSide, 1.1, 0.5);
         if (winner === 'player') this.onPlayerCheer();
       });
-      this.after(1.1, () => this.jump(winner, 1.1, 0.5));
+      this.after(1.1, () => this.jump(winSide, 1.1, 0.5));
     } else {
       this.setBanner('Empate!');
       this.wideShot(3);
@@ -761,13 +823,13 @@ export class BattleStage {
       this.introT = Math.min(this.introDur, this.introT + step);
       const e = easeOutCubic(this.introT / this.introDur);
       const fp = easeInOut(Math.min(1, this.introT / 0.7));
-      for (const side of ['player', 'opponent'] as Side[]) {
+      for (const side of this.activeSides) {
         const f = this.fighters[side];
         f.offset.set(0, 0, 0);
         f.root.position.lerpVectors(f.start, f.home, fp);
       }
       const ang = Math.atan2(this.perp.z, this.perp.x) + (1 - e) * 2.3;
-      const radius = 7.4 + (1 - e) * 9;
+      const radius = 7.4 * this.spread + (1 - e) * 9;
       this.camPos.set(
         this.center.x + Math.cos(ang) * radius,
         2.5 + (1 - e) * 8,
@@ -795,7 +857,7 @@ export class BattleStage {
     }
 
     // Lutadores.
-    for (const side of ['player', 'opponent'] as Side[]) {
+    for (const side of this.activeSides) {
       const f = this.fighters[side];
       if (f.tween) {
         f.tween.t += step;
@@ -824,7 +886,7 @@ export class BattleStage {
 
     // Domos de defesa seguem os lutadores e esmaecem.
     if (this.guardDomes) {
-      for (const side of ['player', 'opponent'] as Side[]) {
+      for (const side of this.activeSides) {
         const d = this.guardDomes[side];
         d.position.copy(this.worldPos(side, 0.8));
         const mat = d.material as THREE.MeshBasicMaterial;

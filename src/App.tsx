@@ -199,10 +199,11 @@ export default function App() {
           onUpgradeShelter={() => engineRef.current?.triggerShelterUpgrade()}
           onClawAttack={() => engineRef.current?.triggerClawAttack()}
           onChallenge={() => engineRef.current?.challengeNearest()}
-          onDuelOffer={(kind, amount) => engineRef.current?.submitDuelOffer(kind, amount)}
+          onDuelOffer={(kind, amount, group) => engineRef.current?.submitDuelOffer(kind, amount, group)}
           onDuelCancel={() => engineRef.current?.cancelDuelOffer()}
           onDuelForfeit={() => engineRef.current?.forfeitDuel()}
           onBattleCommand={(cmd) => engineRef.current?.battleCommand(cmd)}
+          onBattleTarget={(side) => engineRef.current?.selectBattleTarget(side)}
           onMeow={() => engineRef.current?.triggerMeow()}
           onSonar={() => engineRef.current?.triggerSonar()}
           onJump={() => engineRef.current?.triggerJump()}

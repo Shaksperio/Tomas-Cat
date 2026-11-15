@@ -142,3 +142,29 @@ test('desistir entrega a vitória ao oponente', () => {
   assert.equal(st.winner, 'opponent');
   assert.equal(st.reason, 'forfeit');
 });
+
+test('grupo: o jogador cobre N × aposta e cada oponente cobre a sua', async () => {
+  const { validateGroupStake, settleGroupDuel } = await import('./duel.ts');
+  const player = { id: 'p', name: 'Tomas', coins: 80, items: {}, health: 100, maxHealth: 100, oxygen: 100, maxOxygen: 100 };
+  const mk = (id: string, coins = 40) => ({ id, name: id, coins, items: {}, health: 100, maxHealth: 100, oxygen: 100, maxOxygen: 100 });
+  const foes = [mk('a'), mk('b'), mk('c')];
+  assert.match(validateGroupStake(player, foes, { kind: 'coins', amount: 30 }) ?? '', /moedas/);
+  assert.equal(validateGroupStake(player, foes, { kind: 'coins', amount: 26 }), null);
+  assert.ok(validateGroupStake(player, [mk('a', 5)], { kind: 'coins', amount: 30 }));
+  // vitalidade: máximo de 50% / nunca abaixo de 25% do total, aplicado à soma
+  assert.ok(validateGroupStake(player, foes, { kind: 'vitality', amount: 20 }));
+  assert.equal(validateGroupStake(player, foes, { kind: 'vitality', amount: 15 }), null);
+
+  const stake = { kind: 'coins' as const, amount: 20 };
+  const s = settleGroupDuel(player, foes, stake, ['win', 'win', 'lose']);
+  assert.equal(s.player.coins, 20);
+  assert.equal(s.wins, 2);
+  assert.equal(s.losses, 1);
+  assert.equal(s.foes.a.coins, -20);
+  assert.equal(s.foes.c.coins, 20);
+  const draw = settleGroupDuel(player, foes, stake, ['draw', 'draw', 'draw']);
+  assert.equal(draw.player.coins, 0);
+  // perdendo para todos: nunca perde mais do que apostou × N
+  const lost = settleGroupDuel(player, foes, stake, ['lose', 'lose', 'lose']);
+  assert.equal(lost.player.coins, -60);
+});

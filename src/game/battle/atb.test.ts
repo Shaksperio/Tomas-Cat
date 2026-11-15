@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  type Side,
+  defaultTarget,
+  fighter,
+  foeSides,
+  livingFoes,
+  isFoe,
   specialProfile,
   LIMIT_MAX,
   MAX_TURNS,
@@ -15,7 +21,7 @@ import {
   tickAtb,
 } from './atb.ts';
 
-function waitReady(state: BattleState): 'player' | 'opponent' {
+function waitReady(state: BattleState): Side {
   for (let i = 0; i < 2000; i += 1) {
     const r = tickAtb(state, 0.05);
     if (r) return r;
@@ -48,7 +54,7 @@ test('só o lutador pronto age, e Limit exige a barra cheia', () => {
   assert.equal(canUseCommand(s, foe, 'attack'), false);
   assert.equal(canUseCommand(s, who, 'limit'), false);
   assert.throws(() => resolveCommand(s, who, 'limit'));
-  s[who].limit = LIMIT_MAX;
+  fighter(s, who).limit = LIMIT_MAX;
   assert.equal(canUseCommand(s, who, 'limit'), true);
 });
 
@@ -61,7 +67,7 @@ test('golpes tiram vigor, enchem o limit e zeram o ATB de quem agiu', () => {
   assert.equal(a.hits.length, 1);
   assert.equal(s[target].vigor, before - a.hits[0].damage);
   assert.ok(s[target].limit > 0);
-  assert.equal(s[who].atb, 0);
+  assert.equal(fighter(s, who).atb, 0);
   assert.equal(s.ready, null);
 });
 
@@ -71,16 +77,16 @@ test('Garra Furiosa dá 3 golpes e atrasa o próximo turno; Limit dá 5 e ignora
   const target = who === 'player' ? 'opponent' : 'player';
   const f = resolveCommand(s, who, 'flurry');
   assert.equal(f.hits.length, 3);
-  assert.ok(s[who].atb < 0);
+  assert.ok(fighter(s, who).atb < 0);
   const s2 = createBattle(4, 2);
   const w2 = waitReady(s2);
   const t2 = w2 === 'player' ? 'opponent' : 'player';
   s2[t2].guarding = true;
-  s2[w2].limit = LIMIT_MAX;
+  fighter(s2, w2).limit = LIMIT_MAX;
   const l = resolveCommand(s2, w2, 'limit');
   assert.equal(l.hits.length, 3); // nível 1: 3 golpes
   assert.equal(l.blocked, false);
-  assert.equal(s2[w2].limit, 0);
+  assert.equal(fighter(s2, w2).limit, 0);
   assert.ok(target);
 });
 
@@ -128,9 +134,9 @@ test('o maná sobe a cada golpe dado e recebido, e atacar enche mais que defende
   const s = createBattle(11, 2);
   const who = waitReady(s);
   const foe = who === 'player' ? 'opponent' : 'player';
-  const m0 = s[who].limit;
+  const m0 = fighter(s, who).limit;
   resolveCommand(s, who, 'attack');
-  assert.equal(s[who].limit, m0 + 14);
+  assert.equal(fighter(s, who).limit, m0 + 14);
   assert.ok(s[foe].limit > 0);
 });
 
@@ -144,10 +150,71 @@ test('a sequência especial escala com o nível', () => {
     const s = createBattle(21, 2, level, level);
     const who = waitReady(s);
     const t = who === 'player' ? 'opponent' : 'player';
-    s[who].limit = LIMIT_MAX;
+    fighter(s, who).limit = LIMIT_MAX;
     const before = s[t].vigor;
     resolveCommand(s, who, 'limit');
     return before - s[t].vigor;
   };
   assert.ok(run(99) > run(1) * 2.5, `${run(99)} vs ${run(1)}`);
+});
+
+test('o maná com que o jogador entra é mantido e limitado a 100', () => {
+  assert.equal(createBattle(1, 2, 10, 10, { playerMana: 63 }).player.limit, 63);
+  assert.equal(createBattle(1, 2, 10, 10, { playerMana: 900 }).player.limit, LIMIT_MAX);
+  assert.equal(createBattle(1, 2, 10, 10, { playerMana: -5 }).player.limit, 0);
+});
+
+test('duelo em grupo: 1 contra 3 cria três oponentes independentes', () => {
+  const s = createBattle(5, 3, 40, 10, { foeLevels: [20, 15, 15] });
+  assert.equal(s.foeCount, 3);
+  assert.deepEqual(foeSides(s), ['opponent', 'opponent2', 'opponent3']);
+  assert.equal(s.opponent4, undefined);
+  assert.equal(createBattle(5, 3, 1, 10, { foeLevels: [1, 1, 1, 1, 1, 1] }).foeCount, 4);
+});
+
+test('em grupo a vitória só vem quando TODOS caem; golpes escolhem o alvo', () => {
+  const s = createBattle(9, 6, 99, 10, { foeLevels: [10, 10, 10] });
+  let guard = 0;
+  let fell = 0;
+  while (!s.finished && guard++ < 4000) {
+    const who = waitReady(s);
+    if (isFoe(who)) {
+      const cmd = chooseOpponentCommand(s, who);
+      resolveCommand(s, who, cmd);
+      s.player.vigor = Math.max(s.player.vigor, 60); // mantém o jogador vivo para o teste
+    } else {
+      const target = livingFoes(s).includes('opponent2') ? 'opponent2' : defaultTarget(s);
+      const a = resolveCommand(s, 'player', 'attack', target);
+      assert.equal(a.target, target);
+      if (a.knockedOut) {
+        fell += 1;
+        assert.equal(a.finishing, livingFoes(s).length === 0);
+      }
+    }
+  }
+  assert.equal(s.finished, true);
+  assert.equal(s.winner, 'player');
+  assert.equal(fell, 3);
+  for (const f of foeSides(s)) assert.equal(fighter(s, f).vigor, 0);
+});
+
+test('em grupo o oponente caído não age mais e o jogador perde ao zerar o vigor', () => {
+  const s = createBattle(3, 1, 1, 50, { foeLevels: [50, 50] });
+  s.opponent.vigor = 0;
+  for (let i = 0; i < 200; i += 1) {
+    const who = tickAtb(s, 0.1);
+    if (who) assert.notEqual(who, 'opponent');
+    if (who === 'opponent2') break;
+    if (who === 'player') resolveCommand(s, 'player', 'guard');
+  }
+  s.player.vigor = 1;
+  s.opponent2!.atb = 100;
+  s.ready = null;
+  const who = waitReady(s);
+  if (who === 'opponent2') {
+    s.player.guarding = false;
+    resolveCommand(s, 'opponent2', 'attack');
+    assert.equal(s.finished, true);
+    assert.equal(s.winner, 'opponent');
+  }
 });

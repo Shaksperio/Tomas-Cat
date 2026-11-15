@@ -36,7 +36,7 @@ const STATUS_COLORS: Record<SimulatedAgent['status'], number> = {
 export class SocietyActors {
   private readonly actors = new Map<string, SocietyActorView>();
   /** Habitante cuja posição/rotação é controlada por uma cena (ex.: batalha). */
-  private controlledAgentId: string | null = null;
+  private controlledAgentIds = new Set<string>();
   private readonly constructions = new Map<string, THREE.Group>();
   private farm: THREE.Group | null = null;
   private readonly crops: THREE.Group[] = [];
@@ -347,8 +347,8 @@ export class SocietyActors {
   }
 
   /** Enquanto definido, a cena controla posição e rotação deste habitante. */
-  public setSceneControl(agentId: string | null): void {
-    this.controlledAgentId = agentId;
+  public setSceneControl(agentIds: string | string[] | null): void {
+    this.controlledAgentIds = new Set(agentIds === null ? [] : Array.isArray(agentIds) ? agentIds : [agentIds]);
   }
 
   public update(
@@ -365,7 +365,7 @@ export class SocietyActors {
       }
 
       actor.root.visible = visible && agent.status !== 'disabled';
-      if (agent.id !== this.controlledAgentId) {
+      if (!this.controlledAgentIds.has(agent.id)) {
         actor.root.position.x = THREE.MathUtils.damp(
           actor.root.position.x,
           agent.position.x,

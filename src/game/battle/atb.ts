@@ -9,7 +9,10 @@
  * O jogo só avança o ATB enquanto nenhuma ação está sendo animada ("modo espera").
  */
 
-export type Side = 'player' | 'opponent';
+export type FoeSide = 'opponent' | 'opponent2' | 'opponent3' | 'opponent4';
+export type Side = 'player' | FoeSide;
+export const FOE_SIDES: readonly FoeSide[] = ['opponent', 'opponent2', 'opponent3', 'opponent4'];
+export const MAX_FOES = FOE_SIDES.length;
 export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit';
 
 export interface Combatant {
@@ -24,17 +27,27 @@ export interface Combatant {
 export interface BattleState {
   player: Combatant;
   opponent: Combatant;
+  /** Oponentes extras (duelo em grupo: 1 contra até 4). */
+  opponent2?: Combatant;
+  opponent3?: Combatant;
+  opponent4?: Combatant;
+  /** Quantos oponentes existem (1 a 4). */
+  foeCount: number;
   /** Quem está pronto para agir (aguardando comando/IA). */
   ready: Side | null;
   turn: number;
   finished: boolean;
-  winner: Side | null;
+  /** 'opponent' significa "o lado adversário venceu". */
+  winner: 'player' | 'opponent' | null;
   reason: 'knockout' | 'turns' | 'forfeit' | null;
   rngState: number;
   /** Poder de ataque do jogador (≈ dano da garra / 12). */
   playerPower: number;
-  /** Níveis dos lutadores: definem a força da sequência especial. */
+  /** Nível do jogador: define a força da sequência especial. */
   playerLevel: number;
+  /** Nível de cada oponente (mesma ordem de FOE_SIDES). */
+  foeLevels: number[];
+  /** Compatibilidade: nível do primeiro oponente. */
   opponentLevel: number;
 }
 
@@ -51,7 +64,9 @@ export interface BattleAction {
   hits: BattleHit[];
   /** O alvo estava defendendo e reduziu o dano. */
   blocked: boolean;
-  /** O alvo caiu com esta ação. */
+  /** O alvo caiu com esta ação (a batalha pode continuar se restarem oponentes). */
+  knockedOut: boolean;
+  /** Esta ação encerrou a batalha. */
   finishing: boolean;
 }
 
@@ -77,6 +92,8 @@ export function specialProfile(level: number): SpecialProfile {
   return { hits: 3 + Math.floor(lv / 33), totalDamage: Math.round(18 + lv * 0.55) };
 }
 export const MAX_TURNS = 60;
+/** Turnos extras permitidos por oponente adicional. */
+export const EXTRA_TURNS_PER_FOE = 30;
 
 export const COMMAND_LABELS: Record<BattleCommand, string> = {
   attack: 'Arranhar',
@@ -107,15 +124,31 @@ export function seedFromText(text: string): number {
   return h >>> 0;
 }
 
+export interface CreateBattleExtra {
+  /** Maná com que o jogador entra (mantido de uma batalha vencida). */
+  playerMana?: number;
+  /** Níveis dos oponentes; o tamanho define o grupo (1 a 4). */
+  foeLevels?: number[];
+}
+
 export function createBattle(
   seed: number,
   playerPower: number,
   playerLevel = 1,
   opponentLevel = 10,
+  extra: CreateBattleExtra = {},
 ): BattleState {
+  const foeLevels = (extra.foeLevels && extra.foeLevels.length > 0 ? extra.foeLevels : [opponentLevel]).slice(0, MAX_FOES);
   const state: BattleState = {
-    player: { vigor: VIGOR_MAX, atb: 55, limit: 0, guarding: false, speed: 24 },
+    player: {
+      vigor: VIGOR_MAX,
+      atb: 55,
+      limit: Math.max(0, Math.min(LIMIT_MAX, Math.round(extra.playerMana ?? 0))),
+      guarding: false,
+      speed: 24,
+    },
     opponent: { vigor: VIGOR_MAX, atb: 20, limit: 0, guarding: false, speed: 18 },
+    foeCount: foeLevels.length,
     ready: null,
     turn: 0,
     finished: false,
@@ -124,14 +157,47 @@ export function createBattle(
     rngState: seed >>> 0,
     playerPower: Math.max(0.5, Math.min(6, playerPower)),
     playerLevel,
-    opponentLevel,
+    foeLevels,
+    opponentLevel: foeLevels[0],
   };
-  // O oponente tem ritmo ligeiramente diferente conforme a semente (determinístico).
-  state.opponent.speed = 16 + Math.floor(rand(state) * 7);
+  // Ritmo de cada oponente conforme a semente (determinístico); extras começam em fases diferentes.
+  for (let i = 0; i < foeLevels.length; i += 1) {
+    const side = FOE_SIDES[i];
+    const speed = 16 + Math.floor(rand(state) * 7);
+    if (i === 0) state.opponent.speed = speed;
+    else state[side] = { vigor: VIGOR_MAX, atb: 10 + i * 4, limit: 0, guarding: false, speed };
+  }
   return state;
 }
 
-const other = (side: Side): Side => (side === 'player' ? 'opponent' : 'player');
+/** Acessa um lutador (lança erro se o lado não existe nesta batalha). */
+export function fighter(state: BattleState, side: Side): Combatant {
+  const c = state[side];
+  if (!c) throw new Error(`Lutador inexistente: ${side}`);
+  return c;
+}
+
+/** Oponentes que existem nesta batalha (vivos ou não). */
+export function foeSides(state: BattleState): FoeSide[] {
+  return FOE_SIDES.slice(0, state.foeCount);
+}
+
+/** Oponentes ainda de pé. */
+export function livingFoes(state: BattleState): FoeSide[] {
+  return foeSides(state).filter((s) => fighter(state, s).vigor > 0);
+}
+
+export const isFoe = (side: Side): side is FoeSide => side !== 'player';
+
+function levelOf(state: BattleState, side: Side): number {
+  if (side === 'player') return state.playerLevel;
+  return state.foeLevels[FOE_SIDES.indexOf(side)] ?? state.opponentLevel;
+}
+
+/** Poder de ataque dos oponentes; em grupo cada um bate um pouco mais fraco. */
+function foePower(state: BattleState): number {
+  return 1.4 * (1 - 0.12 * (state.foeCount - 1));
+}
 
 /**
  * Avança o ATB. Retorna quem ficou pronto (ou null). Enquanto `ready` estiver
@@ -139,28 +205,29 @@ const other = (side: Side): Side => (side === 'player' ? 'opponent' : 'player');
  */
 export function tickAtb(state: BattleState, dt: number): Side | null {
   if (state.finished || state.ready) return state.ready;
-  state.player.atb = Math.min(ATB_MAX, state.player.atb + state.player.speed * dt);
-  state.opponent.atb = Math.min(ATB_MAX, state.opponent.atb + state.opponent.speed * dt);
-  if (state.player.atb >= ATB_MAX && state.opponent.atb >= ATB_MAX) {
-    // Empate de barras: quem tem mais vigor perdido (mais necessitado) age primeiro.
-    state.ready = state.player.vigor <= state.opponent.vigor ? 'player' : 'opponent';
-  } else if (state.player.atb >= ATB_MAX) {
-    state.ready = 'player';
-  } else if (state.opponent.atb >= ATB_MAX) {
-    state.ready = 'opponent';
+  const sides: Side[] = ['player', ...livingFoes(state)];
+  for (const side of sides) {
+    const c = fighter(state, side);
+    c.atb = Math.min(ATB_MAX, c.atb + c.speed * dt);
+  }
+  // Empate de barras: quem tem menos vigor (mais necessitado) age primeiro; jogador desempata.
+  const full = sides.filter((s) => fighter(state, s).atb >= ATB_MAX);
+  if (full.length > 0) {
+    full.sort((a, b) => fighter(state, a).vigor - fighter(state, b).vigor || (a === 'player' ? -1 : b === 'player' ? 1 : 0));
+    state.ready = full[0];
   }
   return state.ready;
 }
 
 export function canUseCommand(state: BattleState, side: Side, command: BattleCommand): boolean {
   if (state.finished || state.ready !== side) return false;
-  if (command === 'limit') return state[side].limit >= LIMIT_MAX;
+  if (command === 'limit') return fighter(state, side).limit >= LIMIT_MAX;
   return true;
 }
 
 /** IA do oponente (determinística pela semente). */
-export function chooseOpponentCommand(state: BattleState): BattleCommand {
-  const foe = state.opponent;
+export function chooseOpponentCommand(state: BattleState, side: FoeSide = 'opponent'): BattleCommand {
+  const foe = fighter(state, side);
   if (foe.limit >= LIMIT_MAX) return 'limit';
   const roll = rand(state);
   if (foe.vigor < 35 && !foe.guarding && roll < 0.4) return 'guard';
@@ -168,8 +235,15 @@ export function chooseOpponentCommand(state: BattleState): BattleCommand {
   return 'attack';
 }
 
+/** Alvo padrão do jogador: o oponente de pé com menos vigor. */
+export function defaultTarget(state: BattleState): FoeSide {
+  const alive = livingFoes(state);
+  if (alive.length === 0) return 'opponent';
+  return alive.reduce((best, s) => (fighter(state, s).vigor < fighter(state, best).vigor ? s : best), alive[0]);
+}
+
 function applyHit(state: BattleState, target: Side, raw: number, ignoreGuard: boolean): BattleHit & { blocked: boolean } {
-  const t = state[target];
+  const t = fighter(state, target);
   const crit = rand(state) < 0.12;
   let damage = raw * (crit ? 1.6 : 1);
   const blocked = t.guarding && !ignoreGuard;
@@ -183,13 +257,21 @@ function applyHit(state: BattleState, target: Side, raw: number, ignoreGuard: bo
 
 /**
  * Executa o comando de quem está pronto. Atualiza o estado e devolve o que deve
- * ser animado (golpes, nomes, dano).
+ * ser animado (golpes, nomes, dano). O jogador pode escolher o alvo em grupo.
  */
-export function resolveCommand(state: BattleState, actor: Side, command: BattleCommand): BattleAction {
+export function resolveCommand(
+  state: BattleState,
+  actor: Side,
+  command: BattleCommand,
+  chosenTarget?: FoeSide,
+): BattleAction {
   if (!canUseCommand(state, actor, command)) throw new Error('Comando indisponível.');
-  const target = other(actor);
-  const me = state[actor];
-  const power = actor === 'player' ? state.playerPower : 1.4;
+  let target: Side = 'player';
+  if (actor === 'player') {
+    target = chosenTarget && fighter(state, chosenTarget).vigor > 0 && foeSides(state).includes(chosenTarget) ? chosenTarget : defaultTarget(state);
+  }
+  const me = fighter(state, actor);
+  const power = actor === 'player' ? state.playerPower : foePower(state);
   const hits: BattleHit[] = [];
   let blocked = false;
 
@@ -218,7 +300,7 @@ export function resolveCommand(state: BattleState, actor: Side, command: BattleC
     }
     case 'limit': {
       me.limit = 0;
-      const sp = specialProfile(actor === 'player' ? state.playerLevel : state.opponentLevel);
+      const sp = specialProfile(levelOf(state, actor));
       for (let i = 0; i < sp.hits; i += 1) {
         const r = applyHit(state, target, sp.totalDamage / sp.hits + Math.floor(rand(state) * 3), true);
         hits.push({ damage: r.damage, crit: r.crit });
@@ -231,19 +313,29 @@ export function resolveCommand(state: BattleState, actor: Side, command: BattleC
   if (command !== 'limit') me.limit = Math.min(LIMIT_MAX, me.limit + MANA_GAIN[command]);
   state.ready = null;
   state.turn += 1;
-  const finishing = state[target].vigor <= 0;
-  if (finishing) {
+  const knockedOut = command !== 'guard' && fighter(state, target).vigor <= 0;
+  const maxTurns = MAX_TURNS + EXTRA_TURNS_PER_FOE * (state.foeCount - 1);
+  let finishing = false;
+  if (state.player.vigor <= 0) {
     state.finished = true;
-    state.winner = actor;
+    state.winner = 'opponent';
     state.reason = 'knockout';
-  } else if (state.turn >= MAX_TURNS) {
+    finishing = true;
+  } else if (livingFoes(state).length === 0) {
+    state.finished = true;
+    state.winner = 'player';
+    state.reason = 'knockout';
+    finishing = true;
+  } else if (state.turn >= maxTurns) {
     state.finished = true;
     state.reason = 'turns';
-    if (state.player.vigor > state.opponent.vigor) state.winner = 'player';
-    else if (state.opponent.vigor > state.player.vigor) state.winner = 'opponent';
+    const foeVigor = foeSides(state).reduce((sum, s) => sum + fighter(state, s).vigor, 0) / state.foeCount;
+    if (state.player.vigor > foeVigor) state.winner = 'player';
+    else if (foeVigor > state.player.vigor) state.winner = 'opponent';
     else state.winner = null;
+    finishing = true;
   }
-  return { actor, target, command, name: COMMAND_LABELS[command], hits, blocked, finishing };
+  return { actor, target, command, name: COMMAND_LABELS[command], hits, blocked, knockedOut, finishing };
 }
 
 export function forfeitBattle(state: BattleState): void {

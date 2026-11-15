@@ -228,6 +228,15 @@ export interface BossHudInfo {
 
 export type DuelStakeKind = 'coins' | 'item' | 'vitality' | 'oxygen';
 
+export interface DuelFoeHud {
+  side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4';
+  name: string;
+  vigor: number;
+  atb: number;
+  guard: boolean;
+  fallen: boolean;
+}
+
 export interface DuelHud {
   phase: 'offer' | 'fighting' | 'result';
   opponentName: string;
@@ -247,6 +256,14 @@ export interface DuelHud {
   flash: number;
   playerGuard: boolean;
   opponentGuard: boolean;
+  /** Todos os oponentes da batalha (1 a 4). */
+  foes: DuelFoeHud[];
+  /** Alvo selecionado do jogador (em grupo). */
+  targetSide: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4' | null;
+  /** Maná guardado de batalhas vencidas (0–100). */
+  storedMana: number;
+  /** Quantos habitantes por perto podem entrar num duelo em grupo (0–4). */
+  groupAvailable: number;
   /** Limites que o jogador pode apostar agora (já aplicando as regras de segurança). */
   limits: { coins: number; scrap: number; vitality: number; oxygen: number };
   defaultCoins: number;
@@ -339,6 +356,7 @@ export interface SavedGameState {
   chances: number;
   scrap: number;
   coins?: number;
+  battleMana?: number;
   day: number;
   timeOfDay: number;
   currentPhase: number;

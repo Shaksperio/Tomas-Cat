@@ -27,19 +27,28 @@ import {
   DEFAULT_COIN_STAKE,
   type DuelFighter,
   type DuelStake,
+  type PairOutcome,
   decideChallengeResponse,
   describeStake,
   maxResourceStake,
-  settleDuel,
+  settleGroupDuel,
+  validateGroupStake,
   validateMatchedStake,
 } from './battle/duel';
 import {
   type BattleCommand,
   type BattleState,
+  type FoeSide,
+  FOE_SIDES,
+  type Side,
   canUseCommand,
   chooseOpponentCommand,
   createBattle,
+  defaultTarget,
+  fighter,
   forfeitBattle,
+  isFoe,
+  livingFoes,
   resolveCommand,
   seedFromText,
   tickAtb,
@@ -172,6 +181,13 @@ export class GameEngine {
   private duelPhase: 'idle' | 'offer' | 'fighting' | 'result' = 'idle';
   private duelOpponentId: string | null = null;
   private duelStake: DuelStake | null = null;
+  /** Habitantes por perto elegíveis (o mais próximo primeiro) e os que lutam agora. */
+  private duelCandidateIds: string[] = [];
+  private duelFoeIds: string[] = [];
+  private duelNames: string[] = [];
+  private battleTarget: FoeSide | null = null;
+  /** Maná guardado de batalhas vencidas (0–100). */
+  private battleMana = 0;
   private battle: BattleState | null = null;
   private battleEnding = false;
   private readonly battleStage: BattleStage;
@@ -477,6 +493,7 @@ export class GameEngine {
     this.currentPhase = 1;
     this.defeatedBosses.clear();
     this.conqueredTerritories.clear();
+    this.battleMana = 0;
     this.announcedRivals.clear();
     this.scrap = 0;
     this.coins = 60;
@@ -719,6 +736,7 @@ export class GameEngine {
       this.announcedRivals = new Set(saved.conqueredTerritories || []);
       this.scrap = saved.scrap || 0;
       this.coins = typeof saved.coins === 'number' ? Math.max(0, saved.coins) : 60;
+      this.battleMana = typeof saved.battleMana === 'number' ? Math.max(0, Math.min(100, saved.battleMana)) : 0;
       this.day = saved.day || 1;
       this.timeOfDay = saved.timeOfDay ?? 0.34;
       this.health = Math.min(this.getEffectiveMaxHealth(), Math.max(25, saved.health || def.maxHealth));
@@ -870,6 +888,10 @@ export class GameEngine {
     this.duelPhase = 'idle';
     this.duelOpponentId = null;
     this.duelStake = null;
+    this.duelCandidateIds = [];
+    this.duelFoeIds = [];
+    this.duelNames = [];
+    this.battleTarget = null;
     this.battle = null;
     this.battleEnding = false;
     this.battleStage.end();
@@ -918,21 +940,17 @@ export class GameEngine {
       return;
     }
     const snap = this.society.snapshot();
-    let best: (typeof snap.agents)[number] | null = null;
-    let bestDist = 7;
-    for (const agent of snap.agents) {
-      if (agent.status === 'disabled') continue;
-      const d = Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z);
-      if (d < bestDist) {
-        best = agent;
-        bestDist = d;
-      }
-    }
-    if (!best) {
+    const near = snap.agents
+      .filter((agent) => agent.status !== 'disabled')
+      .map((agent) => ({ agent, d: Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z) }))
+      .filter((e) => e.d <= 12)
+      .sort((x, y) => x.d - y.d);
+    if (near.length === 0 || near[0].d > 7) {
       this.callbacks.onToast('Nenhum habitante por perto para desafiar (chegue a 7 m).', 'info');
       return;
     }
-    this.duelOpponentId = best.id;
+    this.duelOpponentId = near[0].agent.id;
+    this.duelCandidateIds = near.slice(0, FOE_SIDES.length).map((e) => e.agent.id);
     this.duelPhase = 'offer';
   }
 
@@ -940,71 +958,108 @@ export class GameEngine {
     if (this.duelPhase === 'offer') this.resetDuel();
   }
 
-  public submitDuelOffer(kind: DuelStake['kind'], amount: number): void {
+  /** `group`: desafia todos os habitantes próximos (2 a 4) de uma vez. A aposta é por oponente. */
+  public submitDuelOffer(kind: DuelStake['kind'], amount: number, group = false): void {
     if (this.phase !== 'playing' || this.duelPhase !== 'offer' || !this.duelOpponentId) return;
-    const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
-    if (!agent) {
+    const all = this.society.snapshot().agents;
+    const ids = group && this.duelCandidateIds.length >= 2 ? this.duelCandidateIds : [this.duelOpponentId];
+    const agents = ids.map((id) => all.find((a) => a.id === id)).filter((a): a is NonNullable<typeof a> => Boolean(a));
+    if (agents.length === 0) {
       this.resetDuel();
       return;
     }
     const stake: DuelStake = kind === 'item' ? { kind, amount, itemId: 'scrap' } : { kind, amount };
     const me = this.buildPlayerFighter();
-    const foe = this.buildAgentFighter(agent);
-    const invalid = validateMatchedStake(me, foe, stake);
+    const foes = agents.map((a) => this.buildAgentFighter(a));
+    const invalid = validateGroupStake(me, foes, stake);
     if (invalid) {
       this.callbacks.onToast(invalid, 'warn');
       return;
     }
-    const answer = decideChallengeResponse(
-      me,
-      foe,
-      { morale: agent.needs.morale, health: agent.health, busyResting: agent.status === 'resting' },
-      stake,
-    );
-    if (!answer.accepted) {
-      this.callbacks.onToast(answer.reason, 'warn');
+    // Cada oponente decide por si; quem recusa fica de fora (em grupo) — sem ninguém, não há duelo.
+    const accepted: typeof agents = [];
+    const refusals: string[] = [];
+    agents.forEach((agent, i) => {
+      const answer = decideChallengeResponse(
+        me,
+        foes[i],
+        { morale: agent.needs.morale, health: agent.health, busyResting: agent.status === 'resting' },
+        stake,
+      );
+      if (answer.accepted) accepted.push(agent);
+      else refusals.push(answer.reason);
+    });
+    if (accepted.length === 0) {
+      this.callbacks.onToast(refusals[0] ?? 'O desafio foi recusado.', 'warn');
       this.resetDuel();
       return;
     }
+    if (accepted.length < agents.length) {
+      const fm = accepted.map((a) => this.buildAgentFighter(a));
+      const again = validateGroupStake(me, fm, stake);
+      if (again) {
+        this.callbacks.onToast(again, 'warn');
+        return;
+      }
+    }
     this.duelStake = stake;
-    this.startBattle(agent);
-    this.callbacks.onToast(`${answer.reason} Aposta: ${describeStake(stake)} cada.`, 'success');
+    this.startBattle(accepted);
+    if (this.duelPhase !== 'fighting') return;
+    const names = accepted.map((a) => a.displayName).join(', ');
+    const per = accepted.length > 1 ? ` por oponente (${accepted.length}×)` : ' cada';
+    this.callbacks.onToast(
+      accepted.length > 1
+        ? `${names} aceitaram o desafio! Aposta: ${describeStake(stake)}${per}.`
+        : `${accepted[0].displayName} aceitou o desafio! Aposta: ${describeStake(stake)}${per}.`,
+      'success',
+    );
     gameAudio.playAlert();
   }
 
-  private startBattle(agent: { id: string; position: { x: number; z: number } }): void {
-    const foeRoot = this.societyActors.getActorRoot(agent.id);
-    if (!foeRoot) {
+  /** Inicia a batalha contra 1 a 4 habitantes. `levels` sobrescreve os níveis (ex.: chefes de gangue). */
+  private startBattle(agents: Array<{ id: string; position: { x: number; z: number } }>, levels?: number[]): void {
+    const foeList = agents
+      .slice(0, FOE_SIDES.length)
+      .map((a) => ({ agent: a, root: this.societyActors.getActorRoot(a.id) }))
+      .filter((e): e is { agent: (typeof agents)[number]; root: THREE.Object3D } => Boolean(e.root));
+    if (foeList.length === 0) {
       this.callbacks.onToast('O adversário não está disponível.', 'warn');
       this.resetDuel();
       return;
     }
     const playerPos = new THREE.Vector3(this.catPos.x, this.catPos.y, this.catPos.z);
-    const foePos = new THREE.Vector3(agent.position.x, 0, agent.position.z);
+    const foePositions = foeList.map((e) => new THREE.Vector3(e.agent.position.x, 0, e.agent.position.z));
+    const fcx = foePositions.reduce((sum, v) => sum + v.x, 0) / foePositions.length;
+    const fcz = foePositions.reduce((sum, v) => sum + v.z, 0) / foePositions.length;
     // Câmera do lado "livre" (sem prédios) em relação ao eixo da luta.
-    const ax = foePos.x - playerPos.x;
-    const az = foePos.z - playerPos.z;
+    const ax = fcx - playerPos.x;
+    const az = fcz - playerPos.z;
     const len = Math.hypot(ax, az) || 1;
     const px = -az / len;
     const pz = ax / len;
-    const cx = (foePos.x + playerPos.x) / 2;
-    const cz = (foePos.z + playerPos.z) / 2;
-    const blocked = (side: number) => this.checkHorizontalCollision(cx + px * side * 9.6, cz + pz * side * 9.6, 0.8);
+    const cx = (fcx + playerPos.x) / 2;
+    const cz = (fcz + playerPos.z) / 2;
+    const reach = 9.6 + 1.6 * (foeList.length - 1);
+    const blocked = (side: number) => this.checkHorizontalCollision(cx + px * side * reach, cz + pz * side * reach, 0.8);
     const cameraSide: 1 | -1 = blocked(1) && !blocked(-1) ? -1 : 1;
 
+    const foeLevels = foeList.map((_, i) => levels?.[i] ?? Math.min(99, 6 + Math.floor(this.level * 0.6)));
+    this.duelFoeIds = foeList.map((e) => e.agent.id);
+    this.duelNames = foeList.map((e) => this.society.snapshot().agents.find((a) => a.id === e.agent.id)?.displayName ?? '—');
     this.battle = createBattle(
-      seedFromText(`${agent.id}:${this.society.snapshot().tick}`),
+      seedFromText(`${this.duelFoeIds.join('+')}:${this.society.snapshot().tick}`),
       this.getCurrentAttackDamage() / 12,
       this.level,
-      Math.min(99, 6 + Math.floor(this.level * 0.6)),
+      foeLevels[0],
+      { playerMana: this.battleMana, foeLevels },
     );
+    this.battleTarget = defaultTarget(this.battle);
     this.battleEnding = false;
-    this.societyActors.setSceneControl(agent.id);
+    this.societyActors.setSceneControl(this.duelFoeIds);
     this.battleStage.begin({
       playerRoot: this.cat.root,
-      foeRoot,
       playerPos,
-      foePos,
+      foes: foeList.map((e, i) => ({ root: e.root, pos: foePositions[i] })),
       cameraSide,
       onPlayerClaw: () => {
         this.cat.triggerAction('claw');
@@ -1019,6 +1074,12 @@ export class GameEngine {
     this.syncHud();
   }
 
+  /** Seleciona o alvo do jogador (em batalha em grupo). */
+  public selectBattleTarget(side: FoeSide): void {
+    if (this.duelPhase !== 'fighting' || !this.battle) return;
+    if (livingFoes(this.battle).includes(side)) this.battleTarget = side;
+  }
+
   /** Comando do jogador (HUD, teclas 1–4 ou J/C = atacar). */
   public battleCommand(command: BattleCommand): void {
     if (this.phase !== 'playing' || this.duelPhase !== 'fighting' || !this.battle) return;
@@ -1030,10 +1091,12 @@ export class GameEngine {
     this.runBattleCommand('player', command);
   }
 
-  private runBattleCommand(side: 'player' | 'opponent', command: BattleCommand): void {
+  private runBattleCommand(side: Side, command: BattleCommand): void {
     const battle = this.battle;
     if (!battle) return;
-    const action = resolveCommand(battle, side, command);
+    const chosen = side === 'player' && this.battleTarget && livingFoes(battle).includes(this.battleTarget) ? this.battleTarget : undefined;
+    const action = resolveCommand(battle, side, command, chosen);
+    if (side === 'player') this.battleTarget = livingFoes(battle).includes(action.target as FoeSide) ? (action.target as FoeSide) : defaultTarget(battle);
     if (command === 'limit') gameAudio.playBossRoar();
     else if (command === 'guard') gameAudio.playSonar();
     this.battleStage.playAction(action, () => {
@@ -1073,7 +1136,7 @@ export class GameEngine {
       return;
     }
     const ready = tickAtb(battle, dt);
-    if (ready === 'opponent') this.runBattleCommand('opponent', chooseOpponentCommand(battle));
+    if (ready && isFoe(ready)) this.runBattleCommand(ready, chooseOpponentCommand(battle, ready));
   }
 
   private updateDuel(dt: number): void {
@@ -1094,43 +1157,63 @@ export class GameEngine {
   private finishDuel(): void {
     const combat = this.battle;
     const stake = this.duelStake;
-    const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
-    if (!combat || !stake || !agent) {
+    const snapAgents = this.society.snapshot().agents;
+    const agents = this.duelFoeIds
+      .map((id) => snapAgents.find((a) => a.id === id))
+      .filter((a): a is NonNullable<typeof a> => Boolean(a));
+    if (!combat || !stake || agents.length === 0) {
       this.resetDuel();
       return;
     }
     const me = this.buildPlayerFighter();
-    const foe = this.buildAgentFighter(agent);
+    const foes = agents.map((a) => this.buildAgentFighter(a));
     this.battleStage.end();
     this.societyActors.setSceneControl(null);
     this.cat.root.position.copy(this.catPos);
-    const winnerId = combat.winner === 'player' ? me.id : combat.winner === 'opponent' ? foe.id : null;
-    const settlement = settleDuel(me, foe, stake, winnerId);
 
-    const mine = settlement.changes[me.id];
+    // Cada par: oponente derrubado paga; se o jogador cai/desiste, paga aos que ficaram de pé; turnos esgotados = empate.
+    const outcomes: PairOutcome[] = agents.map((_, i) => {
+      const down = fighter(combat, FOE_SIDES[i]).vigor <= 0;
+      if (down) return 'win';
+      if (combat.winner === 'opponent') return 'lose';
+      return 'draw';
+    });
+    const result = settleGroupDuel(me, foes, stake, outcomes);
+
+    const mine = result.player;
     this.coins = Math.max(0, this.coins + mine.coins);
     this.scrap = Math.max(0, this.scrap + (mine.items.scrap ?? 0));
     const maxHp = this.getEffectiveMaxHealth();
     this.health = THREE.MathUtils.clamp(this.health + mine.health, Math.min(maxHp, maxHp * 0.25), maxHp);
     this.oxygen = THREE.MathUtils.clamp(this.oxygen + mine.oxygen, 25, 100);
-    const theirs = settlement.changes[foe.id];
-    this.society.applyDuelOutcome(foe.id, { coins: theirs.coins, health: theirs.health });
+    agents.forEach((agent) => {
+      const theirs = result.foes[agent.id];
+      if (theirs) this.society.applyDuelOutcome(agent.id, { coins: theirs.coins, health: theirs.health });
+    });
 
-    const stakeText = describeStake(stake);
-    if (settlement.draw) {
+    const names = agents.map((a) => a.displayName);
+    const who = names.length === 1 ? names[0] : `o grupo (${names.join(', ')})`;
+    const wonText = describeStake({ ...stake, amount: stake.amount * Math.max(1, result.wins) });
+    const lostText = describeStake({ ...stake, amount: stake.amount * Math.max(1, result.losses) });
+    if (result.wins === 0 && result.losses === 0) {
       this.duelResultWon = null;
-      this.duelResultText = `Empate com ${foe.name}! Ninguém perdeu a aposta (${stakeText}).`;
-    } else if (winnerId === me.id) {
+      this.duelResultText = `Empate com ${who}! Ninguém perdeu a aposta (${describeStake(stake)}).`;
+    } else if (combat.winner === 'player') {
       this.duelResultWon = true;
-      this.duelResultText = `Vitória sobre ${foe.name}! Você ganhou ${stakeText}.`;
-      this.gainXp(20);
+      this.duelResultText = `Vitória sobre ${who}! Você ganhou ${wonText}.`;
+      this.gainXp(20 * agents.length);
     } else {
       this.duelResultWon = false;
+      const earned = result.wins > 0 ? ` (mas ganhou ${wonText} dos que derrubou)` : '';
       this.duelResultText =
         combat.reason === 'forfeit'
-          ? `Você desistiu. ${foe.name} levou ${stakeText}.`
-          : `${foe.name} venceu. Você perdeu ${stakeText}.`;
+          ? `Você desistiu. ${who} levou ${lostText}${earned}.`
+          : `${who} venceu. Você perdeu ${lostText}${earned}.`;
+      if (result.wins > 0) this.gainXp(10 * result.wins);
     }
+    // O maná de uma batalha vencida é guardado para a próxima; derrota ou desistência zera.
+    if (this.duelResultWon === true) this.battleMana = Math.round(combat.player.limit);
+    else if (this.duelResultWon === false) this.battleMana = 0;
     this.duelPhase = 'result';
     this.battle = null;
     this.battleEnding = false;
@@ -1142,26 +1225,48 @@ export class GameEngine {
 
   private buildDuelHud(): DuelHud | null {
     if (this.duelPhase === 'idle') return null;
-    const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
+    const agents = this.society.snapshot().agents;
+    const primary = agents.find((a) => a.id === this.duelOpponentId);
     const me = this.buildPlayerFighter();
+    const battle = this.battle;
+    const foes: DuelHud['foes'] = [];
+    if (battle) {
+      for (let i = 0; i < battle.foeCount; i += 1) {
+        const side = FOE_SIDES[i];
+        const c = fighter(battle, side);
+        foes.push({
+          side,
+          name: this.duelNames[i] ?? '—',
+          vigor: this.battleStage.displayVigor[side],
+          atb: Math.max(0, Math.min(100, c.atb)),
+          guard: c.guarding,
+          fallen: this.battleStage.displayVigor[side] <= 0 || c.vigor <= 0,
+        });
+      }
+    }
+    const first = foes[0];
     return {
       phase: this.duelPhase === 'offer' ? 'offer' : this.duelPhase === 'fighting' ? 'fighting' : 'result',
-      opponentName: agent?.displayName ?? '—',
+      opponentName: this.duelNames.length > 1 ? `Grupo (${this.duelNames.length})` : (this.duelNames[0] ?? primary?.displayName ?? '—'),
       stakeText: this.duelStake ? describeStake(this.duelStake) : '',
       playerVigor: this.battleStage.displayVigor.player,
-      opponentVigor: this.battleStage.displayVigor.opponent,
-      playerAtb: Math.max(0, Math.min(100, this.battle?.player.atb ?? 0)),
-      opponentAtb: Math.max(0, Math.min(100, this.battle?.opponent.atb ?? 0)),
-      playerLimit: this.battle?.player.limit ?? 0,
+      opponentVigor: first?.vigor ?? this.battleStage.displayVigor.opponent,
+      playerAtb: Math.max(0, Math.min(100, battle?.player.atb ?? 0)),
+      opponentAtb: first?.atb ?? 0,
+      playerLimit: battle?.player.limit ?? 0,
       awaitingCommand: Boolean(
-        this.battle && this.battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !this.battle.finished,
+        battle && battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !battle.finished,
       ),
       intro: this.battleStage.introActive,
       banner: this.battleStage.banner,
       darkness: this.battleStage.darkness,
       flash: this.battleStage.whiteFlash,
-      playerGuard: Boolean(this.battle?.player.guarding),
-      opponentGuard: Boolean(this.battle?.opponent.guarding),
+      playerGuard: Boolean(battle?.player.guarding),
+      opponentGuard: first?.guard ?? false,
+      foes,
+      targetSide: this.battleTarget,
+      storedMana: this.battleMana,
+      groupAvailable: this.duelPhase === 'offer' ? this.duelCandidateIds.length : 0,
       limits: {
         coins: me.coins,
         scrap: this.scrap,
@@ -1556,6 +1661,7 @@ export class GameEngine {
         chances: this.chances,
         scrap: this.scrap,
         coins: this.coins,
+        battleMana: this.battleMana,
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
@@ -1631,6 +1737,13 @@ export class GameEngine {
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);
+      } else if (code === 'KeyT' && this.duelPhase === 'fighting' && this.battle) {
+        // Troca o alvo entre os oponentes de pé.
+        const alive = livingFoes(this.battle);
+        if (alive.length > 1) {
+          const i = this.battleTarget ? alive.indexOf(this.battleTarget) : -1;
+          this.battleTarget = alive[(i + 1) % alive.length];
+        }
       } else if (code === 'KeyB') {
         if (this.duelPhase === 'offer') this.cancelDuelOffer();
         else if (this.duelPhase === 'idle') this.challengeNearest();

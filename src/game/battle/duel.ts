@@ -154,6 +154,77 @@ export function settleDuel(
   return { winnerId, loserId: loser.id, draw: false, stake, changes };
 }
 
+// ---------------------------------------------------------------------------
+// Duelo em grupo (1 contra N): a aposta é POR oponente; o jogador arrisca N×.
+// ---------------------------------------------------------------------------
+
+export type PairOutcome = 'win' | 'lose' | 'draw';
+
+/** O jogador precisa cobrir N × aposta (com as mesmas regras de segurança); cada oponente cobre a sua. */
+export function validateGroupStake(
+  player: DuelFighter,
+  foes: DuelFighter[],
+  stakePerFoe: DuelStake,
+): string | null {
+  if (foes.length === 0) return 'Nenhum oponente.';
+  const total: DuelStake = { ...stakePerFoe, amount: stakePerFoe.amount * foes.length };
+  const mine = validateStake(player, total);
+  if (mine) return foes.length > 1 ? `${mine} (aposta de ${stakePerFoe.amount} × ${foes.length} oponentes).` : mine;
+  for (const foe of foes) {
+    const theirs = validateStake(foe, stakePerFoe);
+    if (theirs) return theirs;
+  }
+  return null;
+}
+
+export interface GroupSettlement {
+  /** Soma das mudanças do jogador. */
+  player: FighterChange;
+  /** Mudança de cada oponente (por id). */
+  foes: Record<string, FighterChange>;
+  wins: number;
+  losses: number;
+}
+
+/**
+ * Liquida cada par jogador × oponente. Cada oponente derrubado paga ao jogador;
+ * se o jogador perde, paga só aos que ainda estavam de pé; empate não transfere.
+ */
+export function settleGroupDuel(
+  player: DuelFighter,
+  foes: DuelFighter[],
+  stakePerFoe: DuelStake,
+  outcomes: PairOutcome[],
+): GroupSettlement {
+  const total: FighterChange = emptyChange();
+  const foeChanges: Record<string, FighterChange> = {};
+  let current: DuelFighter = { ...player, items: { ...player.items } };
+  let wins = 0;
+  let losses = 0;
+  foes.forEach((foe, i) => {
+    const outcome = outcomes[i] ?? 'draw';
+    const winnerId = outcome === 'win' ? player.id : outcome === 'lose' ? foe.id : null;
+    const result = settleDuel(current, foe, stakePerFoe, winnerId);
+    const mine = result.changes[player.id];
+    foeChanges[foe.id] = result.changes[foe.id];
+    if (outcome === 'win') wins += 1;
+    if (outcome === 'lose') losses += 1;
+    total.coins += mine.coins;
+    total.health += mine.health;
+    total.oxygen += mine.oxygen;
+    for (const [k, v] of Object.entries(mine.items)) total.items[k] = (total.items[k] ?? 0) + v;
+    current = {
+      ...current,
+      coins: current.coins + mine.coins,
+      health: current.health + mine.health,
+      oxygen: current.oxygen + mine.oxygen,
+      items: { ...current.items },
+    };
+    for (const [k, v] of Object.entries(mine.items)) current.items[k] = (current.items[k] ?? 0) + v;
+  });
+  return { player: total, foes: foeChanges, wins, losses };
+}
+
 export function describeStake(stake: DuelStake): string {
   switch (stake.kind) {
     case 'coins':

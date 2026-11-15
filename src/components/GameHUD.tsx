@@ -57,10 +57,11 @@ interface GameHUDProps {
   onUpgradeShelter: () => void;
   onClawAttack: () => void;
   onChallenge: () => void;
-  onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number) => void;
+  onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
   onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
   onSonar: () => void;
   onJump: () => void;
@@ -108,10 +109,12 @@ function BattleOverlay({
   duel,
   onCommand,
   onForfeit,
+  onTarget,
 }: {
   duel: DuelHud;
   onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
   onForfeit: () => void;
+  onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
   const limitReady = duel.playerLimit >= 100;
   const windowStyle: React.CSSProperties = {
@@ -156,16 +159,35 @@ function BattleOverlay({
         </button>
       )}
 
-      {/* Oponente (canto superior direito) */}
+      {/* Oponentes (canto superior direito): um cartão por lutador; toque/clique escolhe o alvo */}
       {!duel.intro && (
-        <div className="absolute right-3 top-[13vh] w-44 sm:w-56 p-2" style={windowStyle}>
-          <div className="flex justify-between text-[11px] sm:text-xs font-bold text-white">
-            <span className="truncate">{duel.opponentName}{duel.opponentGuard ? ' 🛡' : ''}</span>
-            <span className="font-mono-tabular">{Math.round(duel.opponentVigor)}/100</span>
-          </div>
-          <BattleBar value={duel.opponentVigor} tone="bg-gradient-to-r from-rose-500 to-amber-300" />
-          <div className="mt-1" />
-          <BattleBar value={duel.opponentAtb} tone="bg-gradient-to-r from-sky-500 to-cyan-200" height="h-1.5" />
+        <div className="pointer-events-auto absolute right-3 top-[13vh] flex w-40 sm:w-56 flex-col gap-1.5">
+          {duel.foes.map((foe) => {
+            const selected = duel.foes.length > 1 && duel.targetSide === foe.side && !foe.fallen;
+            return (
+              <button
+                key={foe.side}
+                type="button"
+                disabled={foe.fallen || duel.foes.length < 2}
+                onClick={() => onTarget(foe.side)}
+                className={`block w-full p-1.5 text-left ${foe.fallen ? 'opacity-45' : ''} ${duel.foes.length > 1 && !foe.fallen ? 'cursor-pointer' : ''}`}
+                style={{ ...windowStyle, outline: selected ? '2px solid #fde047' : 'none' }}
+              >
+                <div className="flex justify-between text-[11px] sm:text-xs font-bold text-white">
+                  <span className="truncate">
+                    {selected ? '🎯 ' : ''}
+                    {foe.name}
+                    {foe.guard ? ' 🛡' : ''}
+                    {foe.fallen ? ' ✖' : ''}
+                  </span>
+                  <span className="font-mono-tabular">{Math.round(foe.vigor)}/100</span>
+                </div>
+                <BattleBar value={foe.vigor} tone="bg-gradient-to-r from-rose-500 to-amber-300" />
+                <div className="mt-1" />
+                <BattleBar value={foe.atb} tone="bg-gradient-to-r from-sky-500 to-cyan-200" height="h-1.5" />
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -218,7 +240,7 @@ function BattleOverlay({
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-300">
-              Aposta: {duel.stakeText}
+              Aposta: {duel.stakeText}{duel.foes.length > 1 ? ' por oponente' : ''}
               {duel.awaitingCommand ? ' · Sua vez!' : ''}
             </div>
           </div>
@@ -234,17 +256,23 @@ function DuelPanel({
   onCancel,
   onForfeit,
   onCommand,
+  onTarget,
 }: {
   duel: DuelHud;
-  onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number) => void;
+  onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onCancel: () => void;
   onForfeit: () => void;
   onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
   const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
   const [amount, setAmount] = useState(duel.defaultCoins);
-  const limit =
+  const [group, setGroup] = useState(false);
+  const foeCount = group && duel.groupAvailable >= 2 ? duel.groupAvailable : 1;
+  // Em grupo a aposta é por oponente: o jogador arrisca N× e por isso o máximo por oponente cai.
+  const rawLimit =
     kind === 'coins' ? duel.limits.coins : kind === 'item' ? duel.limits.scrap : kind === 'vitality' ? duel.limits.vitality : duel.limits.oxygen;
+  const limit = Math.floor(rawLimit / foeCount);
   const options: Array<['coins' | 'item' | 'vitality' | 'oxygen', string]> = [
     ['coins', 'Moedas'],
     ['item', 'Sucata (item)'],
@@ -253,7 +281,7 @@ function DuelPanel({
   ];
 
   if (duel.phase === 'fighting') {
-    return <BattleOverlay duel={duel} onCommand={onCommand} onForfeit={onForfeit} />;
+    return <BattleOverlay duel={duel} onCommand={onCommand} onForfeit={onForfeit} onTarget={onTarget} />;
   }
 
   return (
@@ -267,6 +295,28 @@ function DuelPanel({
             Os dois apostam o mesmo valor; quem vencer leva o que o perdedor apostou. A luta é estilizada, sem ferimentos.
             Energia vital e oxigênio nunca podem ser apostados por inteiro.
           </p>
+          {duel.groupAvailable >= 2 && (
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                [false, '1 contra 1'],
+                [true, `1 contra grupo (${duel.groupAvailable})`],
+              ].map(([g, label]) => (
+                <button
+                  key={String(g)}
+                  type="button"
+                  onClick={() => setGroup(g as boolean)}
+                  className={`rounded-lg border px-2 py-1.5 text-xs font-bold cursor-pointer ${
+                    group === g ? 'bg-amber-500/30 border-amber-300 text-white' : 'bg-[#141C2B] border-white/15 text-slate-300'
+                  }`}
+                >
+                  {label as string}
+                </button>
+              ))}
+            </div>
+          )}
+          {duel.storedMana > 0 && (
+            <div className="text-[11px] text-orange-200">Maná guardado da última vitória: {Math.round(duel.storedMana)}%</div>
+          )}
           <div className="grid grid-cols-2 gap-1.5">
             {options.map(([k, label]) => (
               <button
@@ -294,13 +344,15 @@ function DuelPanel({
               onChange={(e) => setAmount(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
               className="w-20 rounded-md border border-white/15 bg-[#141C2B] px-2 py-1 text-white font-mono-tabular"
             />
-            <span className="text-[11px] text-slate-400">máx. {limit}</span>
+            <span className="text-[11px] text-slate-400">
+              máx. {limit}{foeCount > 1 ? ` por oponente (${foeCount}×)` : ''}
+            </span>
           </label>
           <div className="flex gap-2">
             <button
               type="button"
               disabled={limit < 1}
-              onClick={() => onOffer(kind, amount)}
+              onClick={() => onOffer(kind, amount, group && duel.groupAvailable >= 2)}
               className="flex-1 rounded-lg bg-fuchsia-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-40 cursor-pointer"
             >
               Lançar desafio
@@ -478,6 +530,7 @@ export function GameHUD({
   onDuelCancel,
   onDuelForfeit,
   onBattleCommand,
+  onBattleTarget,
   onMeow,
   onSonar,
   onJump,
@@ -539,7 +592,7 @@ export function GameHUD({
 
   // Durante a batalha só ficam os duelistas, os comandos e o botão de abandonar.
   if (phase === 'playing' && hud.duel?.phase === 'fighting') {
-    return <BattleOverlay duel={hud.duel} onCommand={onBattleCommand} onForfeit={onDuelForfeit} />;
+    return <BattleOverlay duel={hud.duel} onCommand={onBattleCommand} onForfeit={onDuelForfeit} onTarget={onBattleTarget} />;
   }
 
   return (
@@ -981,7 +1034,7 @@ export function GameHUD({
         )}
 
         {phase === 'playing' && hud.duel && (
-          <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} onCommand={onBattleCommand} />
+          <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} onCommand={onBattleCommand} onTarget={onBattleTarget} />
         )}
 
         {isTouchDevice && phase === 'playing' && (
