@@ -23,6 +23,7 @@ import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuil
 import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
+import { getNewlyUnlockedMoves, mergeUnlockedMoves } from './progression/unlocks';
 import {
   DEFAULT_COIN_STAKE,
   type DuelFighter,
@@ -169,6 +170,7 @@ export class GameEngine {
   private level = 1;
   private stars = 0;
   private starProgress = 0;
+  private unlockedMoves = new Set<string>(['basic-claw']);
   private chances = MAX_CHANCES;
   private spawnGraceTimer = 0;
   private bossCheckpoint: BossCheckpointData | null = null;
@@ -487,6 +489,7 @@ export class GameEngine {
     this.level = 1;
     this.stars = 0;
     this.starProgress = 0;
+    this.unlockedMoves = new Set(mergeUnlockedMoves(1));
     this.chances = MAX_CHANCES;
     this.spawnGraceTimer = 0;
     this.bossCheckpoint = null;
@@ -611,6 +614,7 @@ export class GameEngine {
       return;
     }
     this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, cp.level));
+    this.unlockedMoves = new Set(mergeUnlockedMoves(this.level));
     this.stars = cp.stars;
     this.starProgress = cp.starProgress;
     this.stageIndex = Math.max(0, Math.min(EVOLUTION_STAGES.length - 1, cp.stageIndex));
@@ -724,6 +728,7 @@ export class GameEngine {
       }
       const saved: SavedGameState = JSON.parse(raw);
       this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, saved.level || 1));
+      this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, saved.unlockedMoves ?? []));
       this.stars = saved.stars || 0;
       this.starProgress = saved.starProgress || 0;
       this.chances = typeof saved.chances === 'number' ? saved.chances : MAX_CHANCES;
@@ -1594,6 +1599,7 @@ export class GameEngine {
     this.stamina = this.getEffectiveMaxStamina();
 
     if (this.level > prevLevel) {
+      this.unlockMovesForLevel(prevLevel);
       this.applyStageFromLevel(true);
       if (this.level >= MAX_CAT_LEVEL && prevLevel < MAX_CAT_LEVEL) {
         this.callbacks.onToast(
@@ -1624,6 +1630,15 @@ export class GameEngine {
       shelter.shelterDome.scale.set(1.5, 1.25, 1.5);
       mat.color.setHex(0x065f46);
       if (shelter.shelterLight) shelter.shelterLight.color.setHex(0x10b981);
+    }
+  }
+
+  private unlockMovesForLevel(previousLevel: number): void {
+    const newlyUnlocked = getNewlyUnlockedMoves(previousLevel, this.level);
+    for (const move of newlyUnlocked) {
+      if (this.unlockedMoves.has(move.id)) continue;
+      this.unlockedMoves.add(move.id);
+      this.callbacks.onToast(`Nova técnica aprendida: ${move.name}!`, 'success');
     }
   }
 
@@ -1662,6 +1677,7 @@ export class GameEngine {
         scrap: this.scrap,
         coins: this.coins,
         battleMana: this.battleMana,
+        unlockedMoves: Array.from(this.unlockedMoves),
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
@@ -2898,6 +2914,7 @@ export class GameEngine {
       stars: this.stars,
       starProgress: this.starProgress,
       starNext: this.getStarNext(),
+      unlockedMoves: Array.from(this.unlockedMoves),
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),
