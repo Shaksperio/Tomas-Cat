@@ -42,6 +42,7 @@ import {
 import { getDayPeriod } from '../game/dayCycle';
 import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
+import { MOVE_UNLOCKS } from '../game/progression/unlocks';
 
 interface GameHUDProps {
   phase: GamePhase;
@@ -746,6 +747,15 @@ export function GameHUD({
                       className="h-full bg-amber-400 transition-all duration-200"
                       style={{ width: `${starPct}%` }}
                     />
+                  </div>
+                  <div className="mt-2 text-[10px] text-slate-400">
+                    Técnicas aprendidas ({hud.unlockedMoves.length}):{' '}
+                    <span className="text-cyan-200">
+                      {MOVE_UNLOCKS.filter((move) => hud.unlockedMoves.includes(move.id))
+                        .slice(-3)
+                        .map((move) => move.name)
+                        .join(' · ')}
+                    </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-[11px] text-slate-300">
                     <span>Telhados Dominados</span>
