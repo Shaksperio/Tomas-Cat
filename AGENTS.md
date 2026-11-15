@@ -14,6 +14,7 @@
 - **Publicação:** GitHub Pages, https://shaksperio.github.io/Tomas-Cat/ (base `/Tomas-Cat/` em `vite.config.ts`). Deploy automático a cada push na `main`, pelo workflow `.github/workflows/deploy-pages.yml`.
 - **Origem:** criado no Google AI Studio; versionado aqui. Mantenha a configuração do Vite e o workflow ao sincronizar.
 - **Idioma:** textos de interface e comunicação com o autor em **português do Brasil**.
+- **CI de pull requests:** o workflow `deploy-pages.yml` valida testes, TypeScript e build em PRs; publicação no Pages ocorre apenas em `push` para `main` ou execução manual.
 
 ## 2. Regras para qualquer IA que mexer no projeto
 
