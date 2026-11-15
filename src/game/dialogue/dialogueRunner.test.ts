@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DIALOGUE_DATA, DIALOGUE_RESIDENT_IDS } from './dialogueData';
-import { availableOptions, chooseOption, startDialogue } from './dialogueRunner';
+import { availableOptions, chooseOption, meetsDialogueCondition, startDialogue } from './dialogueRunner';
 import type { DialogueContext, DialogueNode } from './types';
 
 const context = (overrides: Partial<DialogueContext> = {}): DialogueContext => ({
@@ -46,8 +46,8 @@ test('recusa opções inexistentes e nós de destino inválidos', () => {
 });
 
 test('condições de noite, ferimento e território são determinísticas', () => {
-  const night = startDialogue('engineer-01', context({ timeOfDay: 23 }), DIALOGUE_DATA);
-  assert.equal(night?.nodeId, 'engineer-01.low_morale' === night?.nodeId ? night.nodeId : 'engineer-01.greeting');
-  const contextNight = context({ timeOfDay: 23 });
-  assert.equal(contextNight.timeOfDay >= 20, true);
+  assert.equal(meetsDialogueCondition({ kind: 'night' }, context({ timeOfDay: 23 })), true);
+  assert.equal(meetsDialogueCondition({ kind: 'night' }, context({ timeOfDay: 12 })), false);
+  assert.equal(meetsDialogueCondition({ kind: 'player_injured', belowRatio: 0.5 }, context({ playerHealthRatio: 0.3 })), true);
+  assert.equal(meetsDialogueCondition({ kind: 'territory_controlled' }, context({ territoryControlled: true })), true);
 });
