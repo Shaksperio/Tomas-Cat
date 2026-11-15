@@ -288,6 +288,7 @@ export interface HudSnapshot {
   stars: number;
   starProgress: number;
   starNext: number;
+  unlockedMoves: string[];
   isAlphaLeader: boolean;
   rankTitle: string;
   attackPower: number;
@@ -357,6 +358,8 @@ export interface SavedGameState {
   scrap: number;
   coins?: number;
   battleMana?: number;
+  /** Técnicas liberadas por nível; opcional para compatibilidade com saves v4 antigos. */
+  unlockedMoves?: string[];
   day: number;
   timeOfDay: number;
   currentPhase: number;
