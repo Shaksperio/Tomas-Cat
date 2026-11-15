@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-14. Estado do código descrito: `main` após o modo batalha 1x1 (ver `git log`).
+> Última atualização: 2026-11-15. Estado do código descrito: base da batalha ATB/cinematográfica e contratos iniciais de diálogo em branch de trabalho.
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
@@ -81,6 +81,8 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - `SocietyActors.ts`: personagens 3D, placas de nome, indicadores de estado, balões de conversa, plantação 3D (3 fileiras de 12 plantas) e armazém comunitário com estoque visual.
 - Testes: `contracts.test.ts` e `simulation.test.ts`.
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
+
+- **Contratos iniciais de diálogo (branch de trabalho):** `src/game/dialogue/types.ts`, `dialogueData.ts` e `dialogueRunner.ts` definem nós, opções, condições, efeitos e avanço puro. Há quatro nós escritos para cada um dos nove habitantes (saudação, clima, oferta de ajuda e reação à moral baixa). Os efeitos são apenas propostas devolvidas pelo runner; ainda não são aplicados ao mundo. `src/game/battle/commands.ts` descreve metadados de apresentação dos quatro comandos atuais e reserva contratos para item/combos futuros, sem habilitar comandos novos no ATB. Campos opcionais de diálogo, comandos e inventário foram acrescentados aos tipos de HUD/save para migração gradual; ainda não há integração de UI nem salvamento desses campos pelo motor.
 
 ### 4.3 O que NÃO existe ainda
 Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
@@ -175,7 +177,16 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - Cowila coordena agentes especializados (Cosmológico, Civilizacional, Ecológico, Climático, Econômico, Histórico, Segurança, Exploração). Eles propõem; regras determinísticas validam.
 - "Infinito" na prática: mundos procedurais, simulação por regiões, arquivo histórico comprimido, estados resumidos, instâncias criadas e encerradas, IDs permanentes, relógio lógico independente dos jogadores, recuperação automática.
 
-### 5.4 Sequência recomendada (a partir de agora)
+### 5.4 Roteiro de diálogos e batalha cinematográfica (decisão do autor)
+1. Fase 0 — contratos tipados, dados iniciais, runner puro, testes e campos opcionais retrocompatíveis.
+2. Fase 1 — iniciar conversas com os nove habitantes, UI clássica, opções e aplicação validada dos efeitos.
+3. Fase 2 — aprofundar a cena cinematográfica já existente; integrar itens e comandos desbloqueáveis sem alterar a lógica de apresentação/dano.
+4. Fase 3 — diálogos de provocação e resultado conectados às batalhas e às flags de história.
+5. Fase 4 — conteúdo, acessibilidade, desempenho móvel e regressão.
+
+A batalha existente em `atb.ts` e `BattleStage.ts` é a base a evoluir, não a ser substituída. O ATB atual executa apenas `attack`, `flurry`, `guard` e `limit`; os contratos `item`, `combo_a` e `combo_b` não os tornam utilizáveis até existir implementação testada.
+
+### 5.5 Sequência recomendada (a partir de agora)
 1. Sistema de sobrevivência do gato (fome, sede, oxigênio, energia vital, resistência). **Oxigênio, natação e mergulho: feitos (ver 4.1).**
 2. Recursos naturais, coleta, pesca, caça e construção de abrigos.
 3. IA de predadores, presas e ecossistemas.
