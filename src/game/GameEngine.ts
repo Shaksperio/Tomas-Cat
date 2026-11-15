@@ -1055,7 +1055,7 @@ export class GameEngine {
   /** Um quadro da batalha cinematográfica: o mundo fica "congelado" como num RPG. */
   private updateBattle(dt: number): void {
     this.updateEnvironmentLighting(dt);
-    this.cat.update(dt, 0, true, false, false, false, 0, false, this.elapsed);
+    this.cat.update(dt, 0, true, false, false, false, false, 0, false, this.elapsed);
     this.battleStage.update(dt);
     const battle = this.battle;
     if (!battle || this.battleStage.busy || this.battleEnding) return;
