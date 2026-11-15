@@ -202,6 +202,7 @@ export default function App() {
           onDuelOffer={(kind, amount) => engineRef.current?.submitDuelOffer(kind, amount)}
           onDuelCancel={() => engineRef.current?.cancelDuelOffer()}
           onDuelForfeit={() => engineRef.current?.forfeitDuel()}
+          onBattleCommand={(cmd) => engineRef.current?.battleCommand(cmd)}
           onMeow={() => engineRef.current?.triggerMeow()}
           onSonar={() => engineRef.current?.triggerSonar()}
           onJump={() => engineRef.current?.triggerJump()}

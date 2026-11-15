@@ -35,6 +35,8 @@ const STATUS_COLORS: Record<SimulatedAgent['status'], number> = {
 /** Renderização leve dos habitantes; a simulação continua independente do Three.js. */
 export class SocietyActors {
   private readonly actors = new Map<string, SocietyActorView>();
+  /** Habitante cuja posição/rotação é controlada por uma cena (ex.: batalha). */
+  private controlledAgentId: string | null = null;
   private readonly constructions = new Map<string, THREE.Group>();
   private farm: THREE.Group | null = null;
   private readonly crops: THREE.Group[] = [];
@@ -340,6 +342,15 @@ export class SocietyActors {
     }
   }
 
+  public getActorRoot(agentId: string): THREE.Object3D | null {
+    return this.actors.get(agentId)?.root ?? null;
+  }
+
+  /** Enquanto definido, a cena controla posição e rotação deste habitante. */
+  public setSceneControl(agentId: string | null): void {
+    this.controlledAgentId = agentId;
+  }
+
   public update(
     dt: number,
     snapshot: SocietySimulationSnapshot,
@@ -354,24 +365,26 @@ export class SocietyActors {
       }
 
       actor.root.visible = visible && agent.status !== 'disabled';
-      actor.root.position.x = THREE.MathUtils.damp(
-        actor.root.position.x,
-        agent.position.x,
-        3.2,
-        dt,
-      );
-      actor.root.position.z = THREE.MathUtils.damp(
-        actor.root.position.z,
-        agent.position.z,
-        3.2,
-        dt,
-      );
-      actor.root.rotation.y = THREE.MathUtils.damp(
-        actor.root.rotation.y,
-        agent.status === 'working' ? Math.PI * 0.5 : 0,
-        2,
-        dt,
-      );
+      if (agent.id !== this.controlledAgentId) {
+        actor.root.position.x = THREE.MathUtils.damp(
+          actor.root.position.x,
+          agent.position.x,
+          3.2,
+          dt,
+        );
+        actor.root.position.z = THREE.MathUtils.damp(
+          actor.root.position.z,
+          agent.position.z,
+          3.2,
+          dt,
+        );
+        actor.root.rotation.y = THREE.MathUtils.damp(
+          actor.root.rotation.y,
+          agent.status === 'working' ? Math.PI * 0.5 : 0,
+          2,
+          dt,
+        );
+      }
       (actor.badge.material as THREE.MeshBasicMaterial).color.setHex(STATUS_COLORS[agent.status]);
       actor.phase += dt * (agent.status === 'working' ? 8 : 2.2);
       const stride = agent.status === 'working' ? Math.sin(actor.phase) * 0.42 : 0;

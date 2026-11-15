@@ -60,6 +60,7 @@ interface GameHUDProps {
   onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
+  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
   onMeow: () => void;
   onSonar: () => void;
   onJump: () => void;
@@ -88,16 +89,153 @@ function VigorBar({ label, value, tone }: { label: string; value: number; tone: 
   );
 }
 
+function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: string; height?: string }) {
+  return (
+    <div className={`${height} w-full rounded-sm bg-black/50 border border-white/20 overflow-hidden`}>
+      <div className={`h-full ${tone}`} style={{ width: `${Math.max(0, Math.min(100, value))}%`, transition: 'width 0.25s linear' }} />
+    </div>
+  );
+}
+
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit'; label: string; key: string }> = [
+  { id: 'attack', label: 'Arranhar', key: '1' },
+  { id: 'flurry', label: 'Garra Furiosa', key: '2' },
+  { id: 'guard', label: 'Defender', key: '3' },
+  { id: 'limit', label: 'Limit', key: '4' },
+];
+
+function BattleOverlay({
+  duel,
+  onCommand,
+  onForfeit,
+}: {
+  duel: DuelHud;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onForfeit: () => void;
+}) {
+  const limitReady = duel.playerLimit >= 100;
+  const windowStyle: React.CSSProperties = {
+    background: 'linear-gradient(180deg, #1830c8 0%, #0a1470 55%, #050a3c 100%)',
+    border: '2px solid #d8def2',
+    borderRadius: 10,
+    boxShadow: '0 0 0 2px #05072a, 0 8px 24px rgba(0,0,0,0.55), inset 0 0 14px rgba(120,150,255,0.35)',
+  };
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 select-none">
+      {/* Barras de cinema */}
+      <div className="battle-bar-top absolute inset-x-0 top-0 h-[11vh] bg-black" />
+      <div className="battle-bar-bottom absolute inset-x-0 bottom-0 h-[11vh] bg-black" />
+
+      {/* Escurecimento (Limit) e clarões */}
+      <div className="absolute inset-0 bg-black" style={{ opacity: duel.darkness, transition: 'opacity 0.35s' }} />
+      <div className="absolute inset-0 bg-white" style={{ opacity: duel.flash }} />
+      {duel.intro && <div className="battle-swirl absolute inset-0" />}
+
+      {/* Nome do golpe */}
+      {duel.banner && !duel.intro && (
+        <div key={duel.banner.id} className="battle-banner absolute left-1/2 top-[14vh] -translate-x-1/2 px-5 py-1.5 text-center" style={windowStyle}>
+          <span className="font-display text-sm sm:text-base font-bold tracking-wide text-white">{duel.banner.text}</span>
+        </div>
+      )}
+      {duel.intro && (
+        <div className="battle-banner absolute left-1/2 top-[40vh] -translate-x-1/2 px-6 py-2" style={windowStyle}>
+          <span className="font-display text-lg sm:text-2xl font-bold tracking-widest text-white">
+            BATALHA vs {duel.opponentName.toUpperCase()}
+          </span>
+        </div>
+      )}
+
+      {/* Oponente (canto superior direito) */}
+      {!duel.intro && (
+        <div className="absolute right-3 top-[13vh] w-44 sm:w-56 p-2" style={windowStyle}>
+          <div className="flex justify-between text-[11px] sm:text-xs font-bold text-white">
+            <span className="truncate">{duel.opponentName}{duel.opponentGuard ? ' 🛡' : ''}</span>
+            <span className="font-mono-tabular">{Math.round(duel.opponentVigor)}/100</span>
+          </div>
+          <BattleBar value={duel.opponentVigor} tone="bg-gradient-to-r from-rose-500 to-amber-300" />
+          <div className="mt-1" />
+          <BattleBar value={duel.opponentAtb} tone="bg-gradient-to-r from-sky-500 to-cyan-200" height="h-1.5" />
+        </div>
+      )}
+
+      {/* Menu e status do jogador (estilo RPG clássico) */}
+      {!duel.intro && (
+        <div className="absolute inset-x-2 bottom-[12vh] flex items-end gap-2 sm:gap-3 pointer-events-auto">
+          <div className="w-40 sm:w-52 p-2" style={windowStyle}>
+            {BATTLE_COMMANDS.map((c) => {
+              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onCommand(c.id)}
+                  className={`flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs sm:text-sm font-bold ${
+                    disabled ? 'text-slate-400/70 cursor-not-allowed' : 'text-white hover:bg-white/15 cursor-pointer'
+                  } ${c.id === 'limit' && limitReady ? 'battle-limit-ready' : ''}`}
+                >
+                  <span className="w-3 text-amber-300">{duel.awaitingCommand && !disabled ? '▶' : ''}</span>
+                  <span className="flex-1 truncate">{c.label}</span>
+                  <span className="text-[10px] font-mono-tabular opacity-60">[{c.key}]</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={onForfeit}
+              className="mt-1 w-full rounded border-t border-white/20 pt-1 text-left text-[11px] text-slate-300 hover:text-white cursor-pointer"
+            >
+              <span className="inline-block w-4" /> Desistir [5]
+            </button>
+          </div>
+
+          <div className="flex-1 min-w-0 p-2" style={windowStyle}>
+            <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-white">
+              <span>Tomas{duel.playerGuard ? ' 🛡' : ''}</span>
+              <span className="font-mono-tabular text-[11px]">
+                VIGOR <span className="text-amber-200">{Math.round(duel.playerVigor)}</span>/100
+              </span>
+            </div>
+            <BattleBar value={duel.playerVigor} tone="bg-gradient-to-r from-emerald-500 to-lime-300" />
+            <div className="mt-1 flex items-center gap-2">
+              <span className="w-10 text-[10px] font-bold text-cyan-200">ATB</span>
+              <BattleBar
+                value={duel.playerAtb}
+                tone={duel.awaitingCommand ? 'bg-gradient-to-r from-yellow-400 to-amber-200 battle-atb-full' : 'bg-gradient-to-r from-sky-500 to-cyan-200'}
+                height="h-2"
+              />
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="w-10 text-[10px] font-bold text-orange-200">LIMIT</span>
+              <BattleBar
+                value={duel.playerLimit}
+                tone={limitReady ? 'bg-gradient-to-r from-orange-500 to-yellow-200 battle-atb-full' : 'bg-gradient-to-r from-orange-700 to-orange-400'}
+                height="h-2"
+              />
+            </div>
+            <div className="mt-1 text-[10px] text-slate-300">
+              Aposta: {duel.stakeText}
+              {duel.awaitingCommand ? ' · Sua vez!' : ''}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DuelPanel({
   duel,
   onOffer,
   onCancel,
   onForfeit,
+  onCommand,
 }: {
   duel: DuelHud;
   onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number) => void;
   onCancel: () => void;
   onForfeit: () => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
 }) {
   const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
   const [amount, setAmount] = useState(duel.defaultCoins);
@@ -109,6 +247,10 @@ function DuelPanel({
     ['vitality', 'Energia vital'],
     ['oxygen', 'Oxigênio'],
   ];
+
+  if (duel.phase === 'fighting') {
+    return <BattleOverlay duel={duel} onCommand={onCommand} onForfeit={onForfeit} />;
+  }
 
   return (
     <div className="pointer-events-auto fixed top-20 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,26rem)] rounded-xl border border-fuchsia-400/40 bg-[#0B0F17]/95 p-3.5 shadow-2xl">
@@ -165,29 +307,6 @@ function DuelPanel({
               className="rounded-lg border border-white/15 bg-[#141C2B] px-3 py-2 text-xs font-semibold text-slate-200 cursor-pointer"
             >
               Cancelar [B]
-            </button>
-          </div>
-        </div>
-      )}
-
-      {duel.phase === 'fighting' && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-fuchsia-200">Batalha vs {duel.opponentName}</span>
-            <span className="text-slate-300 font-mono-tabular">Aposta: {duel.stakeText} · {Math.ceil(duel.timeLeft)}s</span>
-          </div>
-          <div className="flex gap-3">
-            <VigorBar label="Tomas" value={duel.playerVigor} tone="bg-cyan-400" />
-            <VigorBar label={duel.opponentName} value={duel.opponentVigor} tone="bg-rose-400" />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-slate-400">Ataque com J/C. Pule ou afaste-se para esquivar.</span>
-            <button
-              type="button"
-              onClick={onForfeit}
-              className="rounded-lg border border-white/15 bg-[#141C2B] px-2.5 py-1 text-[11px] font-semibold text-slate-200 cursor-pointer"
-            >
-              Desistir
             </button>
           </div>
         </div>
@@ -354,6 +473,7 @@ export function GameHUD({
   onDuelOffer,
   onDuelCancel,
   onDuelForfeit,
+  onBattleCommand,
   onMeow,
   onSonar,
   onJump,
@@ -852,7 +972,7 @@ export function GameHUD({
         )}
 
         {phase === 'playing' && hud.duel && (
-          <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} />
+          <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} onCommand={onBattleCommand} />
         )}
 
         {isTouchDevice && phase === 'playing' && (

@@ -232,9 +232,21 @@ export interface DuelHud {
   phase: 'offer' | 'fighting' | 'result';
   opponentName: string;
   stakeText: string;
+  /** Vigor mostrado (cai no instante do impacto). */
   playerVigor: number;
   opponentVigor: number;
-  timeLeft: number;
+  /** Barras ATB e LIMIT (0–100). */
+  playerAtb: number;
+  opponentAtb: number;
+  playerLimit: number;
+  /** Aguardando o comando do jogador. */
+  awaitingCommand: boolean;
+  intro: boolean;
+  banner: { text: string; id: number } | null;
+  darkness: number;
+  flash: number;
+  playerGuard: boolean;
+  opponentGuard: boolean;
   /** Limites que o jogador pode apostar agora (já aplicando as regras de segurança). */
   limits: { coins: number; scrap: number; vitality: number; oxygen: number };
   defaultCoins: number;

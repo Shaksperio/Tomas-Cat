@@ -32,3 +32,29 @@
   font-variant-numeric: tabular-nums;
 }
 
+
+
+/* ---- Batalha cinematográfica (estilo RPG clássico) ---- */
+@keyframes battleBarTop { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+@keyframes battleBarBottom { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.battle-bar-top { animation: battleBarTop 0.7s ease-out both; }
+.battle-bar-bottom { animation: battleBarBottom 0.7s ease-out both; }
+
+@keyframes battleSwirl {
+  0% { opacity: 1; background: radial-gradient(circle at 50% 50%, #ffffff 0%, #6fa8ff 35%, #0a1470 80%); transform: scale(1.6) rotate(0deg); }
+  60% { opacity: 0.85; transform: scale(1.15) rotate(180deg); }
+  100% { opacity: 0; transform: scale(1) rotate(300deg); }
+}
+.battle-swirl { animation: battleSwirl 1.5s ease-in forwards; }
+
+@keyframes battleBanner {
+  0% { opacity: 0; transform: translate(-50%, -14px) scale(0.9); }
+  12% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.battle-banner { animation: battleBanner 1.5s ease-out both; }
+
+@keyframes battlePulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.8); } }
+.battle-atb-full { animation: battlePulse 0.6s ease-in-out infinite; }
+.battle-limit-ready { color: #fde68a !important; text-shadow: 0 0 8px #f59e0b; animation: battlePulse 0.8s ease-in-out infinite; }

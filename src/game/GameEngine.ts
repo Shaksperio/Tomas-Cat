@@ -25,21 +25,26 @@ import { SocietyActors } from './society/SocietyActors';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
 import {
   DEFAULT_COIN_STAKE,
-  DUEL_TIME_LIMIT_SECONDS,
-  type DuelCombatState,
   type DuelFighter,
   type DuelStake,
-  createDuelCombat,
   decideChallengeResponse,
   describeStake,
-  forfeitDuel,
   maxResourceStake,
-  playerStrike,
-  seedFromString,
   settleDuel,
-  tickDuel,
   validateMatchedStake,
 } from './battle/duel';
+import {
+  type BattleCommand,
+  type BattleState,
+  canUseCommand,
+  chooseOpponentCommand,
+  createBattle,
+  forfeitBattle,
+  resolveCommand,
+  seedFromText,
+  tickAtb,
+} from './battle/atb';
+import { BattleStage } from './battle/BattleStage';
 import {
   SWIM_SURFACE_SPEED_FACTOR,
   SWIM_UNDERWATER_SPEED_FACTOR,
@@ -167,11 +172,12 @@ export class GameEngine {
   private duelPhase: 'idle' | 'offer' | 'fighting' | 'result' = 'idle';
   private duelOpponentId: string | null = null;
   private duelStake: DuelStake | null = null;
-  private duelCombat: DuelCombatState | null = null;
+  private battle: BattleState | null = null;
+  private battleEnding = false;
+  private readonly battleStage: BattleStage;
   private duelResultText = '';
   private duelResultWon: boolean | null = null;
   private duelResultTimer = 0;
-  private readonly duelOpponentPos = new THREE.Vector3();
   private day = 1;
   private timeOfDay = 0.34;
   private weather: WeatherState = 'clear';
@@ -323,6 +329,7 @@ export class GameEngine {
     this.textures = createProceduralTextures(maxAniso);
     this.world = buildPostApocalypticWorld(this.scene, this.textures);
     this.societyActors = new SocietyActors(this.scene);
+    this.battleStage = new BattleStage(this.scene, this.camera);
     this.societyActors.update(0, this.society.snapshot(), false);
 
     this.cat = new ArticulatedCat();
@@ -863,7 +870,10 @@ export class GameEngine {
     this.duelPhase = 'idle';
     this.duelOpponentId = null;
     this.duelStake = null;
-    this.duelCombat = null;
+    this.battle = null;
+    this.battleEnding = false;
+    this.battleStage.end();
+    this.societyActors.setSceneControl(null);
     this.duelResultText = '';
     this.duelResultWon = null;
     this.duelResultTimer = 0;
@@ -896,14 +906,9 @@ export class GameEngine {
     };
   }
 
-  /** Posição dos habitantes para os atores 3D; o duelista fica na arena. */
+  /** Habitantes para os atores 3D (o duelista é controlado pela cena de batalha). */
   private snapshotForActors() {
-    const snap = this.society.snapshot();
-    if (this.duelPhase === 'fighting' && this.duelOpponentId) {
-      const agent = snap.agents.find((a) => a.id === this.duelOpponentId);
-      if (agent) agent.position = { x: this.duelOpponentPos.x, z: this.duelOpponentPos.z, sectorId: agent.position.sectorId };
-    }
-    return snap;
+    return this.society.snapshot();
   }
 
   public challengeNearest(): void {
@@ -962,32 +967,104 @@ export class GameEngine {
       return;
     }
     this.duelStake = stake;
-    this.duelCombat = createDuelCombat(seedFromString(`${agent.id}:${this.society.snapshot().tick}`));
-    this.duelOpponentPos.set(
-      this.catPos.x + Math.sin(this.catYaw) * 2.4,
-      0,
-      this.catPos.z + Math.cos(this.catYaw) * 2.4,
-    );
-    this.duelPhase = 'fighting';
-    this.callbacks.onToast(`${answer.reason} Aposta: ${describeStake(stake)} cada. Ataque com J/C!`, 'success');
+    this.startBattle(agent);
+    this.callbacks.onToast(`${answer.reason} Aposta: ${describeStake(stake)} cada.`, 'success');
     gameAudio.playAlert();
   }
 
+  private startBattle(agent: { id: string; position: { x: number; z: number } }): void {
+    const foeRoot = this.societyActors.getActorRoot(agent.id);
+    if (!foeRoot) {
+      this.callbacks.onToast('O adversário não está disponível.', 'warn');
+      this.resetDuel();
+      return;
+    }
+    const playerPos = new THREE.Vector3(this.catPos.x, this.catPos.y, this.catPos.z);
+    const foePos = new THREE.Vector3(agent.position.x, 0, agent.position.z);
+    // Câmera do lado "livre" (sem prédios) em relação ao eixo da luta.
+    const ax = foePos.x - playerPos.x;
+    const az = foePos.z - playerPos.z;
+    const len = Math.hypot(ax, az) || 1;
+    const px = -az / len;
+    const pz = ax / len;
+    const cx = (foePos.x + playerPos.x) / 2;
+    const cz = (foePos.z + playerPos.z) / 2;
+    const blocked = (side: number) => this.checkHorizontalCollision(cx + px * side * 9.6, cz + pz * side * 9.6, 0.8);
+    const cameraSide: 1 | -1 = blocked(1) && !blocked(-1) ? -1 : 1;
+
+    this.battle = createBattle(
+      seedFromText(`${agent.id}:${this.society.snapshot().tick}`),
+      this.getCurrentAttackDamage() / 12,
+    );
+    this.battleEnding = false;
+    this.societyActors.setSceneControl(agent.id);
+    this.battleStage.begin({
+      playerRoot: this.cat.root,
+      foeRoot,
+      playerPos,
+      foePos,
+      cameraSide,
+      onPlayerClaw: () => {
+        this.cat.triggerAction('claw');
+        gameAudio.playClawSlash();
+      },
+      onPlayerCheer: () => {
+        this.cat.triggerAction('meow');
+        gameAudio.playMeow();
+      },
+    });
+    this.duelPhase = 'fighting';
+  }
+
+  /** Comando do jogador (HUD, teclas 1–4 ou J/C = atacar). */
+  public battleCommand(command: BattleCommand): void {
+    if (this.phase !== 'playing' || this.duelPhase !== 'fighting' || !this.battle) return;
+    if (this.battleStage.busy || this.battleEnding) return;
+    if (!canUseCommand(this.battle, 'player', command)) {
+      if (command === 'limit') this.callbacks.onToast('A barra LIMIT ainda não está cheia.', 'info');
+      return;
+    }
+    this.runBattleCommand('player', command);
+  }
+
+  private runBattleCommand(side: 'player' | 'opponent', command: BattleCommand): void {
+    const battle = this.battle;
+    if (!battle) return;
+    const action = resolveCommand(battle, side, command);
+    if (command === 'limit') gameAudio.playBossRoar();
+    else if (command === 'guard') gameAudio.playSonar();
+    this.battleStage.playAction(action, () => {
+      if (battle.finished) this.beginBattleEnding();
+    });
+  }
+
+  private beginBattleEnding(): void {
+    const battle = this.battle;
+    if (!battle || this.battleEnding) return;
+    this.battleEnding = true;
+    this.battleStage.playEnding(battle.winner, () => this.finishDuel());
+  }
+
   public forfeitDuel(): void {
-    if (this.duelPhase !== 'fighting' || !this.duelCombat) return;
-    forfeitDuel(this.duelCombat);
+    if (this.duelPhase !== 'fighting' || !this.battle || this.battleEnding) return;
+    forfeitBattle(this.battle);
+    this.battleEnding = true;
     this.finishDuel();
   }
 
-  private duelDistance(): number {
-    return Math.hypot(this.duelOpponentPos.x - this.catPos.x, this.duelOpponentPos.z - this.catPos.z);
-  }
-
-  private duelStrike(damage: number): void {
-    if (this.duelPhase !== 'fighting' || !this.duelCombat) return;
-    const ev = playerStrike(this.duelCombat, this.duelDistance(), damage / 12);
-    if (ev === 'player_hit') gameAudio.playEnemyHit();
-    if (this.duelCombat.finished) this.finishDuel();
+  /** Um quadro da batalha cinematográfica: o mundo fica "congelado" como num RPG. */
+  private updateBattle(dt: number): void {
+    this.updateEnvironmentLighting(dt);
+    this.cat.update(dt, 0, true, false, false, false, 0, false, this.elapsed);
+    this.battleStage.update(dt);
+    const battle = this.battle;
+    if (!battle || this.battleStage.busy || this.battleEnding) return;
+    if (battle.finished) {
+      this.beginBattleEnding();
+      return;
+    }
+    const ready = tickAtb(battle, dt);
+    if (ready === 'opponent') this.runBattleCommand('opponent', chooseOpponentCommand(battle));
   }
 
   private updateDuel(dt: number): void {
@@ -1003,34 +1080,10 @@ export class GameEngine {
       }
       return;
     }
-    if (this.duelPhase !== 'fighting' || !this.duelCombat) return;
-    if (this.health <= 0 || this.waterSample.inWater) {
-      // Interrompido por outra ameaça: ninguém perde aposta.
-      this.callbacks.onToast('Duelo interrompido: nada foi apostado.', 'warn');
-      this.resetDuel();
-      return;
-    }
-    // O oponente persegue o gato e o encara.
-    const dx = this.catPos.x - this.duelOpponentPos.x;
-    const dz = this.catPos.z - this.duelOpponentPos.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist > 2.6) {
-      const step = Math.min(dist - 2.6, 3.6 * dt);
-      this.duelOpponentPos.x += (dx / dist) * step;
-      this.duelOpponentPos.z += (dz / dist) * step;
-    }
-    if (dist > 45) {
-      forfeitDuel(this.duelCombat);
-      this.finishDuel();
-      return;
-    }
-    const events = tickDuel(this.duelCombat, dt, dist, !this.isGrounded);
-    if (events.includes('opponent_hit')) gameAudio.playClawSlash();
-    if (this.duelCombat.finished) this.finishDuel();
   }
 
   private finishDuel(): void {
-    const combat = this.duelCombat;
+    const combat = this.battle;
     const stake = this.duelStake;
     const agent = this.society.snapshot().agents.find((a) => a.id === this.duelOpponentId);
     if (!combat || !stake || !agent) {
@@ -1039,6 +1092,9 @@ export class GameEngine {
     }
     const me = this.buildPlayerFighter();
     const foe = this.buildAgentFighter(agent);
+    this.battleStage.end();
+    this.societyActors.setSceneControl(null);
+    this.cat.root.position.copy(this.catPos);
     const winnerId = combat.winner === 'player' ? me.id : combat.winner === 'opponent' ? foe.id : null;
     const settlement = settleDuel(me, foe, stake, winnerId);
 
@@ -1067,6 +1123,8 @@ export class GameEngine {
           : `${foe.name} venceu. Você perdeu ${stakeText}.`;
     }
     this.duelPhase = 'result';
+    this.battle = null;
+    this.battleEnding = false;
     this.duelResultTimer = 5;
     this.callbacks.onToast(this.duelResultText, this.duelResultWon === false ? 'warn' : 'success');
     this.saveGame();
@@ -1080,9 +1138,20 @@ export class GameEngine {
       phase: this.duelPhase === 'offer' ? 'offer' : this.duelPhase === 'fighting' ? 'fighting' : 'result',
       opponentName: agent?.displayName ?? '—',
       stakeText: this.duelStake ? describeStake(this.duelStake) : '',
-      playerVigor: this.duelCombat?.playerVigor ?? 100,
-      opponentVigor: this.duelCombat?.opponentVigor ?? 100,
-      timeLeft: this.duelCombat ? Math.max(0, DUEL_TIME_LIMIT_SECONDS - this.duelCombat.elapsed) : DUEL_TIME_LIMIT_SECONDS,
+      playerVigor: this.battleStage.displayVigor.player,
+      opponentVigor: this.battleStage.displayVigor.opponent,
+      playerAtb: Math.max(0, Math.min(100, this.battle?.player.atb ?? 0)),
+      opponentAtb: Math.max(0, Math.min(100, this.battle?.opponent.atb ?? 0)),
+      playerLimit: this.battle?.player.limit ?? 0,
+      awaitingCommand: Boolean(
+        this.battle && this.battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !this.battle.finished,
+      ),
+      intro: this.battleStage.introActive,
+      banner: this.battleStage.banner,
+      darkness: this.battleStage.darkness,
+      flash: this.battleStage.whiteFlash,
+      playerGuard: Boolean(this.battle?.player.guarding),
+      opponentGuard: Boolean(this.battle?.opponent.guarding),
       limits: {
         coins: me.coins,
         scrap: this.scrap,
@@ -1096,6 +1165,10 @@ export class GameEngine {
   }
 
   public triggerClawAttack(): void {
+    if (this.phase === 'playing' && this.duelPhase === 'fighting') {
+      this.battleCommand('attack');
+      return;
+    }
     if (this.phase !== 'playing' || this.attackCooldown > 0) return;
     const def = EVOLUTION_STAGES[this.stageIndex];
     const dmg = this.getCurrentAttackDamage();
@@ -1112,8 +1185,6 @@ export class GameEngine {
       this.catPos.x = lungeX;
       this.catPos.z = lungeZ;
     }
-
-    this.duelStrike(dmg);
 
     const hitRange = 3.2 * def.scale;
     let hits = 0;
@@ -1545,9 +1616,14 @@ export class GameEngine {
         this.triggerShelterUpgrade();
       } else if (code === 'KeyJ' || code === 'KeyC') {
         this.triggerClawAttack();
+      } else if (this.duelPhase === 'fighting' && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5')) {
+        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit' };
+        const cmd = map[code];
+        if (cmd === 'forfeit') this.forfeitDuel();
+        else this.battleCommand(cmd);
       } else if (code === 'KeyB') {
         if (this.duelPhase === 'offer') this.cancelDuelOffer();
-        else this.challengeNearest();
+        else if (this.duelPhase === 'idle') this.challengeNearest();
       } else if (code === 'KeyV') {
         this.triggerMeow();
       } else if (code === 'Equal' || code === 'NumpadAdd' || code === 'KeyZ') {
@@ -1661,7 +1737,8 @@ export class GameEngine {
       this.cat.update(dt, 0, true, false, false, false, false, 0, false, this.elapsed);
       this.updateEnvironmentLighting(dt);
     } else if (this.phase === 'playing') {
-      this.updateGameplay(dt);
+      if (this.duelPhase === 'fighting') this.updateBattle(dt);
+      else this.updateGameplay(dt);
       this.societyTickTimer += dt;
       while (this.societyTickTimer >= 1) {
         this.society.step(1);
@@ -2759,6 +2836,7 @@ export class GameEngine {
     dom.removeEventListener('wheel', this.onWheel);
     dom.removeEventListener('webglcontextlost', this.onContextLost);
 
+    this.battleStage.dispose();
     this.societyActors.dispose();
     this.textures.dispose();
     // THREE.Points is not covered by the Mesh-only traversal below.
