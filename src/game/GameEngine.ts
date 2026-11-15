@@ -1010,7 +1010,7 @@ export class GameEngine {
     }
     this.duelStake = stake;
     this.startBattle(accepted);
-    if (this.duelPhase !== 'fighting') return;
+    if (!this.battle) return;
     const names = accepted.map((a) => a.displayName).join(', ');
     const per = accepted.length > 1 ? ` por oponente (${accepted.length}×)` : ' cada';
     this.callbacks.onToast(
