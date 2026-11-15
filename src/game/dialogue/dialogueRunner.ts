@@ -6,7 +6,8 @@ export function meetsDialogueCondition(condition: DialogueCondition, context: Di
     case 'trust_at_least': return context.trust >= condition.value;
     case 'morale_below': return context.morale < condition.value;
     case 'weather_is': return context.weather === condition.value;
-    case 'night': return context.timeOfDay >= 20 || context.timeOfDay < 5;
+    // O motor armazena timeOfDay normalizado entre 0 e 1 (um dia completo).
+    case 'night': return context.timeOfDay >= 20 / 24 || context.timeOfDay < 5 / 24;
     case 'player_injured': return context.playerHealthRatio < condition.belowRatio;
     case 'territory_controlled': return context.territoryControlled;
     case 'task_completed': return context.completedTaskIds.includes(condition.taskId);
