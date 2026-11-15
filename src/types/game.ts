@@ -1,3 +1,6 @@
+import type { DialogueState } from '../game/dialogue/types';
+import type { BattleInventoryItem } from '../game/battle/commands';
+
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
 
 export type WeatherState =
@@ -289,6 +292,10 @@ export interface HudSnapshot {
   starProgress: number;
   starNext: number;
   unlockedMoves: string[];
+  /** Campos opcionais para ativação gradual dos diálogos e itens de batalha. */
+  activeDialogue?: DialogueState | null;
+  unlockedCommands?: string[];
+  battleInventory?: BattleInventoryItem[];
   isAlphaLeader: boolean;
   rankTitle: string;
   attackPower: number;
@@ -361,6 +368,10 @@ export interface SavedGameState {
   battleMana?: number;
   /** Técnicas liberadas por nível; opcional para compatibilidade com saves v4 antigos. */
   unlockedMoves?: string[];
+  /** Estado conversacional opcional; saves antigos continuam válidos. */
+  activeDialogue?: DialogueState | null;
+  unlockedCommands?: string[];
+  battleInventory?: BattleInventoryItem[];
   day: number;
   timeOfDay: number;
   currentPhase: number;
