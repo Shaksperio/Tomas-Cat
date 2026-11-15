@@ -205,9 +205,10 @@ export class BattleStage {
       yaw,
     });
     const faceBack = Math.atan2(-this.axis.x, -this.axis.z);
+    // Apenas os lados ativos são instanciados; os oponentes são preenchidos logo abaixo.
     this.fighters = {
       player: mk(opts.playerRoot, opts.playerPos, -1, Math.atan2(this.axis.x, this.axis.z)),
-    } as Record<Side, Fighter>;
+    } as unknown as Record<Side, Fighter>;
     foes.forEach((foe, i) => {
       const lateral = (i - (n - 1) / 2) * 2.3;
       const depth = Math.abs(i - (n - 1) / 2) * 0.5; // arco: os das pontas ficam um pouco mais atrás
