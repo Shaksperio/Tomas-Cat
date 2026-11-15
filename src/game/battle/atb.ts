@@ -33,6 +33,9 @@ export interface BattleState {
   rngState: number;
   /** Poder de ataque do jogador (≈ dano da garra / 12). */
   playerPower: number;
+  /** Níveis dos lutadores: definem a força da sequência especial. */
+  playerLevel: number;
+  opponentLevel: number;
 }
 
 export interface BattleHit {
@@ -54,14 +57,32 @@ export interface BattleAction {
 
 export const VIGOR_MAX = 100;
 export const ATB_MAX = 100;
+/** A barra de maná (campo `limit`) vai de 0 a 100. */
 export const LIMIT_MAX = 100;
+/** Maná ganho por quem executa o comando; quem apanha também ganha um pouco. */
+export const MANA_GAIN: Record<'attack' | 'flurry' | 'guard', number> = { attack: 14, flurry: 24, guard: 6 };
+
+export interface SpecialProfile {
+  hits: number;
+  /** Dano total aproximado da sequência (sem críticos), em vigor. */
+  totalDamage: number;
+}
+
+/**
+ * Sequência especial por nível: nível baixo tira pouca energia vital, nível alto
+ * tira muita (nível 1 ≈ 18%; nível 99 ≈ 72% do vigor máximo). Regra pública.
+ */
+export function specialProfile(level: number): SpecialProfile {
+  const lv = Math.max(1, Math.min(99, Math.floor(level)));
+  return { hits: 3 + Math.floor(lv / 33), totalDamage: Math.round(18 + lv * 0.55) };
+}
 export const MAX_TURNS = 60;
 
 export const COMMAND_LABELS: Record<BattleCommand, string> = {
   attack: 'Arranhar',
   flurry: 'Garra Furiosa',
   guard: 'Defender',
-  limit: 'Limit: Garra Meteoro',
+  limit: 'Sequência Especial: Garra Meteoro',
 };
 
 function nextRandom(state: number): { value: number; state: number } {
@@ -86,7 +107,12 @@ export function seedFromText(text: string): number {
   return h >>> 0;
 }
 
-export function createBattle(seed: number, playerPower: number): BattleState {
+export function createBattle(
+  seed: number,
+  playerPower: number,
+  playerLevel = 1,
+  opponentLevel = 10,
+): BattleState {
   const state: BattleState = {
     player: { vigor: VIGOR_MAX, atb: 55, limit: 0, guarding: false, speed: 24 },
     opponent: { vigor: VIGOR_MAX, atb: 20, limit: 0, guarding: false, speed: 18 },
@@ -97,6 +123,8 @@ export function createBattle(seed: number, playerPower: number): BattleState {
     reason: null,
     rngState: seed >>> 0,
     playerPower: Math.max(0.5, Math.min(6, playerPower)),
+    playerLevel,
+    opponentLevel,
   };
   // O oponente tem ritmo ligeiramente diferente conforme a semente (determinístico).
   state.opponent.speed = 16 + Math.floor(rand(state) * 7);
@@ -148,8 +176,8 @@ function applyHit(state: BattleState, target: Side, raw: number, ignoreGuard: bo
   if (blocked) damage *= 0.5;
   damage = Math.max(1, Math.round(damage));
   t.vigor = Math.max(0, t.vigor - damage);
-  // Apanhar enche o LIMIT (mais ao defender).
-  t.limit = Math.min(LIMIT_MAX, t.limit + Math.min(26, damage * (blocked ? 0.8 : 1.3)));
+  // Apanhar também enche o maná (um pouco menos que atacar).
+  t.limit = Math.min(LIMIT_MAX, t.limit + Math.min(14, damage * (blocked ? 0.5 : 0.8)));
   return { damage, crit, blocked };
 }
 
@@ -190,8 +218,9 @@ export function resolveCommand(state: BattleState, actor: Side, command: BattleC
     }
     case 'limit': {
       me.limit = 0;
-      for (let i = 0; i < 5; i += 1) {
-        const r = applyHit(state, target, 9 + power * 1.6 + Math.floor(rand(state) * 3), true);
+      const sp = specialProfile(actor === 'player' ? state.playerLevel : state.opponentLevel);
+      for (let i = 0; i < sp.hits; i += 1) {
+        const r = applyHit(state, target, sp.totalDamage / sp.hits + Math.floor(rand(state) * 3), true);
         hits.push({ damage: r.damage, crit: r.crit });
       }
       me.atb = 0;
@@ -199,6 +228,7 @@ export function resolveCommand(state: BattleState, actor: Side, command: BattleC
     }
   }
 
+  if (command !== 'limit') me.limit = Math.min(LIMIT_MAX, me.limit + MANA_GAIN[command]);
   state.ready = null;
   state.turn += 1;
   const finishing = state[target].vigor <= 0;

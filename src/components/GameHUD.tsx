@@ -101,7 +101,7 @@ const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit'; labe
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
-  { id: 'limit', label: 'Limit', key: '4' },
+  { id: 'limit', label: 'Especial', key: '4' },
 ];
 
 function BattleOverlay({
@@ -145,6 +145,17 @@ function BattleOverlay({
         </div>
       )}
 
+      {/* Abandonar batalha (sempre visível) */}
+      {!duel.intro && (
+        <button
+          type="button"
+          onClick={onForfeit}
+          className="pointer-events-auto absolute left-3 top-[13vh] rounded-lg border border-rose-300/60 bg-rose-700/80 px-3 py-1.5 text-xs sm:text-sm font-bold text-white shadow-lg hover:bg-rose-600 cursor-pointer"
+        >
+          Abandonar batalha [5]
+        </button>
+      )}
+
       {/* Oponente (canto superior direito) */}
       {!duel.intro && (
         <div className="absolute right-3 top-[13vh] w-44 sm:w-56 p-2" style={windowStyle}>
@@ -180,13 +191,6 @@ function BattleOverlay({
                 </button>
               );
             })}
-            <button
-              type="button"
-              onClick={onForfeit}
-              className="mt-1 w-full rounded border-t border-white/20 pt-1 text-left text-[11px] text-slate-300 hover:text-white cursor-pointer"
-            >
-              <span className="inline-block w-4" /> Desistir [5]
-            </button>
           </div>
 
           <div className="flex-1 min-w-0 p-2" style={windowStyle}>
@@ -206,7 +210,7 @@ function BattleOverlay({
               />
             </div>
             <div className="mt-1 flex items-center gap-2">
-              <span className="w-10 text-[10px] font-bold text-orange-200">LIMIT</span>
+              <span className="w-10 text-[10px] font-bold text-orange-200">MANÁ</span>
               <BattleBar
                 value={duel.playerLimit}
                 tone={limitReady ? 'bg-gradient-to-r from-orange-500 to-yellow-200 battle-atb-full' : 'bg-gradient-to-r from-orange-700 to-orange-400'}
@@ -532,6 +536,11 @@ export function GameHUD({
   const energyPct = Math.max(0, Math.min(100, (hud.stamina / Math.max(1, hud.maxStamina)) * 100));
   const healthPct = Math.max(0, Math.min(100, (hud.health / Math.max(1, hud.maxHealth)) * 100));
   const oxygenPct = Math.max(0, Math.min(100, (hud.oxygen / Math.max(1, hud.maxOxygen)) * 100));
+
+  // Durante a batalha só ficam os duelistas, os comandos e o botão de abandonar.
+  if (phase === 'playing' && hud.duel?.phase === 'fighting') {
+    return <BattleOverlay duel={hud.duel} onCommand={onBattleCommand} onForfeit={onDuelForfeit} />;
+  }
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">

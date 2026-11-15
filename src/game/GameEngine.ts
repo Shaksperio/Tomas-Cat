@@ -995,6 +995,8 @@ export class GameEngine {
     this.battle = createBattle(
       seedFromText(`${agent.id}:${this.society.snapshot().tick}`),
       this.getCurrentAttackDamage() / 12,
+      this.level,
+      Math.min(99, 6 + Math.floor(this.level * 0.6)),
     );
     this.battleEnding = false;
     this.societyActors.setSceneControl(agent.id);
@@ -1021,7 +1023,7 @@ export class GameEngine {
     if (this.phase !== 'playing' || this.duelPhase !== 'fighting' || !this.battle) return;
     if (this.battleStage.busy || this.battleEnding) return;
     if (!canUseCommand(this.battle, 'player', command)) {
-      if (command === 'limit') this.callbacks.onToast('A barra LIMIT ainda não está cheia.', 'info');
+      if (command === 'limit') this.callbacks.onToast('A barra de maná ainda não está cheia.', 'info');
       return;
     }
     this.runBattleCommand('player', command);

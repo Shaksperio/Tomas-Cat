@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  specialProfile,
   LIMIT_MAX,
   MAX_TURNS,
   type BattleCommand,
@@ -77,7 +78,7 @@ test('Garra Furiosa dá 3 golpes e atrasa o próximo turno; Limit dá 5 e ignora
   s2[t2].guarding = true;
   s2[w2].limit = LIMIT_MAX;
   const l = resolveCommand(s2, w2, 'limit');
-  assert.equal(l.hits.length, 5);
+  assert.equal(l.hits.length, 3); // nível 1: 3 golpes
   assert.equal(l.blocked, false);
   assert.equal(s2[w2].limit, 0);
   assert.ok(target);
@@ -121,4 +122,32 @@ test('desistir entrega a vitória ao oponente', () => {
   const s = createBattle(6, 1);
   forfeitBattle(s);
   assert.deepEqual([s.finished, s.winner, s.reason], [true, 'opponent', 'forfeit']);
+});
+
+test('o maná sobe a cada golpe dado e recebido, e atacar enche mais que defender', () => {
+  const s = createBattle(11, 2);
+  const who = waitReady(s);
+  const foe = who === 'player' ? 'opponent' : 'player';
+  const m0 = s[who].limit;
+  resolveCommand(s, who, 'attack');
+  assert.equal(s[who].limit, m0 + 14);
+  assert.ok(s[foe].limit > 0);
+});
+
+test('a sequência especial escala com o nível', () => {
+  const low = specialProfile(1);
+  const high = specialProfile(99);
+  assert.ok(high.hits > low.hits);
+  assert.ok(high.totalDamage > low.totalDamage * 3);
+  assert.ok(high.totalDamage <= 80 && low.totalDamage >= 15);
+  const run = (level: number) => {
+    const s = createBattle(21, 2, level, level);
+    const who = waitReady(s);
+    const t = who === 'player' ? 'opponent' : 'player';
+    s[who].limit = LIMIT_MAX;
+    const before = s[t].vigor;
+    resolveCommand(s, who, 'limit');
+    return before - s[t].vigor;
+  };
+  assert.ok(run(99) > run(1) * 2.5, `${run(99)} vs ${run(1)}`);
 });
