@@ -23,6 +23,7 @@ const INITIAL_HUD: HudSnapshot = {
   stars: 0,
   starProgress: 0,
   starNext: 57,
+  unlockedMoves: ['basic-claw'],
   isAlphaLeader: false,
   rankTitle: 'Sobrevivente Errante',
   attackPower: EVOLUTION_STAGES[0].attackDamage,
