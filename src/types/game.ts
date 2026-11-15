@@ -333,6 +333,7 @@ export interface BossCheckpointData {
   level: number;
   stars: number;
   starProgress: number;
+  unlockedMoves?: string[];
   scrap: number;
   day: number;
   timeOfDay: number;
