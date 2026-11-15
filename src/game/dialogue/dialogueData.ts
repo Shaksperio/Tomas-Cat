@@ -13,7 +13,7 @@ const residents = [
   { id: 'merchant-01', name: 'Mercê', greeting: 'Chegue mais! Sempre tento conseguir algo útil para a comunidade.', weather: 'Em dias assim, mantenha seus mantimentos protegidos.', task: 'Dê uma olhada no depósito. Posso negociar quando houver excedente.', low: 'Até uma mercadora fica preocupada quando as moedas rareiam.' },
 ] as const;
 
-export const DIALOGUE_DATA: DialogueNode[] = residents.flatMap((resident) => [
+export const DIALOGUE_DATA: DialogueNode[] = residents.flatMap((resident): DialogueNode[] => [
   {
     id: `${resident.id}.greeting`, agentId: resident.id, speaker: resident.name, trigger: 'greeting',
     text: resident.greeting,
