@@ -46,8 +46,8 @@ test('recusa opções inexistentes e nós de destino inválidos', () => {
 });
 
 test('condições de noite, ferimento e território são determinísticas', () => {
-  assert.equal(meetsDialogueCondition({ kind: 'night' }, context({ timeOfDay: 23 })), true);
-  assert.equal(meetsDialogueCondition({ kind: 'night' }, context({ timeOfDay: 12 })), false);
+  assert.equal(meetsDialogueCondition({ kind: 'night' }, context({ timeOfDay: 23 / 24 })), true);
+  assert.equal(meetsDialogueCondition({ kind: 'night' }, context({ timeOfDay: 12 / 24 })), false);
   assert.equal(meetsDialogueCondition({ kind: 'player_injured', belowRatio: 0.5 }, context({ playerHealthRatio: 0.3 })), true);
   assert.equal(meetsDialogueCondition({ kind: 'territory_controlled' }, context({ territoryControlled: true })), true);
 });
