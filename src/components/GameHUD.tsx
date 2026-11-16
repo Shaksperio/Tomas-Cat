@@ -611,6 +611,16 @@ export function GameHUD({
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
       {phase === 'playing' && ((hud.playerTasks?.length ?? 0) > 0 || (hud.cycleTasks?.length ?? 0) > 0) && (
         <div className="pointer-events-auto fixed right-3 top-24 z-20 w-56 max-w-[48vw] rounded-lg border border-cyan-300/25 bg-[#0B1421]/90 p-2.5 shadow-lg backdrop-blur-sm">
+          {hud.gpsTarget && (
+            <div className="mb-2 flex items-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-400/10 px-2 py-1.5">
+              <Compass className="h-5 w-5 shrink-0 text-cyan-200" style={{ transform: `rotate(${Math.atan2(hud.gpsTarget.dx, hud.gpsTarget.dz) * 180 / Math.PI - hud.catYaw * 180 / Math.PI}deg)` }} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-cyan-200">GPS da missão · {Math.round(hud.gpsTarget.distance)} m</div>
+                <div className="truncate text-[10px] font-semibold text-white">{hud.gpsTarget.label}</div>
+                <div className="truncate text-[9px] text-slate-400">{hud.gpsTarget.objective}</div>
+              </div>
+            </div>
+          )}
           {hud.cycleTasks && hud.cycleTasks.length > 0 && (
             <div className="mb-2 border-b border-cyan-300/15 pb-2">
               <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-200">
