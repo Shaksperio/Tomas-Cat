@@ -94,7 +94,11 @@ export function evaluateViolation(
       probationUntilTick: null,
       permanentBlockReason: 'Incitação reiterada e verificada para violar as regras do sistema.',
     };
-    return { record, action: 'permanent_block', reason: record.permanentBlockReason };
+    return {
+      record,
+      action: 'permanent_block',
+      reason: 'Incitação reiterada e verificada para violar as regras do sistema.',
+    };
   }
 
   const alreadySuspended = current.status === 'suspended' || current.status === 'probation';
