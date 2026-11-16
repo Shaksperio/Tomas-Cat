@@ -9,8 +9,24 @@ function saveDocument(uid: string) {
   return doc(firestore, 'users', uid, 'gameSaves', 'main');
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      (error) => { window.clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 export async function loadAccountGameSave(uid: string): Promise<SavedGameState | null> {
-  const snapshot = await getDoc(saveDocument(uid));
+  // Sem banco Firestore criado ou sem rede, getDoc pode ficar pendente por tempo
+  // indeterminado; o limite faz o erro aparecer na tela em vez de travar.
+  const snapshot = await withTimeout(
+    getDoc(saveDocument(uid)),
+    12_000,
+    'Tempo esgotado ao consultar o Firestore (banco não criado, regras não publicadas ou sem conexão).',
+  );
   if (!snapshot.exists()) return null;
   const data = snapshot.data();
   if (data.ownerUid !== uid || !data.payload || typeof data.payload !== 'object') {
