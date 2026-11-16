@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-16. Estado do código descrito: batalha ATB/cinematográfica, diálogos, missões cíclicas e GPS de missões publicados; inventário geral em implementação.
+> Última atualização: 2026-11-16. Estado do código descrito: batalha ATB/cinematográfica, diálogos, missões cíclicas e GPS de missões publicados; inventário geral publicado; equipamentos em implementação.
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
@@ -107,7 +107,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - `src/game/items/itemCatalog.ts` define IDs e efeitos tipados para erva medicinal (saúde), frasco de água limpa (sede) e fruta energética (resistência); `inventory.ts` valida, limita pilhas e consome um item por vez.
 - `worldBuilder.ts` posiciona pickups físicos nos distritos; `GameEngine` coleta, concede XP, persiste o inventário em save opcional retrocompatível e impede consumo quando o atributo já está cheio.
 - A HUD possui mochila minimizável com quantidades e botão de uso. A ração energética de batalha permanece separada e compatível com saves antigos.
-- Equipamentos, lojas, crafting, recompensas físicas das missões e itens adicionais ainda não fazem parte deste incremento.
+- Lojas, crafting e equipamentos ainda estão fora do incremento inicial do inventário; o sistema de equipamentos está em desenvolvimento separado na branch `codex/equipment-system`.
 
 
 
@@ -116,6 +116,14 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - Ao concluir uma missão cíclica, XP continua sendo creditado pela progressão existente; a sucata da recompensa aparece como objeto físico próximo a Tomas, com brilho/anel e interação de coleta.
 - O drop fica em `SavedGameState.taskRewardDrops`, é recriado ao carregar o save e só é removido da lista após coleta. Não é contado como sucata de objetivo para evitar progresso recursivo em outras missões.
 - Recompensas dos pedidos de habitantes permanecem como antes neste incremento; lojas, crafting e equipamentos ainda não foram implementados.
+
+
+
+### 4.8 Equipamentos (incremento em desenvolvimento — branch `codex/equipment-system`)
+- O catálogo adiciona coleira reforçada (+15 saúde máxima) e arreio de explorador (+20 resistência máxima), cada um em seu slot independente.
+- Os equipamentos são pickups físicos nos distritos, ocupam inventário persistente, podem ser equipados/removidos pela mochila e devolvidos à mochila ao trocar de item no mesmo slot.
+- Bônus entram nas funções centrais de máximo de saúde/resistência; `SavedGameState.equipment` é opcional para compatibilidade com saves antigos.
+- Lojas, crafting, atributos defensivos e mais slots/tipos de equipamento continuam pendentes.
 
 ## 5. Roteiro e decisões do autor
 
