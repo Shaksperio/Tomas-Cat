@@ -8,6 +8,7 @@ import {
   PHASE_RIVERS,
   riverCurrentDelta,
   riverCurrentDirection,
+  riverCorners,
   riversForPhase,
   sampleExpandedWater,
 } from './waterBodies.ts';
@@ -75,4 +76,31 @@ test('sampleExpandedWater fora d água', () => {
   const s = sampleExpandedWater([], PHASE_RIVERS, 0, 0, 0, 0.9);
   assert.equal(s.inWater, false);
   assert.equal(s.river, null);
+});
+
+test('cada fase possui lago e rio/canal catalogado', () => {
+  for (const phase of [1, 2, 3, 4]) {
+    assert.ok(PHASE_LAKES.some((lake) => lake.phase === phase), `lago fase ${phase}`);
+    assert.ok(PHASE_RIVERS.some((river) => river.phase === phase), `rio/canal fase ${phase}`);
+  }
+});
+
+test('canal elevado é visual e não entra na amostragem de natação', () => {
+  const canal = PHASE_RIVERS.find((river) => river.id === 'canal_roofs')!;
+  const x = (canal.ax + canal.bx) / 2;
+  const z = canal.az;
+  const sample = sampleExpandedWater([], PHASE_RIVERS, x, 0, z, 0.9, 1 / 60);
+  assert.equal(sample.inWater, false);
+  assert.equal(sample.river, null);
+});
+
+test('rio retorna corpo navegável e corrente proporcional ao dt', () => {
+  const river = PHASE_RIVERS.find((r) => r.id === 'river_suburb')!;
+  const x = (river.ax + river.bx) / 2;
+  const sample = sampleExpandedWater([], PHASE_RIVERS, x, river.surfaceY - 0.5, river.az, 0.9, 0.5);
+  assert.ok(sample.body);
+  assert.equal(sample.body?.id, river.id);
+  assert.ok(Math.abs(sample.currentDx) + Math.abs(sample.currentDz) > 0);
+  const corners = riverCorners(river);
+  assert.equal(corners.length, 4);
 });
