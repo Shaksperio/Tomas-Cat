@@ -12,7 +12,7 @@ export interface BattleCommandPresentation {
   animationId: string;
   cameraSequence: CameraPreset[];
   hitTimings: number[];
-  particleProfile: 'claw' | 'flurry' | 'guard' | 'meteor' | 'item' | 'combo';
+  particleProfile: 'claw' | 'flurry' | 'guard' | 'meteor' | 'item' | 'magic' | 'combo';
   trailColor?: string;
 }
 
@@ -22,6 +22,7 @@ export const BATTLE_COMMAND_PRESENTATION: Record<BattleCommand, BattleCommandPre
   guard: { animationId: 'defensive-stance', cameraSequence: ['dramatic_side', 'wide'], hitTimings: [], particleProfile: 'guard' },
   limit: { animationId: 'meteor-claw', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'wide'], hitTimings: [1.7, 1.92, 2.14, 2.36, 2.58, 2.8], particleProfile: 'meteor', trailColor: '#93c5fd' },
   item: { animationId: 'ration-heal', cameraSequence: ['wide', 'close_face', 'wide'], hitTimings: [], particleProfile: 'item', trailColor: '#86efac' },
+  magic: { animationId: 'arcane-orb', cameraSequence: ['dramatic_side', 'low_impact', 'wide'], hitTimings: [0.42], particleProfile: 'magic', trailColor: '#a78bfa' },
   combo_a: { animationId: 'rasante-duplo', cameraSequence: ['over_shoulder', 'low_impact', 'dramatic_side', 'wide'], hitTimings: [0.42, 0.66, 0.9, 1.14], particleProfile: 'combo', trailColor: '#c4b5fd' },
   combo_b: { animationId: 'tempestade-garras', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'dramatic_side', 'wide'], hitTimings: [0.38, 0.6, 0.82, 1.04, 1.26, 1.48], particleProfile: 'combo', trailColor: '#f9a8d4' },
 };
