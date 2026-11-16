@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   AlertTriangle,
   Backpack,
@@ -466,6 +466,24 @@ function StatBar({
       </div>
     </div>
   );
+}
+
+/**
+ * Botões de ação por toque: disparam em pointerdown. Com o dedo do joystick
+ * já apoiado, o toque do segundo dedo não gera `click` no navegador móvel, o
+ * que impedia pular/atacar enquanto o gato andava. onClick só cobre teclado.
+ */
+function instantPress(action: () => void) {
+  return {
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    },
+    onClick: (e: ReactMouseEvent<HTMLElement>) => {
+      if (e.detail === 0) action();
+    },
+  };
 }
 
 function VirtualJoystick({
@@ -1225,28 +1243,28 @@ export function GameHUD({
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
-                onClick={onClawAttack}
+                {...instantPress(onClawAttack)}
                 className="h-10 px-3 rounded-lg bg-rose-500/85 text-white border border-rose-300/40 text-xs font-bold whitespace-nowrap"
               >
                 Azunhar
               </button>
               <button
                 type="button"
-                onClick={onMeow}
+                {...instantPress(onMeow)}
                 className="h-10 px-3 rounded-lg bg-[#141C2B]/90 text-amber-200 border border-amber-400/35 text-xs font-semibold whitespace-nowrap"
               >
                 Miar
               </button>
               <button
                 type="button"
-                onClick={onChallenge}
+                {...instantPress(onChallenge)}
                 className="h-10 px-3 rounded-lg bg-[#141C2B]/90 text-rose-200 border border-rose-400/35 text-xs font-semibold whitespace-nowrap"
               >
                 Duelo
               </button>
               <button
                 type="button"
-                onClick={() => setTouchSprint((s) => !s)}
+                {...instantPress(() => setTouchSprint((s) => !s))}
                 className={`h-10 px-3 rounded-lg border text-xs font-semibold whitespace-nowrap ${
                   touchSprint
                     ? 'bg-amber-500 text-slate-950 border-amber-400'
@@ -1257,7 +1275,7 @@ export function GameHUD({
               </button>
               <button
                 type="button"
-                onClick={onJump}
+                {...instantPress(onJump)}
                 className="h-10 px-3 rounded-lg bg-cyan-500 text-slate-950 text-xs font-bold whitespace-nowrap"
               >
                 Pular
@@ -1313,7 +1331,7 @@ export function GameHUD({
 
               <button
                 type="button"
-                onClick={onSonar}
+                {...instantPress(onSonar)}
                 disabled={hud.sonarCooldown > 0}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap ${
                   hud.sonarCooldown > 0
