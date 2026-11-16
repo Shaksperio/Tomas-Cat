@@ -2233,7 +2233,7 @@ export class GameEngine {
     const targetMoved = Math.hypot(target.x - this.gpsRouteTargetPosition.x, target.z - this.gpsRouteTargetPosition.z) > 3;
     const needsRoute = target.id !== this.gpsRouteTargetId || startCell !== this.gpsRouteStartCell || targetMoved || this.gpsRoutePath.length < 2;
     if (needsRoute) {
-      const elevated = Math.abs(target.y - this.catPos.y) > 1.8;
+      const elevated = Math.max(target.y, this.catPos.y) > 1.8 || Math.abs(target.y - this.catPos.y) > 1.8;
       if (elevated) {
         this.gpsRoutePath = [{ x: this.catPos.x, z: this.catPos.z }, { x: target.x, z: target.z }];
       } else {
