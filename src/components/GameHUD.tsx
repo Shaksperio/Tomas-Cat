@@ -45,7 +45,7 @@ import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
 import { MOVE_UNLOCKS } from '../game/progression/unlocks';
 import { DIALOGUE_DATA } from '../game/dialogue/dialogueData';
-import { ITEM_CATALOG, type InventoryItemId } from '../game/items/itemCatalog';
+import { ITEM_CATALOG, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from '../game/items/itemCatalog';
 
 interface GameHUDProps {
   phase: GamePhase;
@@ -59,6 +59,8 @@ interface GameHUDProps {
   onContinueAfterVictory: () => void;
   onInteract: () => void;
   onUseInventoryItem: (itemId: InventoryItemId) => void;
+  onEquipInventoryItem: (itemId: EquipmentItemId) => void;
+  onUnequipEquipment: (slot: EquipmentSlot) => void;
   onDialogueOption: (optionId: string) => void;
   onDialogueClose: () => void;
   onUpgradeShelter: () => void;
@@ -534,6 +536,8 @@ export function GameHUD({
   onContinueAfterVictory,
   onInteract,
   onUseInventoryItem,
+  onEquipInventoryItem,
+  onUnequipEquipment,
   onDialogueOption,
   onDialogueClose,
   onUpgradeShelter,
@@ -682,10 +686,23 @@ export function GameHUD({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-violet-200">Inventário</span>
                 <button type="button" onClick={() => setInventoryOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Fechar inventário"><X className="h-3.5 w-3.5" /></button>
               </div>
+              <div className="mb-2 grid grid-cols-2 gap-2">
+                {(['collar', 'harness'] as const).map((slot) => {
+                  const equippedId = hud.equipment?.[slot] ?? null;
+                  return (
+                    <div key={slot} className="rounded-lg border border-amber-300/20 bg-amber-400/[0.06] p-2">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-amber-200">{slot === 'collar' ? 'Coleira' : 'Arreio'}</div>
+                      <div className="mt-1 truncate text-[10px] text-slate-100">{equippedId ? ITEM_CATALOG[equippedId].name : 'Vazio'}</div>
+                      {equippedId && <button type="button" onClick={() => onUnequipEquipment(slot)} className="mt-1 text-[9px] text-amber-200 underline">Remover</button>}
+                    </div>
+                  );
+                })}
+              </div>
               <div className="space-y-2">
-                {(['medicinal_herb', 'clean_water', 'energy_berry'] as const).map((itemId) => {
+                {(Object.keys(ITEM_CATALOG) as InventoryItemId[]).map((itemId) => {
                   const definition = ITEM_CATALOG[itemId];
                   const quantity = hud.inventory?.find((entry) => entry.itemId === itemId)?.quantity ?? 0;
+                  const isEquipment = definition.category === 'equipment';
                   return (
                     <div key={itemId} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2">
                       <div className="min-w-0 flex-1">
@@ -696,10 +713,10 @@ export function GameHUD({
                       <button
                         type="button"
                         disabled={quantity <= 0 || phase !== 'playing'}
-                        onClick={() => onUseInventoryItem(itemId)}
+                        onClick={() => isEquipment ? onEquipInventoryItem(itemId as EquipmentItemId) : onUseInventoryItem(itemId)}
                         className="rounded-md border border-violet-300/25 bg-violet-500/15 px-2 py-1.5 text-[10px] font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-35"
                       >
-                        Usar
+                        {isEquipment ? 'Equipar' : 'Usar'}
                       </button>
                     </div>
                   );
