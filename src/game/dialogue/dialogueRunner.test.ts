@@ -10,7 +10,7 @@ const context = (overrides: Partial<DialogueContext> = {}): DialogueContext => (
   completedTaskIds: [], flags: {}, ...overrides,
 });
 
-test('todos os nove habitantes têm quatro nós escritos', () => {
+test('todos os nove habitantes têm nove nós escritos', () => {
   assert.equal(DIALOGUE_RESIDENT_IDS.length, 9);
   for (const agentId of DIALOGUE_RESIDENT_IDS) {
     assert.equal(DIALOGUE_DATA.filter((node) => node.agentId === agentId).length, 9);
