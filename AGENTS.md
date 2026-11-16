@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-15. Estado do código descrito: base da batalha ATB/cinematográfica e contratos iniciais de diálogo em branch de trabalho.
+> Última atualização: 2026-11-16. Estado do código descrito: base da batalha ATB/cinematográfica e contratos iniciais de diálogo em branch de trabalho.
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
