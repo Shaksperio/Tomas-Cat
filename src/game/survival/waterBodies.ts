@@ -21,6 +21,8 @@ export interface RiverSegment {
   floorY: number;
   /** Velocidade da corrente ao longo do segmento (m/s), A→B. */
   currentSpeed?: number;
+  /** False para canais elevados apenas visuais, sem natação/empurrão no solo. */
+  swimmable?: boolean;
 }
 
 export interface LakeDef {
@@ -33,42 +35,54 @@ export interface LakeDef {
 }
 
 export const PHASE_LAKES: readonly LakeDef[] = [
-  { id: 'lake_suburb_1', name: 'Lago da Quarentena', phase: 1, x: -40, z: -40, radius: 9 },
-  { id: 'lake_roofs_1', name: 'Cisterna dos Telhados', phase: 2, x: 90, z: 20, radius: 6 },
-  { id: 'lake_hospital_1', name: 'Espelho do Aqueduto', phase: 3, x: -95, z: 30, radius: 8 },
-  { id: 'lake_stadium_1', name: 'Lago do Bio-Domo', phase: 4, x: 15, z: 100, radius: 12 },
+  { id: 'lake_suburb_1', name: 'Lago da Quarentena', phase: 1, x: 35, z: -115, radius: 8 },
+  { id: 'lake_roofs_1', name: 'Cisterna dos Telhados', phase: 2, x: 112, z: 45, radius: 6 },
+  { id: 'lake_hospital_1', name: 'Espelho do Aqueduto', phase: 3, x: -190, z: 0, radius: 8 },
+  { id: 'lake_stadium_1', name: 'Lago do Bio-Domo', phase: 4, x: 78, z: 172, radius: 10 },
 ];
 
 export const PHASE_RIVERS: readonly RiverSegment[] = [
   {
     id: 'river_suburb',
-    name: 'Canal do Subúrbio',
+    name: 'Rio da Quarentena',
     phase: 1,
-    ax: -80, az: -70,
-    bx: 20, bz: -50,
-    halfWidth: 3.2,
+    ax: -70, az: -94,
+    bx: 45, bz: -94,
+    halfWidth: 2.8,
     surfaceY: -0.35,
     floorY: -2.4,
-    currentSpeed: 1.4,
+    currentSpeed: 1.1,
+  },
+  {
+    id: 'canal_roofs',
+    name: 'Canal Elevado dos Telhados',
+    phase: 2,
+    ax: 58, az: 40,
+    bx: 172, bz: 40,
+    halfWidth: 1.8,
+    surfaceY: 6.8,
+    floorY: 5.9,
+    currentSpeed: 0.35,
+    swimmable: false,
   },
   {
     id: 'river_hospital',
-    name: 'Canal do Complexo',
+    name: 'Rio do Complexo Hospitalar',
     phase: 3,
-    ax: -130, az: -20,
-    bx: -80, bz: 40,
+    ax: -205, az: 42,
+    bx: -55, bz: 42,
     halfWidth: 2.8,
     surfaceY: -0.4,
     floorY: -2.8,
-    currentSpeed: 1.8,
+    currentSpeed: 1.5,
   },
   {
     id: 'river_stadium',
-    name: 'Valeta do Estádio',
+    name: 'Canal da Arena',
     phase: 4,
-    ax: -30, az: 90,
-    bx: 50, bz: 120,
-    halfWidth: 3.5,
+    ax: -80, az: 198,
+    bx: 80, bz: 198,
+    halfWidth: 3.2,
     surfaceY: -0.35,
     floorY: -2.6,
     currentSpeed: 1.2,
@@ -79,6 +93,22 @@ export function lakesAsWaterBodies(phase?: number): WaterBody[] {
   return PHASE_LAKES
     .filter((l) => phase === undefined || l.phase === phase)
     .map((l) => createWaterBody(l.id, l.name, l.x, l.z, l.radius));
+}
+
+/** Cantos do retângulo que representa o leito do rio, em coordenadas X/Z. */
+export function riverCorners(r: RiverSegment): { x: number; z: number }[] {
+  const dx = r.bx - r.ax;
+  const dz = r.bz - r.az;
+  const len = Math.hypot(dx, dz);
+  if (len < 1e-8) return [];
+  const nx = (-dz / len) * r.halfWidth;
+  const nz = (dx / len) * r.halfWidth;
+  return [
+    { x: r.ax + nx, z: r.az + nz },
+    { x: r.ax - nx, z: r.az - nz },
+    { x: r.bx - nx, z: r.bz - nz },
+    { x: r.bx + nx, z: r.bz + nz },
+  ];
 }
 
 export function distanceToSegment(
@@ -194,7 +224,7 @@ export function sampleExpandedWater(
   }
 
   const river = findRiverAt(rivers, x, z);
-  if (river) {
+  if (river && river.swimmable !== false) {
     const footDepth = Math.max(0, river.surfaceY - y);
     const inWater = footDepth > 0.12;
     const submerged = inWater && y + headHeight < river.surfaceY;
@@ -202,7 +232,15 @@ export function sampleExpandedWater(
     if (inWater && (deeper || !best.inWater)) {
       const flow = riverCurrentDelta(river, dt);
       best = {
-        body: null,
+        body: {
+          id: river.id,
+          name: river.name,
+          x: (river.ax + river.bx) / 2,
+          z: (river.az + river.bz) / 2,
+          radius: river.halfWidth,
+          surfaceY: river.surfaceY,
+          floorY: river.floorY,
+        },
         river,
         inWater,
         footDepth,
