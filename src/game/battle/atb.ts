@@ -63,13 +63,15 @@ export interface BattleHit {
 export interface BattleAction {
   actor: Side;
   target: Side;
-  command: BattleCommand;
+  command: BattleCommand | 'combo_breaker';
   name: string;
   hits: BattleHit[];
   /** O alvo estava defendendo e reduziu o dano. */
   blocked: boolean;
   /** O alvo caiu com esta ação (a batalha pode continuar se restarem oponentes). */
   knockedOut: boolean;
+  /** Derrubada temporária causada por contra-ataque. */
+  knockedDown?: boolean;
   /** Esta ação encerrou a batalha. */
   finishing: boolean;
   /** Recuperação de vigor aplicada por um item. */
@@ -253,6 +255,48 @@ export function canUseCommand(state: BattleState, side: Side, command: BattleCom
   if (command === 'combo_a') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_a && state.player.limit >= COMBO_MANA_COST.combo_a;
   if (command === 'combo_b') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_b && state.player.limit >= COMBO_MANA_COST.combo_b;
   return true;
+}
+
+/** Dano máximo, já reduzido pela defesa, para classificar um golpe como fraco. */
+export const COMBO_BREAKER_WEAK_HIT_MAX = 10;
+export const COMBO_BREAKER_DAMAGE = 16;
+
+/** Contra-ataque defensivo acionado após bloquear um ataque simples e fraco. */
+export function resolveGuardComboBreaker(state: BattleState, incoming: BattleAction): BattleAction | null {
+  if (incoming.actor === 'player' || incoming.command !== 'attack' || !incoming.blocked
+    || incoming.hits.length !== 1 || incoming.hits[0].damage > COMBO_BREAKER_WEAK_HIT_MAX
+    || !state.player.guarding) return null;
+  return resolveComboBreaker(state, incoming.actor);
+}
+
+/** Contra-ataque manual durante a janela de um especial inimigo. */
+export function resolveComboBreaker(state: BattleState, target: FoeSide): BattleAction | null {
+  if (state.finished || !state.player.vigor || !foeSides(state).includes(target) || fighter(state, target).vigor <= 0) return null;
+  state.player.guarding = false;
+  state.player.atb = 0;
+  const foe = fighter(state, target);
+  foe.atb = 0;
+  const damage = Math.min(COMBO_BREAKER_DAMAGE, foe.vigor);
+  foe.vigor = Math.max(0, foe.vigor - damage);
+  const knockedOut = foe.vigor <= 0;
+  let finishing = false;
+  if (livingFoes(state).length === 0) {
+    state.finished = true;
+    state.winner = 'player';
+    state.reason = 'knockout';
+    finishing = true;
+  }
+  return {
+    actor: 'player',
+    target,
+    command: 'combo_breaker',
+    name: 'COMBO BREAKERS!',
+    hits: [{ damage, crit: true }],
+    blocked: false,
+    knockedOut,
+    knockedDown: !knockedOut,
+    finishing,
+  };
 }
 
 /** IA do oponente (determinística pela semente). */
