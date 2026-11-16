@@ -29,6 +29,8 @@ import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
 import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
+import { sampleSkyAtmosphere } from './sky/skyAtmosphere';
+import { SkyVisuals } from './sky/skyVisuals';
 import { getNewlyUnlockedMoves, mergeUnlockedMoves } from './progression/unlocks';
 import {
   DEFAULT_COIN_STAKE,
@@ -118,6 +120,7 @@ export class GameEngine {
   private readonly sunMesh: THREE.Mesh;
   private readonly starField: THREE.Points;
   private readonly moonLight: THREE.PointLight;
+  private readonly skyVisuals: SkyVisuals;
   private moonPowerActive = false;
 
   private readonly sonarRing: THREE.Mesh;
@@ -350,6 +353,7 @@ export class GameEngine {
     this.scene.add(this.starField);
     this.moonLight = new THREE.PointLight(0xc8dcff, 0, 140, 1.6);
     this.scene.add(this.moonLight);
+    this.skyVisuals = new SkyVisuals(this.scene);
 
     this.catTorch = new THREE.PointLight(0x22d3ee, 0.9, 12);
     this.catTorch.position.set(0, 1.4, 0);
@@ -2928,7 +2932,9 @@ export class GameEngine {
     this.moonMesh.position.set(this.catPos.x + 40, 68, this.catPos.z - 65);
     this.moonLight.position.copy(this.moonMesh.position);
     this.moonMesh.visible = moonStrength > 0.08;
-    this.moonLight.intensity = moonStrength * 3.6;
+    const skySample = sampleSkyAtmosphere(this.day, this.timeOfDay, this.weather);
+    this.moonLight.intensity = moonStrength * 3.6 * skySample.moonIllumination;
+    this.skyVisuals.update(dt, this.catPos.x, this.catPos.z, skySample, this.moonMesh);
     const lunarPowerNow = moonStrength >= 0.72;
     if (lunarPowerNow && !this.moonPowerActive) {
       this.moonPowerActive = true;
@@ -3198,6 +3204,7 @@ export class GameEngine {
 
     this.battleStage.dispose();
     this.societyActors.dispose();
+    this.skyVisuals.dispose();
     this.textures.dispose();
     // THREE.Points is not covered by the Mesh-only traversal below.
     // Dispose the pooled underwater particle resources explicitly.
