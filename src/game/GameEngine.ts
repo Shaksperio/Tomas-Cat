@@ -139,11 +139,12 @@ export class GameEngine {
   private readonly societyActors: SocietyActors;
   private societyTickTimer = 0;
   private readonly contactShadow: THREE.Mesh;
-  private readonly gpsRoutePositions = new Float32Array(768 * 3);
-  private readonly gpsRoute: THREE.Line;
+  private readonly gpsRoute: THREE.Mesh;
+  private readonly gpsRouteHalo: THREE.Mesh;
   private gpsRoutePath: Array<{ x: number; z: number }> = [];
   private gpsRouteTargetId: string | null = null;
   private gpsRouteStartCell = '';
+  private gpsRouteStartPosition = { x: Number.NaN, z: Number.NaN };
   private gpsRouteTargetPosition = { x: Number.NaN, z: Number.NaN };
 
   private readonly sunLight: THREE.DirectionalLight;
@@ -411,13 +412,21 @@ export class GameEngine {
       LEGACY_WORLD_ID,
     );
     this.world = this.worldSceneManager.active.world;
-    const gpsGeometry = new THREE.BufferGeometry();
-    gpsGeometry.setAttribute('position', new THREE.BufferAttribute(this.gpsRoutePositions, 3));
-    gpsGeometry.setDrawRange(0, 2);
-    this.gpsRoute = new THREE.Line(gpsGeometry, new THREE.LineBasicMaterial({ color: 0x2f80ff, transparent: true, opacity: 0.96, depthWrite: false }));
+    this.gpsRouteHalo = new THREE.Mesh(
+      new THREE.BufferGeometry(),
+      new THREE.MeshBasicMaterial({ color: 0xf8fbff, transparent: true, opacity: 0.96, depthWrite: false }),
+    );
+    this.gpsRouteHalo.frustumCulled = false;
+    this.gpsRouteHalo.renderOrder = 20;
+    this.gpsRouteHalo.visible = false;
+    this.gpsRoute = new THREE.Mesh(
+      new THREE.BufferGeometry(),
+      new THREE.MeshBasicMaterial({ color: 0x1677ff, transparent: true, opacity: 1, depthWrite: false }),
+    );
     this.gpsRoute.frustumCulled = false;
+    this.gpsRoute.renderOrder = 21;
     this.gpsRoute.visible = false;
-    this.scene.add(this.gpsRoute);
+    this.scene.add(this.gpsRouteHalo, this.gpsRoute);
     this.societyActors = new SocietyActors(this.scene);
     this.battleStage = new BattleStage(this.scene, this.camera);
     this.societyActors.update(0, this.society.snapshot(), false);
@@ -2499,17 +2508,43 @@ export class GameEngine {
     );
   }
 
+  private rebuildGpsRouteGeometry(target: TaskGpsTarget): void {
+    const points = this.gpsRoutePath.map((point, index) => new THREE.Vector3(
+      index === 0 ? this.catPos.x : index === this.gpsRoutePath.length - 1 ? target.x : point.x,
+      index === 0
+        ? Math.max(0.42, this.catPos.y + 0.38)
+        : index === this.gpsRoutePath.length - 1 ? Math.max(0.42, target.y + 0.38) : 0.42,
+      index === 0 ? this.catPos.z : index === this.gpsRoutePath.length - 1 ? target.z : point.z,
+    ));
+    if (points.length < 2) return;
+
+    // A malha tubular dá espessura real à rota; o tubo branco funciona como halo
+    // para manter contraste sobre grama, água, sombras e cenários noturnos.
+    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
+    const tubularSegments = Math.max(16, Math.min(192, points.length * 8));
+    const haloGeometry = new THREE.TubeGeometry(curve, tubularSegments, 0.30, 8, false);
+    const routeGeometry = new THREE.TubeGeometry(curve, tubularSegments, 0.19, 8, false);
+    this.gpsRouteHalo.geometry.dispose();
+    this.gpsRoute.geometry.dispose();
+    this.gpsRouteHalo.geometry = haloGeometry;
+    this.gpsRoute.geometry = routeGeometry;
+    this.gpsRouteHalo.visible = true;
+    this.gpsRoute.visible = true;
+  }
+
   private updateTaskGpsRoute(): void {
     const target = this.getTaskGpsTarget();
     if (!target || this.duelPhase === 'fighting') {
       this.gpsRoute.visible = false;
+      this.gpsRouteHalo.visible = false;
       this.gpsRoutePath = [];
       this.gpsRouteTargetId = null;
       return;
     }
     const startCell = `${Math.floor((this.catPos.x + WORLD_BOUNDS) / 4)}:${Math.floor((this.catPos.z + WORLD_BOUNDS) / 4)}`;
+    const startMoved = Math.hypot(this.catPos.x - this.gpsRouteStartPosition.x, this.catPos.z - this.gpsRouteStartPosition.z) > 1.5;
     const targetMoved = Math.hypot(target.x - this.gpsRouteTargetPosition.x, target.z - this.gpsRouteTargetPosition.z) > 3;
-    const needsRoute = target.id !== this.gpsRouteTargetId || startCell !== this.gpsRouteStartCell || targetMoved || this.gpsRoutePath.length < 2;
+    const needsRoute = target.id !== this.gpsRouteTargetId || startCell !== this.gpsRouteStartCell || startMoved || targetMoved || this.gpsRoutePath.length < 2;
     if (needsRoute) {
       const elevated = Math.max(target.y, this.catPos.y) > 1.8 || Math.abs(target.y - this.catPos.y) > 1.8;
       if (elevated) {
@@ -2528,26 +2563,15 @@ export class GameEngine {
       }
       this.gpsRouteTargetId = target.id;
       this.gpsRouteStartCell = startCell;
+      this.gpsRouteStartPosition = { x: this.catPos.x, z: this.catPos.z };
       this.gpsRouteTargetPosition = { x: target.x, z: target.z };
+      this.rebuildGpsRouteGeometry(target);
     }
     if (this.gpsRoutePath.length < 2) {
       this.gpsRoute.visible = false;
+      this.gpsRouteHalo.visible = false;
       return;
     }
-    const pointCount = Math.min(this.gpsRoutePath.length, this.gpsRoutePositions.length / 3);
-    for (let i = 0; i < pointCount; i++) {
-      const point = this.gpsRoutePath[i];
-      const offset = i * 3;
-      this.gpsRoutePositions[offset] = i === 0 ? this.catPos.x : i === pointCount - 1 ? target.x : point.x;
-      this.gpsRoutePositions[offset + 1] = i === 0
-        ? Math.max(0.22, this.catPos.y + 0.25)
-        : i === pointCount - 1 ? Math.max(0.22, target.y + 0.25) : 0.22;
-      this.gpsRoutePositions[offset + 2] = i === 0 ? this.catPos.z : i === pointCount - 1 ? target.z : point.z;
-    }
-    this.gpsRoute.geometry.setDrawRange(0, pointCount);
-    (this.gpsRoute.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
-    this.gpsRoute.geometry.computeBoundingSphere();
-    this.gpsRoute.visible = pointCount >= 2;
   }
 
   private updateGameplay(dt: number): void {
@@ -3626,7 +3650,9 @@ export class GameEngine {
 
     this.battleStage.dispose();
     this.gpsRoute.geometry.dispose();
+    this.gpsRouteHalo.geometry.dispose();
     (this.gpsRoute.material as THREE.Material).dispose();
+    (this.gpsRouteHalo.material as THREE.Material).dispose();
     this.societyActors.dispose();
     this.skyVisuals.dispose();
     this.worldSceneManager.dispose();
