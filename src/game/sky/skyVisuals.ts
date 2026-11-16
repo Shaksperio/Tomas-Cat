@@ -54,12 +54,12 @@ export class SkyVisuals {
       coronaGeometry,
       new THREE.MeshBasicMaterial({ color: 0xffc477, transparent: true, opacity: 0.075, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
     );
-    outerCorona.scale.set(2.45, 2.45, 2.45);
+    outerCorona.scale.set(1.65, 1.65, 1.65);
     const innerCorona = new THREE.Mesh(
       coronaGeometry,
       new THREE.MeshBasicMaterial({ color: 0xffe0a3, transparent: true, opacity: 0.11, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
     );
-    innerCorona.scale.set(1.55, 1.55, 1.55);
+    innerCorona.scale.set(1.24, 1.24, 1.24);
     this.sunCorona.add(outerCorona, innerCorona);
     this.sunCorona.visible = false;
     this.sunCorona.frustumCulled = false;
