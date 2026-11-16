@@ -1209,7 +1209,7 @@ export class GameEngine {
     // Reverte o dano pré-calculado para que a interrupção tenha efeito também nas regras.
     const restoredVigor = special.hits.reduce((sum, hit) => sum + hit.damage, 0);
     battle.player.vigor = Math.min(100, battle.player.vigor + restoredVigor);
-    if (battle.finished && battle.winner === 'opponent' && battle.reason === 'knockout') {
+    if (battle.finished && special.finishing) {
       battle.finished = false;
       battle.winner = null;
       battle.reason = null;
