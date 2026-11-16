@@ -267,7 +267,7 @@ function DuelPanel({
   onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onCancel: () => void;
   onForfeit: () => void;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item') => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
   const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
