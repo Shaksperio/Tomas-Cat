@@ -387,7 +387,7 @@ export class GameEngine {
     const gpsGeometry = new THREE.BufferGeometry();
     gpsGeometry.setAttribute('position', new THREE.BufferAttribute(this.gpsRoutePositions, 3));
     gpsGeometry.setDrawRange(0, 2);
-    this.gpsRoute = new THREE.Line(gpsGeometry, new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.78, depthWrite: false }));
+    this.gpsRoute = new THREE.Line(gpsGeometry, new THREE.LineBasicMaterial({ color: 0x2f80ff, transparent: true, opacity: 0.96, depthWrite: false }));
     this.gpsRoute.frustumCulled = false;
     this.gpsRoute.visible = false;
     this.scene.add(this.gpsRoute);
@@ -3209,7 +3209,8 @@ export class GameEngine {
       .lerp(_sunsetColor, 1 - THREE.MathUtils.clamp(sunElev / 0.5, 0, 1));
     const starOpacity = this.weather === 'clear' ? THREE.MathUtils.clamp(1 - daylight * 1.6, 0, 1) : 0;
     this.starField.visible = starOpacity > 0.02;
-    (this.starField.material as THREE.PointsMaterial).opacity = starOpacity;
+    const starTwinkle = 0.9 + Math.sin(this.elapsed * 1.7) * 0.04 + Math.sin(this.elapsed * 2.9 + 1.2) * 0.03;
+    (this.starField.material as THREE.PointsMaterial).opacity = starOpacity * starTwinkle;
     this.starField.position.set(this.catPos.x, 0, this.catPos.z);
     const weatherLightFactor =
       this.weather === 'freezing' ? 0.58 :
@@ -3232,7 +3233,15 @@ export class GameEngine {
     this.moonMesh.visible = moonStrength > 0.08;
     const skySample = sampleSkyAtmosphere(this.day, this.timeOfDay, this.weather);
     this.moonLight.intensity = moonStrength * 3.6 * skySample.moonIllumination;
-    this.skyVisuals.update(dt, this.catPos.x, this.catPos.z, skySample, this.moonMesh);
+    this.skyVisuals.update(
+      dt,
+      this.catPos.x,
+      this.catPos.z,
+      skySample,
+      this.moonMesh,
+      this.sunMesh,
+      this.duelPhase === 'fighting' || this.battle !== null,
+    );
     const lunarPowerNow = moonStrength >= 0.72;
     if (lunarPowerNow && !this.moonPowerActive) {
       this.moonPowerActive = true;

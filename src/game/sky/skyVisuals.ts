@@ -18,6 +18,7 @@ function seededRand(seed: number): () => number {
 
 export class SkyVisuals {
   private readonly cloudGroup = new THREE.Group();
+  private readonly sunCorona = new THREE.Group();
   private readonly birdPoints: THREE.Points;
   private readonly birdPositions: Float32Array;
   private readonly birdPhases: Float32Array;
@@ -38,13 +39,31 @@ export class SkyVisuals {
       const mesh = new THREE.Mesh(cloudGeo, cloudMat.clone());
       const scale = 8 + rand() * 18;
       mesh.scale.set(scale * (1.4 + rand()), scale * 0.45, scale * (1.1 + rand() * 0.5));
-      mesh.position.set((rand() - 0.5) * 380, 42 + rand() * 55, (rand() - 0.5) * 380);
+      const highLayer = i % 3 === 0;
+      mesh.position.set((rand() - 0.5) * 380, highLayer ? 82 + rand() * 28 : 38 + rand() * 26, (rand() - 0.5) * 380);
       mesh.visible = false;
       this.cloudGroup.add(mesh);
       this.cloudMeshes.push(mesh);
     }
     this.cloudGroup.frustumCulled = false;
     this.scene.add(this.cloudGroup);
+
+    // Corona discreta e procedural: acompanha o disco solar sem textura externa.
+    const coronaGeometry = new THREE.SphereGeometry(1, 16, 12);
+    const outerCorona = new THREE.Mesh(
+      coronaGeometry,
+      new THREE.MeshBasicMaterial({ color: 0xffc477, transparent: true, opacity: 0.075, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+    );
+    outerCorona.scale.set(1.65, 1.65, 1.65);
+    const innerCorona = new THREE.Mesh(
+      coronaGeometry,
+      new THREE.MeshBasicMaterial({ color: 0xffe0a3, transparent: true, opacity: 0.11, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+    );
+    innerCorona.scale.set(1.24, 1.24, 1.24);
+    this.sunCorona.add(outerCorona, innerCorona);
+    this.sunCorona.visible = false;
+    this.sunCorona.frustumCulled = false;
+    this.scene.add(this.sunCorona);
 
     this.birdPositions = new Float32Array(BIRD_COUNT * 3);
     this.birdPhases = new Float32Array(BIRD_COUNT);
@@ -71,14 +90,26 @@ export class SkyVisuals {
     this.scene.add(this.birdPoints);
   }
 
-  update(dt: number, catX: number, catZ: number, sample: SkyAtmosphereSample, moonMesh?: THREE.Mesh): void {
+  update(
+    dt: number,
+    catX: number,
+    catZ: number,
+    sample: SkyAtmosphereSample,
+    moonMesh?: THREE.Mesh,
+    sunMesh?: THREE.Mesh,
+    suppressBirds = false,
+  ): void {
     this.cloudDrift += dt * sample.clouds.drift * 4.5;
     const dens = sample.clouds.density;
     this.cloudGroup.position.set(catX, 0, catZ);
     const visibleCount = dens > 0.05 ? Math.max(2, Math.round(dens * CLOUD_COUNT)) : 0;
     for (let i = 0; i < CLOUD_COUNT; i++) {
       const mesh = this.cloudMeshes[i];
-      const on = i < visibleCount;
+      const highCloud = i % 3 === 0;
+      const highLayerCoverage = sample.clouds.highCoverage;
+      const highLayerIndex = Math.floor(i / 3);
+      const highLayerLimit = Math.ceil(CLOUD_COUNT / 3);
+      const on = i < visibleCount && (!highCloud || highLayerIndex / highLayerLimit < highLayerCoverage);
       mesh.visible = on;
       if (!on) continue;
       const baseX = ((i * 97) % 360) - 180;
@@ -89,6 +120,12 @@ export class SkyVisuals {
       mat.opacity = 0.25 + dens * 0.55;
       mat.color.setHex(dens > 0.6 ? 0xcbd5e1 : 0xf8fafc);
     }
+    if (sunMesh) {
+      this.sunCorona.position.copy(sunMesh.position);
+      this.sunCorona.visible = sunMesh.visible;
+      const pulse = 1 + Math.sin(this.cloudDrift * 0.22) * 0.025;
+      this.sunCorona.scale.setScalar(pulse);
+    }
     if (moonMesh) {
       const illum = sample.moonIllumination;
       moonMesh.scale.set(0.35 + illum * 0.65, 0.85 + illum * 0.15, 1);
@@ -97,7 +134,7 @@ export class SkyVisuals {
       mat.color.setRGB(c * 0.95, c * 0.97, 1);
     }
     const birds = sample.birds;
-    this.birdPoints.visible = birds.active && birds.flockStrength > 0.1;
+    this.birdPoints.visible = !suppressBirds && birds.active && birds.flockStrength > 0.1;
     if (this.birdPoints.visible) {
       const n = Math.max(4, Math.round(birds.flockStrength * BIRD_COUNT));
       const radius = 55 + birds.flockStrength * 40;
@@ -121,7 +158,15 @@ export class SkyVisuals {
 
   dispose(): void {
     this.scene.remove(this.cloudGroup);
+    this.scene.remove(this.sunCorona);
     this.scene.remove(this.birdPoints);
+    const coronaGeometry = (this.sunCorona.children[0] as THREE.Mesh | undefined)?.geometry;
+    coronaGeometry?.dispose();
+    for (const child of this.sunCorona.children) {
+      const material = (child as THREE.Mesh).material;
+      if (Array.isArray(material)) material.forEach((item) => item.dispose());
+      else material.dispose();
+    }
     for (const m of this.cloudMeshes) {
       (m.material as THREE.Material).dispose();
     }
