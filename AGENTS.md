@@ -304,3 +304,13 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - `SavedGameState.worldTravel` foi adicionado como campo opcional, preservando a leitura de saves v4 antigos. A normalização ignora mundos não registrados e dados malformados.
 - Testes puros cobrem compatibilidade de save legado, bloqueio, validação de destino, retorno e normalização. O comando `npm test` inclui `src/game/worlds/*.test.ts`.
 - **Limite desta entrega:** contratos e testes apenas. A transição ainda não está conectada ao `GameEngine`, não há portal físico/HUD nem carregamento de outro mundo. Não anunciar viagem entre mundos como funcional até existir carregamento, salvamento automático e retorno jogável.
+
+
+## Atualização de engenharia — câmera de duelo, tempo de decisão e Combo Breakers (2026-11-16)
+
+- A câmera cinematográfica enquadra o conjunto de duelistas, calcula distância pelo campo de visão horizontal/vertical e abre o plano em investidas, impactos e especiais; o enquadramento considera o aspecto da tela para evitar cortar personagens em dispositivos móveis.
+- Quando Tomas fica pronto no ATB, recebe 10 segundos para escolher. O prazo pausa durante animações e, ao expirar, o motor executa defesa automaticamente.
+- Combo Breaker defensivo é acionado após Tomas bloquear um ataque simples fraco (até 14 pontos de dano já reduzido pela defesa). O contra-ataque aplica dano determinístico, zera o ATB do agressor e o derruba temporariamente.
+- Durante a carga de um especial inimigo, existe uma janela curta entre 0,72 s e 1,62 s, antes do primeiro impacto. A tecla 9 ou o botão de tela ativa o Combo Breaker, interrompe os eventos restantes do especial e reverte o dano que ainda não foi exibido/aplicado visualmente.
+- O contra-ataque tem animação própria com impulso, lançamento, queda, faíscas, clarão, tremor e câmera aberta. Se o golpe finalizar o oponente, ele permanece caído.
+- Testes de contrato cobrem gatilho defensivo, custo de oportunidade, derrubada e finalização. A validação final depende do CI desta branch.
