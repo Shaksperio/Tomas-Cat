@@ -666,68 +666,7 @@ export function GameHUD({
         </div>
       )}
 
-      {phase === 'playing' && (
-        <div className="pointer-events-auto fixed right-3 top-3 z-40 flex flex-col items-end gap-2">
-          <button
-            type="button"
-            onClick={() => setInventoryOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-xl border border-violet-300/25 bg-[#0B0F17]/90 px-3 py-2 text-xs font-semibold text-violet-100 shadow-lg backdrop-blur"
-            aria-expanded={inventoryOpen}
-          >
-            <Backpack className="h-4 w-4 text-violet-300" />
-            Mochila
-            <span className="rounded-md bg-violet-400/15 px-1.5 py-0.5 font-mono text-violet-200">
-              {(hud.inventory ?? []).reduce((sum, entry) => sum + entry.quantity, 0)}
-            </span>
-          </button>
-          {inventoryOpen && (
-            <div className="w-64 max-w-[calc(100vw-1.5rem)] rounded-xl border border-violet-300/20 bg-[#0B0F17]/95 p-3 shadow-2xl backdrop-blur">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-violet-200">Inventário</span>
-                <button type="button" onClick={() => setInventoryOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Fechar inventário"><X className="h-3.5 w-3.5" /></button>
-              </div>
-              <div className="mb-2 grid grid-cols-2 gap-2">
-                {(['collar', 'harness'] as const).map((slot) => {
-                  const equippedId = hud.equipment?.[slot] ?? null;
-                  return (
-                    <div key={slot} className="rounded-lg border border-amber-300/20 bg-amber-400/[0.06] p-2">
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-amber-200">{slot === 'collar' ? 'Coleira' : 'Arreio'}</div>
-                      <div className="mt-1 truncate text-[10px] text-slate-100">{equippedId ? ITEM_CATALOG[equippedId].name : 'Vazio'}</div>
-                      {equippedId && <button type="button" onClick={() => onUnequipEquipment(slot)} className="mt-1 text-[9px] text-amber-200 underline">Remover</button>}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="space-y-2">
-                {(Object.keys(ITEM_CATALOG) as InventoryItemId[]).map((itemId) => {
-                  const definition = ITEM_CATALOG[itemId];
-                  const quantity = hud.inventory?.find((entry) => entry.itemId === itemId)?.quantity ?? 0;
-                  const isEquipment = definition.category === 'equipment';
-                  return (
-                    <div key={itemId} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[11px] font-semibold text-slate-100">{definition.name}</div>
-                        <div className="text-[9px] text-slate-400">{definition.description}</div>
-                        <div className="mt-0.5 text-[10px] text-violet-200">Quantidade: {quantity}</div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={quantity <= 0 || phase !== 'playing'}
-                        onClick={() => isEquipment ? onEquipInventoryItem(itemId as EquipmentItemId) : onUseInventoryItem(itemId)}
-                        className="rounded-md border border-violet-300/25 bg-violet-500/15 px-2 py-1.5 text-[10px] font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-35"
-                      >
-                        {isEquipment ? 'Equipar' : 'Usar'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              {Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}
-              <div className="mt-2 text-[9px] text-slate-500">A ração energética continua no inventário separado de batalha (tecla I durante duelos).</div>
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* TOP AREA */}
       <div className="flex flex-col gap-2">
@@ -1080,6 +1019,68 @@ export function GameHUD({
               </div>
             </div>
           )}
+              {phase === 'playing' && (
+                <div className="pointer-events-auto fixed right-3 top-3 z-40 flex flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInventoryOpen((open) => !open)}
+                    className="flex items-center gap-2 rounded-xl border border-violet-300/25 bg-[#0B0F17]/90 px-3 py-2 text-xs font-semibold text-violet-100 shadow-lg backdrop-blur"
+                    aria-expanded={inventoryOpen}
+                  >
+                    <Backpack className="h-4 w-4 text-violet-300" />
+                    Mochila
+                    <span className="rounded-md bg-violet-400/15 px-1.5 py-0.5 font-mono text-violet-200">
+                      {(hud.inventory ?? []).reduce((sum, entry) => sum + entry.quantity, 0)}
+                    </span>
+                  </button>
+                  {inventoryOpen && (
+                    <div className="w-64 max-w-[calc(100vw-1.5rem)] rounded-xl border border-violet-300/20 bg-[#0B0F17]/95 p-3 shadow-2xl backdrop-blur">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-violet-200">Inventário</span>
+                        <button type="button" onClick={() => setInventoryOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Fechar inventário"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+                      <div className="mb-2 grid grid-cols-2 gap-2">
+                        {(['collar', 'harness'] as const).map((slot) => {
+                          const equippedId = hud.equipment?.[slot] ?? null;
+                          return (
+                            <div key={slot} className="rounded-lg border border-amber-300/20 bg-amber-400/[0.06] p-2">
+                              <div className="text-[9px] font-bold uppercase tracking-wider text-amber-200">{slot === 'collar' ? 'Coleira' : 'Arreio'}</div>
+                              <div className="mt-1 truncate text-[10px] text-slate-100">{equippedId ? ITEM_CATALOG[equippedId].name : 'Vazio'}</div>
+                              {equippedId && <button type="button" onClick={() => onUnequipEquipment(slot)} className="mt-1 text-[9px] text-amber-200 underline">Remover</button>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="space-y-2">
+                        {(Object.keys(ITEM_CATALOG) as InventoryItemId[]).map((itemId) => {
+                          const definition = ITEM_CATALOG[itemId];
+                          const quantity = hud.inventory?.find((entry) => entry.itemId === itemId)?.quantity ?? 0;
+                          const isEquipment = definition.category === 'equipment';
+                          return (
+                            <div key={itemId} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[11px] font-semibold text-slate-100">{definition.name}</div>
+                                <div className="text-[9px] text-slate-400">{definition.description}</div>
+                                <div className="mt-0.5 text-[10px] text-violet-200">Quantidade: {quantity}</div>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={quantity <= 0 || phase !== 'playing'}
+                                onClick={() => isEquipment ? onEquipInventoryItem(itemId as EquipmentItemId) : onUseInventoryItem(itemId)}
+                                className="rounded-md border border-violet-300/25 bg-violet-500/15 px-2 py-1.5 text-[10px] font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-35"
+                              >
+                                {isEquipment ? 'Equipar' : 'Usar'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}
+                      <div className="mt-2 text-[9px] text-slate-500">A ração energética continua no inventário separado de batalha (tecla I durante duelos).</div>
+                    </div>
+                  )}
+                </div>
+              )}
         </div>
         </div>
 
