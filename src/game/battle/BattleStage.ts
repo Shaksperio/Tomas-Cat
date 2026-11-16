@@ -318,13 +318,46 @@ export class BattleStage {
     this.orbit = null;
   }
 
+  /** Centro e raio reais do grupo, incluindo investidas e saltos em andamento. */
+  private getFighterFrame(): { center: THREE.Vector3; radius: number } {
+    const points = this.activeSides.map((side) => this.worldPos(side, 0.95));
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    for (const point of points) {
+      min.min(point);
+      max.max(point);
+    }
+    const center = min.add(max).multiplyScalar(0.5);
+    let radius = 1.25;
+    for (const point of points) radius = Math.max(radius, point.distanceTo(center) + 0.85);
+    return { center, radius };
+  }
+
+  /** Distância de segurança considera o menor campo de visão, crucial em telas verticais. */
+  private safeFrameDistance(radius: number, fov: number): number {
+    const vertical = THREE.MathUtils.degToRad(fov);
+    const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * Math.max(0.3, this.camera.aspect));
+    const halfAngle = Math.max(0.08, Math.min(vertical, horizontal) / 2);
+    return Math.max(6.5, (radius / Math.sin(halfAngle)) * 1.2);
+  }
+
+  /** Corte cinematográfico com todos os duelistas dentro do enquadramento. */
+  private frameAll(k = 4, angle = 0, fov = this.origFov - 6): void {
+    const frame = this.getFighterFrame();
+    const distance = this.safeFrameDistance(frame.radius, fov);
+    const viewDir = this.perp.clone().multiplyScalar(Math.cos(angle))
+      .addScaledVector(this.axis, Math.sin(angle)).normalize();
+    this.camPosTarget.copy(frame.center)
+      .addScaledVector(viewDir, distance);
+    this.camPosTarget.y += Math.max(2.8, frame.radius * 0.55);
+    this.camLookTarget.copy(frame.center);
+    this.camK = k;
+    this.fovTarget = fov;
+    this.orbit = null;
+  }
+
   private wideShot(k = 4): void {
-    const pos = new THREE.Vector3()
-      .copy(this.center)
-      .addScaledVector(this.perp, 7.4 * this.spread)
-      .addScaledVector(this.axis, -0.8);
-    pos.y = 2.5;
-    this.shot(pos, new THREE.Vector3(this.center.x, 0.9, this.center.z), k, this.origFov - 8);
+    this.frameAll(k, 0, this.origFov - 6);
   }
 
   /** Direção horizontal (unitária) de quem age até o alvo. */
@@ -337,22 +370,13 @@ export class BattleStage {
   }
 
   private overShoulder(actor: Side, target: Side, k = 9): void {
-    const f = this.fighters[actor];
-    const dir = this.dirBetween(actor, target);
-    const pos = new THREE.Vector3()
-      .copy(f.home)
-      .addScaledVector(dir, -3.4)
-      .addScaledVector(this.perp, 1.5);
-    pos.y = 2.3;
-    const look = this.worldPos(target, 0.9);
-    this.shot(pos, look, k, this.origFov - 6);
+    // Mantém o corte lateral, mas abre o plano para nunca perder o atacante ou o alvo.
+    this.frameAll(k, actor === 'player' ? -0.2 : 0.2, this.origFov - 2);
+    void target;
   }
 
   private impactShot(target: Side, k = 12): void {
-    const t = this.worldPos(target, 1.0);
-    const pos = new THREE.Vector3().copy(t).addScaledVector(this.perp, 5.0);
-    pos.y = 1.8;
-    this.shot(pos, t, k, this.origFov - 10);
+    this.frameAll(k, target === 'player' ? 0.28 : -0.28, this.origFov);
   }
 
   private addEffect(fx: Effect): void {
@@ -730,13 +754,8 @@ export class BattleStage {
     const target = action.target;
     const color = actor === 'player' ? 0x93c5fd : 0xf472b6;
     this.darkness = 0.55;
-    this.shot(
-      this.worldPos(actor, 2.0).addScaledVector(this.perp, 4.8),
-      this.worldPos(actor, 1.0),
-      3,
-      this.origFov - 12,
-    );
-    this.orbit = { around: actor, radius: 4.8, height: 2.1, speed: 1.0, phase: Math.atan2(this.perp.z, this.perp.x) };
+    this.frameAll(3, -0.35, this.origFov - 4);
+    this.orbit = { around: 'center', radius: this.safeFrameDistance(this.getFighterFrame().radius, this.origFov - 4), height: 2.1, speed: 0.75, phase: Math.atan2(this.perp.z, this.perp.x) };
     this.fighters[actor].squash = 0.3;
     // Carga: orbe crescente + anéis no chão.
     const orb = this.worldPos(actor, 2.4);
@@ -750,13 +769,7 @@ export class BattleStage {
       this.fighters[actor].squash = 0;
       this.jump(actor, 5.2, 0.9);
       this.flashLightPulse(this.worldPos(actor, 1.5), color, 80);
-      this.shot(
-        this.worldPos(actor, 0.5).addScaledVector(this.perp, 3.2),
-        this.worldPos(actor, 5.5),
-        6,
-        this.origFov + 4,
-      );
-      this.orbit = null;
+      this.frameAll(6, 0.25, this.origFov + 2);
     });
     // Chuva de garras.
     for (let i = 0; i < action.hits.length; i += 1) {
@@ -808,17 +821,12 @@ export class BattleStage {
       }
       this.setBanner(winner === 'player' ? 'Vitória!' : 'Derrota...');
       const wp = this.worldPos(winSide, 2.0);
-      this.shot(
-        new THREE.Vector3().copy(this.fighters[winSide].home).addScaledVector(this.perp, 4.2 * this.spread).setY(1.7),
-        wp.setY(1.2),
-        3,
-        this.origFov - 8,
-      );
+      this.frameAll(3, winner === 'player' ? -0.18 : 0.18, this.origFov - 6);
       this.orbit = {
-        around: winSide,
-        radius: 4.2 * this.spread,
+        around: 'center',
+        radius: this.safeFrameDistance(this.getFighterFrame().radius, this.origFov - 6),
         height: 1.7,
-        speed: 0.45,
+        speed: 0.35,
         phase: Math.atan2(this.perp.z, this.perp.x),
       };
       this.after(0.5, () => {
@@ -865,7 +873,7 @@ export class BattleStage {
         f.root.position.lerpVectors(f.start, f.home, fp);
       }
       const ang = Math.atan2(this.perp.z, this.perp.x) + (1 - e) * 2.3;
-      const radius = 7.4 * this.spread + (1 - e) * 9;
+      const radius = Math.max(7.4 * this.spread, this.safeFrameDistance(this.getFighterFrame().radius, this.origFov + 18)) + (1 - e) * 4;
       this.camPos.set(
         this.center.x + Math.cos(ang) * radius,
         2.5 + (1 - e) * 8,
@@ -953,12 +961,15 @@ export class BattleStage {
     if (this.orbit) {
       const o = this.orbit;
       o.phase += o.speed * dt;
-      const around = o.around === 'center' ? this.center : this.fighters[o.around].home;
+      const frame = this.getFighterFrame();
+      const around = frame.center;
+      o.radius = Math.max(o.radius, this.safeFrameDistance(frame.radius, this.fovTarget));
       this.camPosTarget.set(
         around.x + Math.cos(o.phase) * o.radius,
-        o.height,
+        around.y + Math.max(o.height, frame.radius * 0.55),
         around.z + Math.sin(o.phase) * o.radius,
       );
+      this.camLookTarget.copy(around);
     }
     const k = 1 - Math.exp(-this.camK * dt);
     this.camPos.lerp(this.camPosTarget, k);
