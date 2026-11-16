@@ -1,4 +1,4 @@
-import type { DialogueState } from '../game/dialogue/types';
+import type { DialogueOption, DialogueState } from '../game/dialogue/types';
 import type { BattleInventoryItem } from '../game/battle/commands';
 
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
@@ -19,7 +19,8 @@ export type InteractionKind =
   | 'water'
   | 'shelter'
   | 'scrap'
-  | 'terminal';
+  | 'terminal'
+  | 'resident';
 
 export type EnemyKind = 'rat' | 'feral_cat' | 'hound' | 'lion';
 
@@ -294,6 +295,7 @@ export interface HudSnapshot {
   unlockedMoves: string[];
   /** Campos opcionais para ativação gradual dos diálogos e itens de batalha. */
   activeDialogue?: DialogueState | null;
+  activeDialogueOptions?: DialogueOption[];
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
   isAlphaLeader: boolean;
@@ -372,6 +374,9 @@ export interface SavedGameState {
   activeDialogue?: DialogueState | null;
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
+  dialogueRelations?: Record<string, { affinity: number; trust: number }>;
+  dialogueFlags?: Record<string, boolean>;
+  acceptedDialogueTasks?: string[];
   day: number;
   timeOfDay: number;
   currentPhase: number;
