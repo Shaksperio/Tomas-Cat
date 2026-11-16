@@ -890,6 +890,8 @@ export class BattleStage {
       this.camera.updateProjectionMatrix();
       if (this.introT >= this.introDur) {
         this.wideShot(4);
+        this.camPos.copy(this.camera.position);
+        this.camLook.copy(this.camLookTarget);
       }
       this.updateEffects(step);
       return;
@@ -962,18 +964,43 @@ export class BattleStage {
   }
 
   private updateCamera(dt: number): void {
+    const frame = this.getFighterFrame();
+    const safeDistance = this.safeFrameDistance(frame.radius, this.fovTarget);
     if (this.orbit) {
       const o = this.orbit;
       o.phase += o.speed * dt;
-      const frame = this.getFighterFrame();
       const around = frame.center;
-      o.radius = Math.max(o.radius, this.safeFrameDistance(frame.radius, this.fovTarget));
+      o.radius = Math.max(o.radius, safeDistance);
       this.camPosTarget.set(
         around.x + Math.cos(o.phase) * o.radius,
         around.y + Math.max(o.height, frame.radius * 0.55),
         around.z + Math.sin(o.phase) * o.radius,
       );
       this.camLookTarget.copy(around);
+    } else {
+      // Recalcula a distância também durante a luta: resize/orientação do celular
+      // ou deslocamento dos lutadores nunca pode deixar alguém fora do plano.
+      const targetDx = this.camPosTarget.x - frame.center.x;
+      const targetDz = this.camPosTarget.z - frame.center.z;
+      const targetDistance = Math.hypot(targetDx, targetDz);
+      const dirX = targetDistance > 1e-4 ? targetDx / targetDistance : this.perp.x;
+      const dirZ = targetDistance > 1e-4 ? targetDz / targetDistance : this.perp.z;
+      if (targetDistance < safeDistance) {
+        this.camPosTarget.x = frame.center.x + dirX * safeDistance;
+        this.camPosTarget.z = frame.center.z + dirZ * safeDistance;
+        this.camPosTarget.y = frame.center.y + Math.max(2.8, frame.radius * 0.55);
+      }
+      this.camLookTarget.copy(frame.center);
+
+      // Evita que a interpolação de um corte anterior mostre personagens cortados.
+      const currentDx = this.camPos.x - frame.center.x;
+      const currentDz = this.camPos.z - frame.center.z;
+      const currentDistance = Math.hypot(currentDx, currentDz);
+      if (currentDistance < safeDistance * 0.82) {
+        this.camPos.x = frame.center.x + dirX * safeDistance * 0.82;
+        this.camPos.z = frame.center.z + dirZ * safeDistance * 0.82;
+        this.camPos.y = frame.center.y + Math.max(2.8, frame.radius * 0.55);
+      }
     }
     const k = 1 - Math.exp(-this.camK * dt);
     this.camPos.lerp(this.camPosTarget, k);
