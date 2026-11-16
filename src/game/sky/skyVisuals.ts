@@ -39,7 +39,8 @@ export class SkyVisuals {
       const mesh = new THREE.Mesh(cloudGeo, cloudMat.clone());
       const scale = 8 + rand() * 18;
       mesh.scale.set(scale * (1.4 + rand()), scale * 0.45, scale * (1.1 + rand() * 0.5));
-      mesh.position.set((rand() - 0.5) * 380, 42 + rand() * 55, (rand() - 0.5) * 380);
+      const highLayer = i % 3 === 0;
+      mesh.position.set((rand() - 0.5) * 380, highLayer ? 82 + rand() * 28 : 38 + rand() * 26, (rand() - 0.5) * 380);
       mesh.visible = false;
       this.cloudGroup.add(mesh);
       this.cloudMeshes.push(mesh);
@@ -104,7 +105,11 @@ export class SkyVisuals {
     const visibleCount = dens > 0.05 ? Math.max(2, Math.round(dens * CLOUD_COUNT)) : 0;
     for (let i = 0; i < CLOUD_COUNT; i++) {
       const mesh = this.cloudMeshes[i];
-      const on = i < visibleCount;
+      const highCloud = i % 3 === 0;
+      const highLayerCoverage = sample.clouds.highCoverage;
+      const highLayerIndex = Math.floor(i / 3);
+      const highLayerLimit = Math.ceil(CLOUD_COUNT / 3);
+      const on = i < visibleCount && (!highCloud || highLayerIndex / highLayerLimit < highLayerCoverage);
       mesh.visible = on;
       if (!on) continue;
       const baseX = ((i * 97) % 360) - 180;
