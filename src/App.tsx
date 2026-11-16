@@ -99,6 +99,18 @@ export default function App() {
     }
   }, [authUser, refreshAccount]);
 
+  useEffect(() => {
+    if (!authUser || !accountReady) return;
+    const flushOnExit = () => {
+      engineRef.current?.persistNow();
+      void flushAccountGameSave(authUser.uid).catch((error) => {
+        console.error('Não foi possível sincronizar o save antes de sair:', error);
+      });
+    };
+    window.addEventListener('pagehide', flushOnExit);
+    return () => window.removeEventListener('pagehide', flushOnExit);
+  }, [authUser, accountReady]);
+
   const handleGoogleLogin = useCallback(async () => {
     if (!firebaseAuth) return;
     setAuthBusy(true);
