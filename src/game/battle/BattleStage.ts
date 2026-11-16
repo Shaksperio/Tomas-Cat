@@ -685,6 +685,19 @@ export class BattleStage {
         this.wideShot(5);
       });
       total = 2.1;
+    } else if (action.command === 'magic') {
+      const color = 0xa78bfa;
+      this.frameAll(5, actor === 'player' ? -0.16 : 0.16, this.origFov - 1);
+      this.glowSprite(this.worldPos(actor, 1.0), color, 2.2, 0.55);
+      this.after(0.42, () => {
+        const impactPoint = this.worldPos(action.target, 0.9);
+        this.glowSprite(impactPoint, color, 3.8, 0.7);
+        this.sparks(impactPoint, color, 18, 2.8);
+        this.ring(this.worldPos(action.target, 0.05), color, 2.1, 0.55);
+        this.impact(action, 0, { big: true, knockback: 0.45 });
+        this.whiteFlash = 0.12;
+      });
+      total = 1.35;
     } else if (action.command === 'combo_a' || action.command === 'combo_b') {
       const color = action.command === 'combo_a' ? 0xc4b5fd : 0xf9a8d4;
       const duration = action.command === 'combo_a' ? 1.8 : 2.35;
@@ -820,7 +833,6 @@ export class BattleStage {
         this.sparks(this.worldPos(loser, 0.6), 0xfde68a, 30, 4);
       }
       this.setBanner(winner === 'player' ? 'Vitória!' : 'Derrota...');
-      const wp = this.worldPos(winSide, 2.0);
       this.frameAll(3, winner === 'player' ? -0.18 : 0.18, this.origFov - 6);
       this.orbit = {
         around: 'center',
