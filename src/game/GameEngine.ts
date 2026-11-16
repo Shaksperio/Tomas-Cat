@@ -23,6 +23,8 @@ import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuil
 import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
+import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
+import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
 import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
@@ -233,6 +235,7 @@ export class GameEngine {
   private readonly dialogueRelations = new Map<string, { affinity: number; trust: number }>();
   private readonly dialogueFlags = new Map<string, boolean>();
   private readonly acceptedDialogueTasks = new Set<string>();
+  private playerTasks: PlayerTaskState[] = [];
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -512,6 +515,7 @@ export class GameEngine {
     this.dialogueRelations.clear();
     this.dialogueFlags.clear();
     this.acceptedDialogueTasks.clear();
+    this.playerTasks = [];
     this.day = 1;
     this.timeOfDay = 0.34;
     this.weather = 'clear';
@@ -781,6 +785,7 @@ export class GameEngine {
         if (id && typeof value === 'boolean') this.dialogueFlags.set(id, value);
       }
       this.acceptedDialogueTasks.clear();
+      this.playerTasks = (saved.playerTasks ?? []).filter((task) => task && typeof task.id === 'string' && Number.isFinite(task.progress) && (task.status === 'active' || task.status === 'completed')).map((task) => ({ id: task.id, progress: Math.max(0, Math.floor(task.progress)), status: task.status }));
       for (const id of saved.acceptedDialogueTasks ?? []) {
         if (typeof id === 'string' && id.length > 0 && id.length <= 100) this.acceptedDialogueTasks.add(id);
       }
@@ -1545,9 +1550,12 @@ export class GameEngine {
       }
       case 'open_task': {
         if (!effect.taskId || effect.taskId.length > 100) break;
+        const definition = getPlayerTaskDefinition(effect.taskId);
+        if (!definition) break;
         const wasAccepted = this.acceptedDialogueTasks.has(effect.taskId);
         this.acceptedDialogueTasks.add(effect.taskId);
-        this.callbacks.onToast(wasAccepted ? 'Esse pedido já está registrado.' : 'Pedido registrado para acompanhamento.', 'success');
+        this.playerTasks = acceptPlayerTask(this.playerTasks, effect.taskId);
+        this.callbacks.onToast(wasAccepted ? 'Esse pedido já está registrado.' : `Tarefa aceita: ${definition.title}.`, 'success');
         break;
       }
       case 'grant_xp': {
@@ -1560,6 +1568,16 @@ export class GameEngine {
         this.dialogueFlags.set(effect.flagId, effect.value);
         break;
       }
+    }
+  }
+
+  private recordPlayerTaskEvent(event: PlayerTaskEvent, amount = 1): void {
+    const result = advancePlayerTasks(this.playerTasks, event, amount);
+    this.playerTasks = result.states;
+    for (const task of result.completed) {
+      this.scrap += task.rewardScrap;
+      this.gainXp(task.rewardXp);
+      this.callbacks.onToast(`Tarefa concluída: ${task.title}. +${task.rewardXp} XP e +${task.rewardScrap} sucata.`, 'success');
     }
   }
 
@@ -1599,6 +1617,7 @@ export class GameEngine {
       this.health = Math.min(maxHp, this.health + 12);
       this.gainXp(item.xpGain);
       this.foodCollected++;
+      this.recordPlayerTaskEvent('food_collected');
       item.active = false;
       item.mesh.visible = false;
       item.respawnTimer = item.maxRespawn;
@@ -1610,6 +1629,7 @@ export class GameEngine {
       this.stamina = Math.min(maxStam, this.stamina + 25);
       this.gainXp(item.xpGain);
       this.waterDrunk++;
+      this.recordPlayerTaskEvent('water_drunk');
       item.active = false;
       item.mesh.visible = false;
       item.respawnTimer = item.maxRespawn;
@@ -1618,6 +1638,7 @@ export class GameEngine {
       this.callbacks.onToast(`+${item.amount} Sede (${item.name})`, 'success');
     } else if (item.kind === 'scrap') {
       this.scrap += item.amount;
+      this.recordPlayerTaskEvent('scrap_collected', item.amount);
       this.gainXp(item.xpGain);
       item.active = false;
       item.mesh.visible = false;
@@ -1673,6 +1694,7 @@ export class GameEngine {
     this.scrap -= cost;
     shelter.shelterLevel = currentLevel + 1;
     this.sheltersUpgraded++;
+    this.recordPlayerTaskEvent('shelter_upgraded');
     this.applyShelterVisual(shelter);
     this.awardStars(2);
     gameAudio.playEvolution();
@@ -1809,6 +1831,7 @@ export class GameEngine {
         dialogueRelations: Object.fromEntries(this.dialogueRelations),
         dialogueFlags: Object.fromEntries(this.dialogueFlags),
         acceptedDialogueTasks: Array.from(this.acceptedDialogueTasks),
+        playerTasks: this.playerTasks,
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
