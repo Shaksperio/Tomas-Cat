@@ -30,6 +30,7 @@ import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCy
 import type { TaskCycleState } from './tasks/taskCycles';
 import { selectTaskGpsTarget } from './tasks/taskNavigation';
 import type { TaskGpsCandidate, TaskGpsTarget } from './tasks/taskNavigation';
+import { findGridRoute } from './tasks/gridRoute';
 import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
 import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
@@ -116,8 +117,12 @@ export class GameEngine {
   private readonly societyActors: SocietyActors;
   private societyTickTimer = 0;
   private readonly contactShadow: THREE.Mesh;
-  private readonly gpsRoutePositions = new Float32Array(6);
+  private readonly gpsRoutePositions = new Float32Array(768 * 3);
   private readonly gpsRoute: THREE.Line;
+  private gpsRoutePath: Array<{ x: number; z: number }> = [];
+  private gpsRouteTargetId: string | null = null;
+  private gpsRouteStartCell = '';
+  private gpsRouteTargetPosition = { x: Number.NaN, z: Number.NaN };
 
   private readonly sunLight: THREE.DirectionalLight;
   private readonly hemiLight: THREE.HemisphereLight;
@@ -2218,16 +2223,49 @@ export class GameEngine {
 
   private updateTaskGpsRoute(): void {
     const target = this.getTaskGpsTarget();
-    if (!target || this.duelPhase === 'fighting') { this.gpsRoute.visible = false; return; }
-    this.gpsRoutePositions[0] = this.catPos.x;
-    this.gpsRoutePositions[1] = Math.max(0.22, this.catPos.y + 0.25);
-    this.gpsRoutePositions[2] = this.catPos.z;
-    this.gpsRoutePositions[3] = target.x;
-    this.gpsRoutePositions[4] = Math.max(0.22, target.y + 0.25);
-    this.gpsRoutePositions[5] = target.z;
+    if (!target || this.duelPhase === 'fighting') {
+      this.gpsRoute.visible = false;
+      this.gpsRoutePath = [];
+      this.gpsRouteTargetId = null;
+      return;
+    }
+    const startCell = `${Math.floor((this.catPos.x + WORLD_BOUNDS) / 4)}:${Math.floor((this.catPos.z + WORLD_BOUNDS) / 4)}`;
+    const targetMoved = Math.hypot(target.x - this.gpsRouteTargetPosition.x, target.z - this.gpsRouteTargetPosition.z) > 3;
+    const needsRoute = target.id !== this.gpsRouteTargetId || startCell !== this.gpsRouteStartCell || targetMoved || this.gpsRoutePath.length < 2;
+    if (needsRoute) {
+      const elevated = Math.abs(target.y - this.catPos.y) > 1.8;
+      if (elevated) {
+        this.gpsRoutePath = [{ x: this.catPos.x, z: this.catPos.z }, { x: target.x, z: target.z }];
+      } else {
+        const obstacles = this.world.colliders
+          .filter((box) => box.topY > 0 && (box.minY ?? 0) <= 0.25)
+          .map((box) => ({ minX: box.minX, maxX: box.maxX, minZ: box.minZ, maxZ: box.maxZ }));
+        const route = findGridRoute(
+          { x: this.catPos.x, z: this.catPos.z },
+          { x: target.x, z: target.z },
+          obstacles,
+          { bounds: WORLD_BOUNDS, cellSize: 4, clearance: 0.9, maxExpanded: 18000 },
+        );
+        this.gpsRoutePath = route.length >= 2 ? route : [{ x: this.catPos.x, z: this.catPos.z }, { x: target.x, z: target.z }];
+      }
+      this.gpsRouteTargetId = target.id;
+      this.gpsRouteStartCell = startCell;
+      this.gpsRouteTargetPosition = { x: target.x, z: target.z };
+    }
+    const pointCount = Math.min(this.gpsRoutePath.length, this.gpsRoutePositions.length / 3);
+    for (let i = 0; i < pointCount; i++) {
+      const point = this.gpsRoutePath[i];
+      const offset = i * 3;
+      this.gpsRoutePositions[offset] = i === 0 ? this.catPos.x : i === pointCount - 1 ? target.x : point.x;
+      this.gpsRoutePositions[offset + 1] = i === 0
+        ? Math.max(0.22, this.catPos.y + 0.25)
+        : i === pointCount - 1 ? Math.max(0.22, target.y + 0.25) : 0.22;
+      this.gpsRoutePositions[offset + 2] = i === 0 ? this.catPos.z : i === pointCount - 1 ? target.z : point.z;
+    }
+    this.gpsRoute.geometry.setDrawRange(0, pointCount);
     (this.gpsRoute.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
     this.gpsRoute.geometry.computeBoundingSphere();
-    this.gpsRoute.visible = true;
+    this.gpsRoute.visible = pointCount >= 2;
   }
 
   private updateGameplay(dt: number): void {
