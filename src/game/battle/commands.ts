@@ -24,6 +24,12 @@ export const BATTLE_COMMAND_PRESENTATION: Record<BattleCommand, BattleCommandPre
   limit: { animationId: 'meteor-claw', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'wide'], hitTimings: [1.7, 1.92, 2.14, 2.36, 2.58, 2.8], particleProfile: 'meteor', trailColor: '#93c5fd' },
 };
 
+export const BATTLE_ITEM_CATALOG = {
+  ration: { label: 'Ração energética', healing: 28, source: 'Coletada gratuitamente ao recolher comida, peixe ou presa no mundo.' },
+} as const;
+
+export type BattleItemId = keyof typeof BATTLE_ITEM_CATALOG;
+
 export interface BattleInventoryItem {
   itemId: string;
   quantity: number;
