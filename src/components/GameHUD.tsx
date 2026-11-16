@@ -650,7 +650,7 @@ export function GameHUD({
 
   // Durante a batalha só ficam os duelistas, os comandos e o botão de abandonar.
   if (phase === 'playing' && hud.duel?.phase === 'fighting') {
-    return <BattleOverlay duel={hud.duel} onCommand={onBattleCommand} onForfeit={onDuelForfeit} onTarget={onBattleTarget} />;
+    return <BattleOverlay duel={hud.duel} onCommand={onBattleCommand} onComboBreaker={onComboBreaker} onForfeit={onDuelForfeit} onTarget={onBattleTarget} />;
   }
 
   return (
