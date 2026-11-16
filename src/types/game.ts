@@ -2,6 +2,7 @@ import type { DialogueOption, DialogueState } from '../game/dialogue/types';
 import type { BattleInventoryItem } from '../game/battle/commands';
 import type { TaskCycleState, CycleTaskInstance, CycleTaskStage } from '../game/tasks/taskCycles';
 import type { TaskGpsTarget } from '../game/tasks/taskNavigation';
+import type { InventoryEntry } from '../game/items/inventory';
 
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
 
@@ -21,6 +22,7 @@ export type InteractionKind =
   | 'water'
   | 'shelter'
   | 'scrap'
+  | 'pickup'
   | 'terminal'
   | 'resident';
 
@@ -206,6 +208,7 @@ export interface PromptInfo {
   secondaryLabel?: string;
   canUpgrade?: boolean;
   upgradeCost?: number;
+  itemId?: string;
 }
 
 export interface RadarBlip {
@@ -308,6 +311,7 @@ export interface HudSnapshot {
   gpsTarget?: TaskGpsTarget | null;
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
+  inventory?: InventoryEntry[];
   isAlphaLeader: boolean;
   rankTitle: string;
   attackPower: number;
@@ -384,6 +388,7 @@ export interface SavedGameState {
   activeDialogue?: DialogueState | null;
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
+  inventory?: InventoryEntry[];
   dialogueRelations?: Record<string, { affinity: number; trust: number }>;
   dialogueFlags?: Record<string, boolean>;
   acceptedDialogueTasks?: string[];
