@@ -6,7 +6,10 @@ import {
   lakesAsWaterBodies,
   PHASE_LAKES,
   PHASE_RIVERS,
+  riverCurrentDelta,
+  riverCurrentDirection,
   riversForPhase,
+  sampleExpandedWater,
 } from './waterBodies.ts';
 
 test('há pelo menos um lago por fase 1–4', () => {
@@ -41,4 +44,35 @@ test('findRiverAt encontra ponto dentro da meia-largura', () => {
 
 test('riversForPhase filtra corretamente', () => {
   assert.ok(riversForPhase(1).every((r) => r.phase === 1));
+});
+
+test('riverCurrentDirection é unitário ao longo de A→B', () => {
+  const r = PHASE_RIVERS[0];
+  const d = riverCurrentDirection(r);
+  const len = Math.sqrt(d.x * d.x + d.z * d.z);
+  assert.ok(Math.abs(len - 1) < 1e-6);
+});
+
+test('riverCurrentDelta escala com dt', () => {
+  const r = PHASE_RIVERS[0];
+  const a = riverCurrentDelta(r, 1);
+  const b = riverCurrentDelta(r, 0.5);
+  assert.ok(Math.abs(a.dx - 2 * b.dx) < 1e-6);
+  assert.ok(Math.abs(a.dz - 2 * b.dz) < 1e-6);
+});
+
+test('sampleExpandedWater detecta rio e aplica corrente', () => {
+  const r = PHASE_RIVERS[0];
+  const mx = (r.ax + r.bx) / 2;
+  const mz = (r.az + r.bz) / 2;
+  const s = sampleExpandedWater([], PHASE_RIVERS, mx, r.surfaceY - 0.5, mz, 0.9);
+  assert.equal(s.inWater, true);
+  assert.equal(s.river?.id, r.id);
+  assert.ok(Math.abs(s.currentDx) + Math.abs(s.currentDz) > 0.5);
+});
+
+test('sampleExpandedWater fora d água', () => {
+  const s = sampleExpandedWater([], PHASE_RIVERS, 0, 0, 0, 0.9);
+  assert.equal(s.inWater, false);
+  assert.equal(s.river, null);
 });
