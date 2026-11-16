@@ -252,6 +252,8 @@ export interface DuelHud {
   playerAtb: number;
   opponentAtb: number;
   playerLimit: number;
+  /** Nível atual, usado para mostrar técnicas desbloqueadas. */
+  playerLevel: number;
   /** Aguardando o comando do jogador. */
   awaitingCommand: boolean;
   intro: boolean;

@@ -1143,6 +1143,9 @@ export class GameEngine {
       if (command === 'limit') this.callbacks.onToast('A barra de maná ainda não está cheia.', 'info');
       else if (command === 'item' && this.battle?.playerItems === 0) this.callbacks.onToast('Você não tem rações de combate.', 'info');
       else if (command === 'item') this.callbacks.onToast('O vigor já está cheio.', 'info');
+      else if (command === 'combo_a' && this.level < 25) this.callbacks.onToast('Rasante Duplo desbloqueia no nível 25.', 'info');
+      else if (command === 'combo_b' && this.level < 55) this.callbacks.onToast('Tempestade de Garras desbloqueia no nível 55.', 'info');
+      else if (command === 'combo_a' || command === 'combo_b') this.callbacks.onToast('Maná insuficiente para esta técnica.', 'info');
       return;
     }
     this.runBattleCommand('player', command);
@@ -1313,6 +1316,7 @@ export class GameEngine {
       playerAtb: Math.max(0, Math.min(100, battle?.player.atb ?? 0)),
       opponentAtb: first?.atb ?? 0,
       playerLimit: battle?.player.limit ?? 0,
+      playerLevel: this.level,
       awaitingCommand: Boolean(
         battle && battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !battle.finished,
       ),
@@ -1937,8 +1941,8 @@ export class GameEngine {
         this.triggerShelterUpgrade();
       } else if (code === 'KeyJ' || code === 'KeyC') {
         this.triggerClawAttack();
-      } else if (this.duelPhase === 'fighting' && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5')) {
-        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit' };
+      } else if (this.duelPhase === 'fighting' && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].includes(code)) {
+        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit', Digit6: 'combo_a', Digit7: 'combo_b' };
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);

@@ -13,7 +13,7 @@ export type FoeSide = 'opponent' | 'opponent2' | 'opponent3' | 'opponent4';
 export type Side = 'player' | FoeSide;
 export const FOE_SIDES: readonly FoeSide[] = ['opponent', 'opponent2', 'opponent3', 'opponent4'];
 export const MAX_FOES = FOE_SIDES.length;
-export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit' | 'item';
+export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b';
 
 export interface Combatant {
   vigor: number;
@@ -99,12 +99,17 @@ export const MAX_TURNS = 60;
 /** Turnos extras permitidos por oponente adicional. */
 export const EXTRA_TURNS_PER_FOE = 30;
 
+export const COMBO_UNLOCKS = { combo_a: 25, combo_b: 55 } as const;
+export const COMBO_MANA_COST = { combo_a: 35, combo_b: 70 } as const;
+
 export const COMMAND_LABELS: Record<BattleCommand, string> = {
   attack: 'Arranhar',
   flurry: 'Garra Furiosa',
   guard: 'Defender',
   limit: 'Sequência Especial: Garra Meteoro',
   item: 'Usar Ração',
+  combo_a: 'Rasante Duplo',
+  combo_b: 'Tempestade de Garras',
 };
 
 function nextRandom(state: number): { value: number; state: number } {
@@ -230,6 +235,8 @@ export function canUseCommand(state: BattleState, side: Side, command: BattleCom
   if (state.finished || state.ready !== side) return false;
   if (command === 'limit') return fighter(state, side).limit >= LIMIT_MAX;
   if (command === 'item') return side === 'player' && state.playerItems > 0 && state.player.vigor < VIGOR_MAX;
+  if (command === 'combo_a') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_a && state.player.limit >= COMBO_MANA_COST.combo_a;
+  if (command === 'combo_b') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_b && state.player.limit >= COMBO_MANA_COST.combo_b;
   return true;
 }
 
@@ -314,6 +321,26 @@ export function resolveCommand(
       me.atb = 0;
       break;
     }
+    case 'combo_a': {
+      me.limit -= COMBO_MANA_COST.combo_a;
+      for (let i = 0; i < 4; i += 1) {
+        const r = applyHit(state, target, 7 + power * 1.6 + Math.floor(rand(state) * 3), false);
+        hits.push({ damage: r.damage, crit: r.crit });
+        blocked = blocked || r.blocked;
+      }
+      me.atb = -10;
+      break;
+    }
+    case 'combo_b': {
+      me.limit -= COMBO_MANA_COST.combo_b;
+      for (let i = 0; i < 6; i += 1) {
+        const r = applyHit(state, target, 8 + power * 1.9 + Math.floor(rand(state) * 4), false);
+        hits.push({ damage: r.damage, crit: r.crit });
+        blocked = blocked || r.blocked;
+      }
+      me.atb = -25;
+      break;
+    }
     case 'limit': {
       me.limit = 0;
       const sp = specialProfile(levelOf(state, actor));
@@ -326,7 +353,7 @@ export function resolveCommand(
     }
   }
 
-  if (command !== 'limit' && command !== 'item') me.limit = Math.min(LIMIT_MAX, me.limit + MANA_GAIN[command]);
+  if (command === 'attack' || command === 'flurry' || command === 'guard') me.limit = Math.min(LIMIT_MAX, me.limit + MANA_GAIN[command]);
   state.ready = null;
   state.turn += 1;
   const knockedOut = command !== 'guard' && command !== 'item' && fighter(state, target).vigor <= 0;

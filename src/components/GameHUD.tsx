@@ -102,12 +102,14 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item'; label: string; key: string }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
   { id: 'limit', label: 'Especial', key: '4' },
   { id: 'item', label: 'Ração energética', key: 'I' },
+  { id: 'combo_a', label: 'Rasante Duplo', key: '6', requiredLevel: 25, manaCost: 35 },
+  { id: 'combo_b', label: 'Tempestade de Garras', key: '7', requiredLevel: 55, manaCost: 70 },
 ];
 
 function BattleOverlay({
@@ -117,7 +119,7 @@ function BattleOverlay({
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
@@ -200,8 +202,8 @@ function BattleOverlay({
       {!duel.intro && (
         <div className="absolute inset-x-2 bottom-[12vh] flex items-end gap-2 sm:gap-3 pointer-events-auto">
           <div className="w-40 sm:w-52 p-2" style={windowStyle}>
-            {BATTLE_COMMANDS.map((c) => {
-              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady) || (c.id === 'item' && duel.playerItems <= 0) || (c.id === 'item' && duel.playerVigor >= 100);
+            {BATTLE_COMMANDS.filter((c) => !c.requiredLevel || duel.playerLevel >= c.requiredLevel).map((c) => {
+              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady) || (c.id === 'item' && duel.playerItems <= 0) || (c.id === 'item' && duel.playerVigor >= 100) || (c.manaCost !== undefined && duel.playerLimit < c.manaCost);
               return (
                 <button
                   key={c.id}
@@ -213,7 +215,7 @@ function BattleOverlay({
                   } ${c.id === 'limit' && limitReady ? 'battle-limit-ready' : ''}`}
                 >
                   <span className="w-3 text-amber-300">{duel.awaitingCommand && !disabled ? '▶' : ''}</span>
-                  <span className="flex-1 truncate">{c.label}{c.id === 'item' ? ` (${duel.playerItems})` : ''}</span>
+                  <span className="flex-1 truncate">{c.label}{c.id === 'item' ? ` (${duel.playerItems})` : c.manaCost ? ` (${c.manaCost} MP)` : ''}</span>
                   <span className="text-[10px] font-mono-tabular opacity-60">[{c.key}]</span>
                 </button>
               );

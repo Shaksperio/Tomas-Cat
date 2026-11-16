@@ -158,6 +158,41 @@ test('a sequência especial escala com o nível', () => {
   assert.ok(run(99) > run(1) * 2.5, `${run(99)} vs ${run(1)}`);
 });
 
+test('combos são desbloqueados por nível, custam maná e executam sequências determinísticas', () => {
+  const locked = createBattle(31, 2, 24);
+  locked.ready = 'player';
+  locked.player.atb = 100;
+  locked.player.limit = LIMIT_MAX;
+  assert.equal(canUseCommand(locked, 'player', 'combo_a'), false);
+
+  const first = createBattle(32, 2, 25);
+  first.ready = 'player';
+  first.player.atb = 100;
+  first.player.limit = 34;
+  assert.equal(canUseCommand(first, 'player', 'combo_a'), false);
+  first.player.limit = 35;
+  assert.equal(canUseCommand(first, 'player', 'combo_a'), true);
+  const firstAction = resolveCommand(first, 'player', 'combo_a');
+  assert.equal(firstAction.hits.length, 4);
+  assert.equal(first.player.limit, 0);
+  assert.equal(first.player.atb, -10);
+
+  const second = createBattle(33, 2, 55);
+  second.ready = 'player';
+  second.player.atb = 100;
+  second.player.limit = 70;
+  assert.equal(canUseCommand(second, 'player', 'combo_b'), true);
+  const secondAction = resolveCommand(second, 'player', 'combo_b');
+  assert.equal(secondAction.hits.length, 6);
+  assert.equal(second.player.limit, 0);
+  assert.equal(second.player.atb, -25);
+
+  const foeTurn = createBattle(34, 2, 99);
+  foeTurn.ready = 'opponent';
+  foeTurn.opponent.atb = 100;
+  assert.equal(canUseCommand(foeTurn, 'opponent', 'combo_a'), false);
+});
+
 test('o maná com que o jogador entra é mantido e limitado a 100', () => {
   assert.equal(createBattle(1, 2, 10, 10, { playerMana: 63 }).player.limit, 63);
   assert.equal(createBattle(1, 2, 10, 10, { playerMana: 900 }).player.limit, LIMIT_MAX);
