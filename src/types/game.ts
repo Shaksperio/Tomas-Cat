@@ -1,6 +1,7 @@
 import type { DialogueOption, DialogueState } from '../game/dialogue/types';
 import type { BattleInventoryItem } from '../game/battle/commands';
 import type { TaskCycleState, CycleTaskInstance, CycleTaskStage } from '../game/tasks/taskCycles';
+import type { TaskGpsTarget } from '../game/tasks/taskNavigation';
 
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
 
@@ -304,6 +305,7 @@ export interface HudSnapshot {
   playerTasks?: Array<{ id: string; title: string; description: string; progress: number; target: number; status: 'active' | 'completed' }>;
   cycleTasks?: Array<CycleTaskInstance & { currentStage: CycleTaskStage }>;
   secondsToNextTask?: number;
+  gpsTarget?: TaskGpsTarget | null;
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
   isAlphaLeader: boolean;
