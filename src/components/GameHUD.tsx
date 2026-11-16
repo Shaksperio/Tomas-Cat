@@ -704,6 +704,7 @@ export function GameHUD({
                   );
                 })}
               </div>
+              {Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}
               <div className="mt-2 text-[9px] text-slate-500">A ração energética continua no inventário separado de batalha (tecla I durante duelos).</div>
             </div>
           )}
