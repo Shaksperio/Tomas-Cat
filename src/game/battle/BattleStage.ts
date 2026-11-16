@@ -828,8 +828,10 @@ export class BattleStage {
     this.orbit = { around: 'center', radius: this.safeFrameDistance(this.getFighterFrame().radius, this.origFov - 4), height: 2.1, speed: 0.75, phase: Math.atan2(this.perp.z, this.perp.x) };
     this.fighters[actor].squash = 0.3;
     this.comboBreakerWindow = false;
-    this.after(0.72, () => { this.comboBreakerWindow = true; });
-    this.after(1.62, () => { this.comboBreakerWindow = false; });
+    if (actor !== 'player') {
+      this.after(0.72, () => { this.comboBreakerWindow = true; });
+      this.after(1.62, () => { this.comboBreakerWindow = false; });
+    }
     // Carga: orbe crescente + anéis no chão.
     const orb = this.worldPos(actor, 2.4);
     for (let i = 0; i < 3; i += 1) {
