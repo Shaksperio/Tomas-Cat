@@ -1,6 +1,6 @@
 /** Tarefas cíclicas determinísticas: um ciclo a cada 600 s de jogo ativo. */
 export const TASK_CYCLE_SECONDS = 600;
-export type CycleTaskEvent = 'food_collected' | 'water_drunk' | 'scrap_collected' | 'enemy_defeated';
+export type CycleTaskEvent = 'food_collected' | 'water_drunk' | 'scrap_collected' | 'enemy_defeated' | 'shelter_upgraded';
 export interface CycleTaskStage {
   event: CycleTaskEvent;
   target: number;
@@ -109,7 +109,7 @@ export function cloneTaskCycleState(state: TaskCycleState): TaskCycleState {
     tasks: Array.isArray(state.tasks) ? state.tasks.flatMap((task) => {
       if (!task || typeof task.id !== 'string' || !Array.isArray(task.stages) || task.stages.length === 0) return [];
       const stageIndex = Math.max(0, Math.min(task.stages.length - 1, Math.floor(task.stageIndex || 0)));
-      const stages = task.stages.filter((stage) => stage && Number.isFinite(stage.target) && stage.target > 0 && ['food_collected', 'water_drunk', 'scrap_collected', 'enemy_defeated'].includes(stage.event));
+      const stages = task.stages.filter((stage) => stage && Number.isFinite(stage.target) && stage.target > 0 && ['food_collected', 'water_drunk', 'scrap_collected', 'enemy_defeated', 'shelter_upgraded'].includes(stage.event));
       if (stages.length !== task.stages.length) return [];
       return [{ ...task, stages: stages.map((stage) => ({ ...stage, target: Math.floor(stage.target) })), stageIndex, progress: Math.max(0, Math.min(stages[stageIndex].target, Math.floor(task.progress || 0))), status: task.status === 'completed' ? 'completed' as const : 'active' as const }];
     }) : [],
