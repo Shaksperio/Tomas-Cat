@@ -198,6 +198,8 @@ export default function App() {
           onContinueAfterVictory={handleContinueAfterVictory}
           onInteract={() => engineRef.current?.triggerInteract()}
           onUseInventoryItem={(itemId) => engineRef.current?.useInventoryItem(itemId)}
+          onEquipInventoryItem={(itemId) => engineRef.current?.equipInventoryItem(itemId)}
+          onUnequipEquipment={(slot) => engineRef.current?.unequipEquipment(slot)}
           onDialogueOption={(optionId) => engineRef.current?.chooseDialogueOption(optionId)}
           onDialogueClose={() => engineRef.current?.closeDialogue()}
           onUpgradeShelter={() => engineRef.current?.triggerShelterUpgrade()}
