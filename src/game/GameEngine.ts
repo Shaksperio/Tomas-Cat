@@ -32,7 +32,9 @@ import { selectTaskGpsTarget } from './tasks/taskNavigation';
 import type { TaskGpsCandidate, TaskGpsTarget } from './tasks/taskNavigation';
 import { addInventoryItem, consumeInventoryItem, createInventoryState, inventoryCount, normalizeInventory } from './items/inventory';
 import type { InventoryState } from './items/inventory';
-import { ITEM_CATALOG, isInventoryItemId, type InventoryItemId } from './items/itemCatalog';
+import { ITEM_CATALOG, isInventoryItemId, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from './items/itemCatalog';
+import { createEquipmentState, getEquipmentBonuses, normalizeEquipment } from './items/equipment';
+import type { EquipmentState } from './items/equipment';
 import { findGridRoute } from './tasks/gridRoute';
 import { normalizeTaskRewardDrops } from './tasks/taskRewards';
 import type { TaskRewardDrop } from './tasks/taskRewards';
@@ -217,6 +219,7 @@ export class GameEngine {
   private battleMana = 0;
   private battleInventory: BattleInventoryItem[] = [];
   private inventory: InventoryState = createInventoryState();
+  private equipment: EquipmentState = createEquipmentState();
   private battle: BattleState | null = null;
   private battleEnding = false;
   private readonly battleStage: BattleStage;
@@ -501,11 +504,11 @@ export class GameEngine {
   }
 
   private getEffectiveMaxHealth(): number {
-    return EVOLUTION_STAGES[this.stageIndex].maxHealth + (this.level - 1) * 3;
+    return EVOLUTION_STAGES[this.stageIndex].maxHealth + (this.level - 1) * 3 + getEquipmentBonuses(this.equipment).maxHealth;
   }
 
   private getEffectiveMaxStamina(): number {
-    return EVOLUTION_STAGES[this.stageIndex].maxStamina + (this.level - 1) * 2;
+    return EVOLUTION_STAGES[this.stageIndex].maxStamina + (this.level - 1) * 2 + getEquipmentBonuses(this.equipment).maxStamina;
   }
 
   private getCurrentAttackDamage(): number {
@@ -541,6 +544,7 @@ export class GameEngine {
     this.battleMana = 0;
     this.battleInventory = [];
     this.inventory = createInventoryState();
+    this.equipment = createEquipmentState();
     this.announcedRivals.clear();
     this.scrap = 0;
     this.coins = 60;
@@ -796,6 +800,7 @@ export class GameEngine {
       this.battleMana = typeof saved.battleMana === 'number' ? Math.max(0, Math.min(100, saved.battleMana)) : 0;
       this.battleInventory = (saved.battleInventory ?? []).filter((entry) => entry?.itemId === 'ration' && Number.isFinite(entry.quantity) && entry.quantity > 0).map((entry) => ({ itemId: 'ration', quantity: Math.min(99, Math.floor(entry.quantity)) }));
       this.inventory = normalizeInventory(saved.inventory);
+      this.equipment = normalizeEquipment(saved.equipment);
       this.day = saved.day || 1;
       this.timeOfDay = saved.timeOfDay ?? 0.34;
       this.health = Math.min(this.getEffectiveMaxHealth(), Math.max(25, saved.health || def.maxHealth));
@@ -1837,7 +1842,12 @@ export class GameEngine {
       this.callbacks.onToast('Você não possui esse item.', 'warn');
       return;
     }
-    const effect = ITEM_CATALOG[itemId].effect;
+    const definition = ITEM_CATALOG[itemId];
+    if (definition.category !== 'consumable') {
+      this.callbacks.onToast('Esse item é equipamento. Use a opção Equipar na mochila.', 'info');
+      return;
+    }
+    const effect = definition.effect;
     const def = EVOLUTION_STAGES[this.stageIndex];
     let applied = 0;
     if (effect.kind === 'health') {
@@ -1872,6 +1882,41 @@ export class GameEngine {
       gameAudio.playEat();
     }
     this.callbacks.onToast(`${ITEM_CATALOG[itemId].name}: +${Math.round(applied)} ${effect.kind === 'health' ? 'Saúde' : effect.kind === 'thirst' ? 'Sede' : effect.kind === 'stamina' ? 'Resistência' : 'Fome'}.`, 'success');
+    this.saveGame();
+    this.syncHud();
+  }
+
+  public equipInventoryItem(itemId: EquipmentItemId): void {
+    if (this.phase !== 'playing' || this.duelPhase === 'fighting') return;
+    const definition = ITEM_CATALOG[itemId];
+    if (definition.category !== 'equipment') return;
+    if (inventoryCount(this.inventory, itemId) <= 0) {
+      this.callbacks.onToast('Você não possui esse equipamento.', 'warn');
+      return;
+    }
+    const slot = definition.slot;
+    const equipped = this.equipment[slot];
+    if (equipped === itemId) {
+      this.callbacks.onToast('Esse equipamento já está equipado.', 'info');
+      return;
+    }
+    let nextInventory = consumeInventoryItem(this.inventory, itemId);
+    if (!nextInventory) return;
+    if (equipped) nextInventory = addInventoryItem(nextInventory, equipped, 1);
+    this.inventory = nextInventory;
+    this.equipment = { ...this.equipment, [slot]: itemId };
+    this.callbacks.onToast(`${definition.name} equipado. ${slot === 'collar' ? '+15 Saúde máxima' : '+20 Resistência máxima'}.`, 'success');
+    this.saveGame();
+    this.syncHud();
+  }
+
+  public unequipEquipment(slot: EquipmentSlot): void {
+    if (this.phase !== 'playing' || this.duelPhase === 'fighting') return;
+    const itemId = this.equipment[slot];
+    if (!itemId) return;
+    this.inventory = addInventoryItem(this.inventory, itemId, 1);
+    this.equipment = { ...this.equipment, [slot]: null };
+    this.callbacks.onToast(`${ITEM_CATALOG[itemId].name} removido e devolvido à mochila.`, 'info');
     this.saveGame();
     this.syncHud();
   }
@@ -2030,6 +2075,7 @@ export class GameEngine {
         battleMana: this.battleMana,
         battleInventory: this.battleInventory,
         inventory: this.inventory,
+        equipment: this.equipment,
         taskRewardDrops: this.taskRewardDrops,
         unlockedMoves: Array.from(this.unlockedMoves),
         dialogueRelations: Object.fromEntries(this.dialogueRelations),
@@ -3406,6 +3452,7 @@ export class GameEngine {
       secondsToNextTask: Math.max(0, 600 - this.taskCycle.activeSeconds),
       gpsTarget: this.getTaskGpsTarget(),
       inventory: this.inventory,
+      equipment: this.equipment,
       pendingTaskRewards: this.taskRewardDrops.length,
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
