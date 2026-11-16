@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CHAPTER_PHASES, InteractionKind, LoreLog } from '../types/game';
 import { createPredatorMesh, PredatorActor } from './enemyModels';
 import { createWaterBody, type WaterBody } from './survival/water';
+import { PHASE_LAKES, PHASE_RIVERS, riverCorners, type RiverSegment } from './survival/waterBodies';
 import { ProceduralTextureSet } from './textures';
 import { buildVegetation } from './style/vegetation';
 
@@ -60,6 +61,7 @@ export interface BuiltWorld {
   neonMaterials: THREE.MeshStandardMaterial[];
   waterMeshes: THREE.Mesh[];
   waterBodies: WaterBody[];
+  rivers: RiverSegment[];
   skyDome: THREE.Mesh;
   getSectorName: (x: number, z: number) => string;
 }
@@ -151,6 +153,8 @@ export function buildPostApocalypticWorld(
     ['Fonte do Bio-Domo', -18, 92, 3.0],
     ['Lago da Arena Sul', 18, 152, 3.2],
   ];
+  // Lagos médios adicionais, um por distrito/fase, além das oito bacias legadas.
+  waterSpots.push(...PHASE_LAKES.map((lake): [string, number, number, number] => [lake.name, lake.x, lake.z, lake.radius]));
   // Bacias reais: o chão tem buracos circulares onde ficam lagos e poças com profundidade.
   const waterBodies: WaterBody[] = waterSpots.map(([name, x, z, r], idx) =>
     createWaterBody(`water-${idx}`, name, x, z, r),
@@ -165,6 +169,17 @@ export function buildPostApocalypticWorld(
     const hole = new THREE.Path();
     // O chão é girado -90° em X: y da forma vira -z do mundo.
     hole.absarc(body.x, -body.z, body.radius, 0, Math.PI * 2, true);
+    groundShape.holes.push(hole);
+  }
+  // Canais navegáveis também recortam o piso; o canal elevado da fase 2 é só visual.
+  for (const river of PHASE_RIVERS) {
+    if (river.swimmable === false) continue;
+    const corners = riverCorners(river);
+    if (corners.length !== 4) continue;
+    const hole = new THREE.Path();
+    hole.moveTo(corners[0].x, -corners[0].z);
+    for (let i = 1; i < corners.length; i++) hole.lineTo(corners[i].x, -corners[i].z);
+    hole.closePath();
     groundShape.holes.push(hole);
   }
   // UVs da ShapeGeometry são em metros: mantém o mesmo ladrilhamento do plano antigo (72 repetições em 580 m).
@@ -738,6 +753,53 @@ export function buildPostApocalypticWorld(
     });
   });
 
+  // Rios e canal elevado: malhas low-poly sem física por frame; a corrente é amostrada pelo motor.
+  for (const river of PHASE_RIVERS) {
+    const corners = riverCorners(river);
+    if (corners.length !== 4) continue;
+    const shape = new THREE.Shape();
+    shape.moveTo(corners[0].x, -corners[0].z);
+    for (let i = 1; i < corners.length; i++) shape.lineTo(corners[i].x, -corners[i].z);
+    shape.closePath();
+
+    const surface = new THREE.Mesh(
+      new THREE.ShapeGeometry(shape),
+      waterMat,
+    );
+    surface.rotation.x = -Math.PI / 2;
+    surface.position.y = river.surfaceY;
+    surface.material = waterMat.clone();
+    (surface.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
+    scene.add(surface);
+    waterMeshes.push(surface);
+
+    if (river.swimmable === false) {
+      // Canal suspenso: bordas metálicas visíveis, sem volume de natação no nível da rua.
+      const length = Math.hypot(river.bx - river.ax, river.bz - river.az);
+      const angle = Math.atan2(river.bz - river.az, river.bx - river.ax);
+      const centerX = (river.ax + river.bx) / 2;
+      const centerZ = (river.az + river.bz) / 2;
+      for (const side of [-1, 1]) {
+        const bank = new THREE.Mesh(
+          new THREE.BoxGeometry(length, 1.0, 0.35),
+          darkSteelMat,
+        );
+        bank.position.set(
+          centerX - Math.sin(angle) * river.halfWidth * side,
+          river.floorY + 0.45,
+          centerZ + Math.cos(angle) * river.halfWidth * side,
+        );
+        bank.rotation.y = angle;
+        scene.add(bank);
+      }
+    } else {
+      const floor = new THREE.Mesh(new THREE.ShapeGeometry(shape), basinMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = river.floorY;
+      scene.add(floor);
+    }
+  }
+
   // FISHING: fish schools appear in the larger reservoirs and return after a catch.
   const fishBodyMat = new THREE.MeshStandardMaterial({
     color: 0xf59e0b,
@@ -1291,6 +1353,7 @@ export function buildPostApocalypticWorld(
     neonMaterials,
     waterMeshes,
     waterBodies,
+    rivers: [...PHASE_RIVERS],
     skyDome,
     getSectorName,
   };
