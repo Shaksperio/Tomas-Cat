@@ -5,6 +5,7 @@ import { createWaterBody, type WaterBody } from './survival/water';
 import { PHASE_LAKES, PHASE_RIVERS, riverCorners, type RiverSegment } from './survival/waterBodies';
 import { ProceduralTextureSet } from './textures';
 import { buildVegetation } from './style/vegetation';
+import { ITEM_CATALOG, type InventoryItemId } from './items/itemCatalog';
 
 export interface ColliderBox {
   minX: number;
@@ -42,6 +43,7 @@ export interface WorldInteractable {
   homePos?: THREE.Vector3;
   wanderAngle?: number;
   lore?: LoreLog;
+  itemId?: InventoryItemId;
 }
 
 export interface IndoorZone {
@@ -939,6 +941,57 @@ export function buildPostApocalypticWorld(
   });
 
   // =========================================================================
+
+  // =========================================================================
+  // GENERAL INVENTORY PICKUPS (persistent consumables)
+  // =========================================================================
+  const pickupMaterials = {
+    herb: new THREE.MeshStandardMaterial({ color: 0x65a30d, emissive: 0x365314, emissiveIntensity: 0.5, roughness: 0.7 }),
+    water: new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x075985, emissiveIntensity: 0.65, metalness: 0.25, roughness: 0.2 }),
+    energy: new THREE.MeshStandardMaterial({ color: 0xc084fc, emissive: 0x7e22ce, emissiveIntensity: 0.75, roughness: 0.35 }),
+  };
+  const pickupConfigs: Array<{ id: InventoryItemId; x: number; z: number }> = [
+    { id: 'medicinal_herb', x: -28, z: -10 },
+    { id: 'medicinal_herb', x: 82, z: -70 },
+    { id: 'medicinal_herb', x: -132, z: 70 },
+    { id: 'clean_water', x: 42, z: -102 },
+    { id: 'clean_water', x: 148, z: 62 },
+    { id: 'clean_water', x: 24, z: 150 },
+    { id: 'energy_berry', x: 36, z: -96 },
+    { id: 'energy_berry', x: -88, z: 132 },
+    { id: 'energy_berry', x: 176, z: 82 },
+  ];
+  pickupConfigs.forEach(({ id, x, z }, index) => {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    const material = id === 'medicinal_herb' ? pickupMaterials.herb : id === 'clean_water' ? pickupMaterials.water : pickupMaterials.energy;
+    const shape = id === 'medicinal_herb'
+      ? new THREE.DodecahedronGeometry(0.32, 0)
+      : id === 'clean_water'
+        ? new THREE.OctahedronGeometry(0.34, 0)
+        : new THREE.IcosahedronGeometry(0.3, 0);
+    const core = new THREE.Mesh(shape, material);
+    core.position.y = 0.55;
+    core.castShadow = true;
+    const beaconRing = createBeaconRing(id === 'medicinal_herb' ? 0x84cc16 : id === 'clean_water' ? 0x38bdf8 : 0xc084fc);
+    group.add(core, beaconRing);
+    scene.add(group);
+    interactables.push({
+      id: `pickup-${index}`,
+      kind: 'pickup',
+      itemId: id,
+      name: ITEM_CATALOG[id].name,
+      position: new THREE.Vector3(x, 0, z),
+      mesh: group,
+      beaconRing,
+      active: true,
+      respawnTimer: 0,
+      maxRespawn: 150,
+      amount: 1,
+      xpGain: 8,
+    });
+  });
+
   // SHELTERS (6 safe refuges across the open city)
   // =========================================================================
   const shelterConfigs: [string, number, number][] = [
