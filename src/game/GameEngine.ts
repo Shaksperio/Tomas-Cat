@@ -387,7 +387,7 @@ export class GameEngine {
     const gpsGeometry = new THREE.BufferGeometry();
     gpsGeometry.setAttribute('position', new THREE.BufferAttribute(this.gpsRoutePositions, 3));
     gpsGeometry.setDrawRange(0, 2);
-    this.gpsRoute = new THREE.Line(gpsGeometry, new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.78, depthWrite: false }));
+    this.gpsRoute = new THREE.Line(gpsGeometry, new THREE.LineBasicMaterial({ color: 0x2f80ff, transparent: true, opacity: 0.96, depthWrite: false }));
     this.gpsRoute.frustumCulled = false;
     this.gpsRoute.visible = false;
     this.scene.add(this.gpsRoute);
