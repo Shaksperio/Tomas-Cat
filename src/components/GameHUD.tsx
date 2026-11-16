@@ -102,11 +102,12 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit'; label: string; key: string }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item'; label: string; key: string }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
   { id: 'limit', label: 'Especial', key: '4' },
+  { id: 'item', label: 'Ração energética', key: 'I' },
 ];
 
 function BattleOverlay({
@@ -116,7 +117,7 @@ function BattleOverlay({
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item') => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
@@ -200,7 +201,7 @@ function BattleOverlay({
         <div className="absolute inset-x-2 bottom-[12vh] flex items-end gap-2 sm:gap-3 pointer-events-auto">
           <div className="w-40 sm:w-52 p-2" style={windowStyle}>
             {BATTLE_COMMANDS.map((c) => {
-              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady);
+              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady) || (c.id === 'item' && duel.playerItems <= 0) || (c.id === 'item' && duel.playerVigor >= 100);
               return (
                 <button
                   key={c.id}
@@ -212,7 +213,7 @@ function BattleOverlay({
                   } ${c.id === 'limit' && limitReady ? 'battle-limit-ready' : ''}`}
                 >
                   <span className="w-3 text-amber-300">{duel.awaitingCommand && !disabled ? '▶' : ''}</span>
-                  <span className="flex-1 truncate">{c.label}</span>
+                  <span className="flex-1 truncate">{c.label}{c.id === 'item' ? ` (${duel.playerItems})` : ''}</span>
                   <span className="text-[10px] font-mono-tabular opacity-60">[{c.key}]</span>
                 </button>
               );
