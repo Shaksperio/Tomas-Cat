@@ -103,7 +103,7 @@ export const LORE_LOGS: LoreLog[] = [
 ];
 
 export function buildPostApocalypticWorld(
-  scene: THREE.Scene,
+  scene: THREE.Scene | THREE.Group,
   textures: ProceduralTextureSet,
 ): BuiltWorld {
   const colliders: ColliderBox[] = [];

@@ -334,3 +334,13 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - `currentPhase` continua sendo progressão interna da campanha, não identidade de mundo.
 - Testes cobrem IDs únicos, disponibilidade, separação entre fase e mundo e preservação de progresso quando um mundo planejado não pode ser carregado.
 - Próxima etapa: definir contrato de ciclo de vida da cena (construção, ativação, descarte e restauração de estado), então construir o primeiro ambiente independente e ligar os portais a esse ciclo.
+
+
+## Atualização de engenharia — ciclo de vida de cenas independentes (2026-11-16)
+
+- `WorldSceneManager` gerencia raízes 3D separadas por `WorldId`, constrói cenas sob demanda, ativa uma única raiz por vez, mantém cenas carregadas para retorno rápido e permite descarregar cenas inativas.
+- Cada definição declara seu próprio ponto de surgimento e fábrica de `BuiltWorld`; colisores, NPCs, predadores, água e interativos pertencem à raiz do mundo.
+- O construtor da Cidade da Quarentena foi movido para uma raiz gerenciada, sem alterar seu conteúdo ou os sistemas globais do jogador, câmera, HUD e renderizador.
+- O descarte de uma cena libera geometrias e materiais da raiz. Texturas compartilhadas continuam sob responsabilidade do motor.
+- A implementação ainda registra somente a Cidade da Quarentena. O Arquipélago continua planejado e ainda não existe como cena jogável; a viagem e os portais não foram ativados nesta etapa.
+- Testes cobrem construção lazy, alternância de visibilidade, cache, descarte/reconstrução, destinos desconhecidos e IDs duplicados.

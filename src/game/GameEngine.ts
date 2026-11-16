@@ -34,6 +34,7 @@ import {
   type WorldTravelSaveState,
 } from './worlds/portalWorlds';
 import { PLAYABLE_WORLD_IDS, WORLD_IDS } from './worlds/worldCatalog';
+import { WorldSceneManager } from './worlds/worldSceneManager';
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
 import type { TaskCycleState } from './tasks/taskCycles';
@@ -131,7 +132,8 @@ export class GameEngine {
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
   private readonly textures: ProceduralTextureSet;
-  private readonly world: BuiltWorld;
+  private world: BuiltWorld;
+  private readonly worldSceneManager: WorldSceneManager;
   private readonly cat: ArticulatedCat;
   private society = new SocietySimulation();
   private readonly societyActors: SocietyActors;
@@ -399,7 +401,16 @@ export class GameEngine {
 
     const maxAniso = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
     this.textures = createProceduralTextures(maxAniso);
-    this.world = buildPostApocalypticWorld(this.scene, this.textures);
+    this.worldSceneManager = new WorldSceneManager(
+      this.scene,
+      [{
+        id: LEGACY_WORLD_ID,
+        spawn: { x: 0, z: 8 },
+        build: (root) => buildPostApocalypticWorld(root, this.textures),
+      }],
+      LEGACY_WORLD_ID,
+    );
+    this.world = this.worldSceneManager.active.world;
     const gpsGeometry = new THREE.BufferGeometry();
     gpsGeometry.setAttribute('position', new THREE.BufferAttribute(this.gpsRoutePositions, 3));
     gpsGeometry.setDrawRange(0, 2);
@@ -3618,6 +3629,7 @@ export class GameEngine {
     (this.gpsRoute.material as THREE.Material).dispose();
     this.societyActors.dispose();
     this.skyVisuals.dispose();
+    this.worldSceneManager.dispose();
     this.textures.dispose();
     // THREE.Points is not covered by the Mesh-only traversal below.
     // Dispose the pooled underwater particle resources explicitly.
