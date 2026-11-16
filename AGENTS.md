@@ -216,3 +216,17 @@ docs/architecture/AI-SOCIETY.md   arquitetura detalhada da sociedade artificial
 
 ## 7. Contexto sobre o autor
 O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedidas sejam executadas diretamente. Os textos de design acima vieram de conversas dele com o ChatGPT e foram consolidados aqui; em caso de conflito entre este arquivo e uma conversa antiga, vale o que o autor decidir por último.
+
+
+## Atualização de engenharia — céu vivo (2026-11-16)
+
+- **Integração inicial concluída em código:** `src/game/sky/skyAtmosphere.ts` fornece amostragem determinística de fase/iluminação lunar, cobertura e deriva de nuvens e atividade de aves conforme clima e hora. `SkyVisuals` mantém nuvens e bandos leves em limites fixos (14 nuvens e 24 posições de aves), centrados no jogador para reduzir custo de renderização.
+- **GameEngine:** a amostragem é conectada ao ciclo ambiental existente; a intensidade lunar acompanha a fase e nuvens/aves são atualizadas durante a iluminação ambiental. A lógica visual não altera física, combate, diálogos nem saves.
+- **Testes:** incluído o conjunto `src/game/sky/*.test.ts` no comando geral, preservando os testes de progressão, diálogos e tarefas já existentes.
+- **Correções de integração:** a regra de janela lunar reutiliza `dayCycle.ts`; corrigido literal de seed inválido no módulo visual; recursos compartilhados das nuvens são liberados uma única vez.
+- **Limites conhecidos:** o céu usa o clima e o ciclo globais atuais; perfis artísticos específicos por distrito/mundo, cintilação estelar avançada, aves em silhueta articulada e corona solar ainda precisam de incrementos próprios. Esta entrega não declara concluídos rios/lagos, portais, save multi-mundo nem Galáxia.
+
+### Sequência imediata
+1. Validar céu vivo integrado em CI e publicar após CI verde.
+2. Auditar e integrar o catálogo de águas sem confundir dados de lago/segmento com malhas já jogáveis; correnteza exige integração física explícita e testes.
+3. Auditar os contratos de portais/WorldId, persistência retrocompatível e transição real antes da Galáxia visual.
