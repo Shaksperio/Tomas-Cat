@@ -34,6 +34,8 @@ import { addInventoryItem, consumeInventoryItem, createInventoryState, inventory
 import type { InventoryState } from './items/inventory';
 import { ITEM_CATALOG, isInventoryItemId, type InventoryItemId } from './items/itemCatalog';
 import { findGridRoute } from './tasks/gridRoute';
+import { normalizeTaskRewardDrops } from './tasks/taskRewards';
+import type { TaskRewardDrop } from './tasks/taskRewards';
 import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
 import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
@@ -257,6 +259,7 @@ export class GameEngine {
   private readonly acceptedDialogueTasks = new Set<string>();
   private playerTasks: PlayerTaskState[] = [];
   private taskCycle: TaskCycleState = createTaskCycleState();
+  private taskRewardDrops: TaskRewardDrop[] = [];
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -547,6 +550,7 @@ export class GameEngine {
     this.dialogueFlags.clear();
     this.acceptedDialogueTasks.clear();
     this.playerTasks = [];
+    this.clearTaskRewardDrops();
     this.taskCycle = createTaskCycleState();
     this.day = 1;
     this.timeOfDay = 0.34;
@@ -835,6 +839,8 @@ export class GameEngine {
         });
       }
       this.taskCycle = cloneTaskCycleState(saved.taskCycle ?? createTaskCycleState());
+      this.taskRewardDrops = normalizeTaskRewardDrops(saved.taskRewardDrops);
+      for (const drop of this.taskRewardDrops) this.spawnTaskRewardDrop(drop);
       this.foodCollected = saved.foodCollected || 0;
       this.waterDrunk = saved.waterDrunk || 0;
       this.sheltersUpgraded = saved.sheltersUpgraded || 0;
@@ -1639,6 +1645,46 @@ export class GameEngine {
     this.callbacks.onToast('Ração energética +1: disponível para usar em batalhas.', 'success');
   }
 
+  private spawnTaskRewardDrop(drop: TaskRewardDrop): void {
+    if (this.world.interactables.some((item) => item.taskRewardId === drop.id)) return;
+    const group = new THREE.Group();
+    group.position.set(drop.x, drop.y, drop.z);
+    const coreMaterial = new THREE.MeshStandardMaterial({
+      color: 0xfbbf24, emissive: 0xb45309, emissiveIntensity: 0.9, metalness: 0.72, roughness: 0.24,
+    });
+    const ringMaterial = new THREE.MeshStandardMaterial({
+      color: 0xfde68a, emissive: 0xf59e0b, emissiveIntensity: 1.1, transparent: true, opacity: 0.9,
+    });
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), coreMaterial);
+    core.position.y = 0.62;
+    core.castShadow = true;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.07, 6, 18), ringMaterial);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.12;
+    group.add(core, ring);
+    this.scene.add(group);
+    this.world.interactables.push({
+      id: drop.id, taskRewardId: drop.id, kind: 'scrap', name: `Recompensa: ${drop.title}`,
+      position: new THREE.Vector3(drop.x, drop.y, drop.z), mesh: group, beaconRing: ring,
+      active: true, respawnTimer: 0, maxRespawn: 0, amount: drop.amount, xpGain: 0,
+    });
+  }
+
+  private clearTaskRewardDrops(): void {
+    const rewardItems = this.world.interactables.filter((item) => item.taskRewardId);
+    for (const item of rewardItems) {
+      this.scene.remove(item.mesh);
+      item.mesh.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        object.geometry.dispose();
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((material) => material.dispose());
+      });
+    }
+    this.world.interactables = this.world.interactables.filter((item) => !item.taskRewardId);
+    this.taskRewardDrops = [];
+  }
+
   private recordPlayerTaskEvent(event: PlayerTaskEvent, amount = 1): void {
     const result = advancePlayerTasks(this.playerTasks, event, amount);
     this.playerTasks = result.states;
@@ -1650,9 +1696,17 @@ export class GameEngine {
     const cycleResult = advanceTaskCycleEvent(this.taskCycle, event, amount);
     this.taskCycle = cycleResult.state;
     for (const task of cycleResult.completed) {
-      this.scrap += task.rewardScrap;
       this.gainXp(task.rewardXp);
-      this.callbacks.onToast(`Missão concluída: ${task.title}. +${task.rewardXp} XP e +${task.rewardScrap} sucata.`, 'success');
+      const drop: TaskRewardDrop = {
+        id: `task-reward:${task.id}`, taskId: task.id, title: task.title,
+        x: THREE.MathUtils.clamp(this.catPos.x + Math.sin(this.catYaw) * 2.4, -WORLD_BOUNDS + 4, WORLD_BOUNDS - 4),
+        y: Math.max(0, this.catPos.y),
+        z: THREE.MathUtils.clamp(this.catPos.z + Math.cos(this.catYaw) * 2.4, -WORLD_BOUNDS + 4, WORLD_BOUNDS - 4),
+        amount: task.rewardScrap,
+      };
+      this.taskRewardDrops = [...this.taskRewardDrops.filter((item) => item.id !== drop.id), drop];
+      this.spawnTaskRewardDrop(drop);
+      this.callbacks.onToast(`Missão concluída: ${task.title}. +${task.rewardXp} XP. A recompensa física (${task.rewardScrap} sucatas) apareceu perto de Tomas.`, 'success');
     }
     this.saveGame();
   }
@@ -1713,6 +1767,15 @@ export class GameEngine {
       this.cat.triggerAction('drink');
       gameAudio.playDrink();
       this.callbacks.onToast(`+${item.amount} Sede (${item.name})`, 'success');
+    } else if (item.kind === 'scrap' && item.taskRewardId) {
+      this.scrap += item.amount;
+      this.taskRewardDrops = this.taskRewardDrops.filter((drop) => drop.id !== item.taskRewardId);
+      item.active = false;
+      item.mesh.visible = false;
+      this.cat.triggerAction('pounce');
+      gameAudio.playCollectScrap();
+      this.callbacks.onToast(`Recompensa recolhida: +${item.amount} sucatas.`, 'success');
+      this.saveGame();
     } else if (item.kind === 'scrap') {
       this.scrap += item.amount;
       this.recordPlayerTaskEvent('scrap_collected', item.amount);
@@ -1967,6 +2030,7 @@ export class GameEngine {
         battleMana: this.battleMana,
         battleInventory: this.battleInventory,
         inventory: this.inventory,
+        taskRewardDrops: this.taskRewardDrops,
         unlockedMoves: Array.from(this.unlockedMoves),
         dialogueRelations: Object.fromEntries(this.dialogueRelations),
         dialogueFlags: Object.fromEntries(this.dialogueFlags),
@@ -3342,6 +3406,7 @@ export class GameEngine {
       secondsToNextTask: Math.max(0, 600 - this.taskCycle.activeSeconds),
       gpsTarget: this.getTaskGpsTarget(),
       inventory: this.inventory,
+      pendingTaskRewards: this.taskRewardDrops.length,
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),
