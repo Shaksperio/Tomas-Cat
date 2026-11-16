@@ -5,7 +5,7 @@
  * Coordenação: não toca dialogue/ nem sky/. Pode ser ligado depois no worldBuilder.
  */
 
-import { createWaterBody, type WaterBody } from './water';
+import { createWaterBody, type WaterBody, type WaterSample } from './water';
 
 /** Trecho de rio: amostragem por distância a um segmento (não só círculo). */
 export interface RiverSegment {
@@ -19,6 +19,8 @@ export interface RiverSegment {
   halfWidth: number;
   surfaceY: number;
   floorY: number;
+  /** Velocidade da corrente ao longo do segmento (m/s), A→B. */
+  currentSpeed?: number;
 }
 
 export interface LakeDef {
@@ -47,6 +49,7 @@ export const PHASE_RIVERS: readonly RiverSegment[] = [
     halfWidth: 3.2,
     surfaceY: -0.35,
     floorY: -2.4,
+    currentSpeed: 1.4,
   },
   {
     id: 'river_hospital',
@@ -57,6 +60,7 @@ export const PHASE_RIVERS: readonly RiverSegment[] = [
     halfWidth: 2.8,
     surfaceY: -0.4,
     floorY: -2.8,
+    currentSpeed: 1.8,
   },
   {
     id: 'river_stadium',
@@ -67,6 +71,7 @@ export const PHASE_RIVERS: readonly RiverSegment[] = [
     halfWidth: 3.5,
     surfaceY: -0.35,
     floorY: -2.6,
+    currentSpeed: 1.2,
   },
 ];
 
@@ -114,4 +119,107 @@ export function findRiverAt(
 
 export function riversForPhase(phase?: number): RiverSegment[] {
   return PHASE_RIVERS.filter((r) => phase === undefined || r.phase === phase);
+}
+
+/** Vetor unitário da corrente A→B (0 se segmento degenerado). */
+export function riverCurrentDirection(r: RiverSegment): { x: number; z: number } {
+  const dx = r.bx - r.ax;
+  const dz = r.bz - r.az;
+  const len = Math.sqrt(dx * dx + dz * dz);
+  if (len < 1e-8) return { x: 0, z: 0 };
+  return { x: dx / len, z: dz / len };
+}
+
+/** Deslocamento horizontal (m) a aplicar neste frame pela corrente. */
+export function riverCurrentDelta(
+  r: RiverSegment,
+  dt: number,
+): { dx: number; dz: number } {
+  const speed = r.currentSpeed ?? 1.2;
+  const dir = riverCurrentDirection(r);
+  return { dx: dir.x * speed * dt, dz: dir.z * speed * dt };
+}
+
+export interface RiverWaterSample extends WaterSample {
+  river: RiverSegment | null;
+  /** Empurrão horizontal da corrente neste instante (já × dt). */
+  currentDx: number;
+  currentDz: number;
+}
+
+/**
+ * Amostra lago (círculo via WaterBody) ou rio (segmento).
+ * Preferência: se estiver em ambos, o mais profundo manda.
+ */
+export function sampleExpandedWater(
+  lakeBodies: readonly WaterBody[],
+  rivers: readonly RiverSegment[],
+  x: number,
+  y: number,
+  z: number,
+  headHeight: number,
+): RiverWaterSample {
+  let best: RiverWaterSample = {
+    body: null,
+    river: null,
+    inWater: false,
+    footDepth: 0,
+    submerged: false,
+    floorY: 0,
+    currentDx: 0,
+    currentDz: 0,
+  };
+
+  for (const body of lakeBodies) {
+    const dx = x - body.x;
+    const dz = z - body.z;
+    if (dx * dx + dz * dz >= body.radius * body.radius) continue;
+    const footDepth = Math.max(0, body.surfaceY - y);
+    if (footDepth < best.footDepth && best.inWater) continue;
+    const inWater = footDepth > 0.12;
+    const submerged = inWater && y + headHeight < body.surfaceY;
+    if (inWater || !best.inWater) {
+      best = {
+        body,
+        river: null,
+        inWater,
+        footDepth,
+        submerged,
+        floorY: body.floorY,
+        currentDx: 0,
+        currentDz: 0,
+      };
+    }
+  }
+
+  const river = findRiverAt(rivers, x, z);
+  if (river) {
+    const footDepth = Math.max(0, river.surfaceY - y);
+    const inWater = footDepth > 0.12;
+    const submerged = inWater && y + headHeight < river.surfaceY;
+    const deeper = footDepth > best.footDepth;
+    if (inWater && (deeper || !best.inWater)) {
+      const flow = riverCurrentDelta(river, 1);
+      best = {
+        body: null,
+        river,
+        inWater,
+        footDepth,
+        submerged,
+        floorY: river.floorY,
+        currentDx: flow.dx,
+        currentDz: flow.dz,
+      };
+    }
+  }
+
+  return best;
+}
+
+/** Junta lagos da fase + bacias legadas num único array para sampleWater clássico. */
+export function mergeLakeBodies(
+  legacyBasins: readonly WaterBody[],
+  phase?: number,
+): WaterBody[] {
+  return [...legacyBasins, ...lakesAsWaterBodies(phase)];
 }
