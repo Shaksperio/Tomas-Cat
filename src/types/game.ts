@@ -266,6 +266,8 @@ export interface DuelHud {
   awaitingCommand: boolean;
   /** Segundos restantes para Tomas escolher uma ação (0–10). */
   playerTurnTimeLeft: number;
+  /** Janela de ativação do Combo Breaker durante especial inimigo. */
+  comboBreakerWindowOpen: boolean;
   intro: boolean;
   banner: { text: string; id: number } | null;
   darkness: number;
