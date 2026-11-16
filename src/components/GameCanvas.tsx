@@ -4,9 +4,10 @@ import { EngineCallbacks, GameEngine } from '../game/GameEngine';
 interface GameCanvasProps {
   callbacks: EngineCallbacks;
   onEngineReady: (engine: GameEngine) => void;
+  ownerId: string;
 }
 
-export function GameCanvas({ callbacks, onEngineReady }: GameCanvasProps) {
+export function GameCanvas({ callbacks, onEngineReady, ownerId }: GameCanvasProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const callbacksRef = useRef(callbacks);
   const onReadyRef = useRef(onEngineReady);
@@ -29,7 +30,8 @@ export function GameCanvas({ callbacks, onEngineReady }: GameCanvasProps) {
         onGameOver: (cause, snap) => callbacksRef.current.onGameOver(cause, snap),
         onVictory: (snap) => callbacksRef.current.onVictory(snap),
         onEvolutionUnlocked: (idx) => callbacksRef.current.onEvolutionUnlocked(idx),
-      });
+        onSaveGame: (payload) => callbacksRef.current.onSaveGame?.(payload),
+      }, ownerId);
       onReadyRef.current(engine);
     } catch {
       setWebglError(true);
