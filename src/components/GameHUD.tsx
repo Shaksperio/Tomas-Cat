@@ -1020,7 +1020,7 @@ export function GameHUD({
             </div>
           )}
               {phase === 'playing' && (
-                <div className="pointer-events-auto fixed right-3 top-3 z-40 flex flex-col items-end gap-2">
+                <div className="pointer-events-auto flex w-full flex-col items-end gap-2">
                   <button
                     type="button"
                     onClick={() => setInventoryOpen((open) => !open)}
