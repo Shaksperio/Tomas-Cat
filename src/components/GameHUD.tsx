@@ -606,6 +606,28 @@ export function GameHUD({
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
+      {phase === 'playing' && (hud.playerTasks?.length ?? 0) > 0 && (
+        <div className="pointer-events-auto fixed right-3 top-24 z-20 w-56 max-w-[48vw] rounded-lg border border-cyan-300/25 bg-[#0B1421]/90 p-2.5 shadow-lg backdrop-blur-sm">
+          <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-200">
+            <span>Pedidos dos habitantes</span>
+            <span>{hud.playerTasks?.filter((task) => task.status === 'completed').length}/{hud.playerTasks?.length}</span>
+          </div>
+          <div className="max-h-44 space-y-2 overflow-y-auto">
+            {hud.playerTasks?.map((task) => (
+              <div key={task.id} className="text-[10px]">
+                <div className="flex items-center justify-between gap-1">
+                  <span className={task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}>{task.title}</span>
+                  <span className="shrink-0 text-slate-400">{task.status === 'completed' ? '✓' : `${task.progress}/${task.target}`}</span>
+                </div>
+                <div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10">
+                  <div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, task.progress / Math.max(1, task.target) * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* TOP AREA */}
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
