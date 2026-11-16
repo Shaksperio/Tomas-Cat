@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { GameHUD } from './components/GameHUD';
 import { LoginScreen } from './components/LoginScreen';
@@ -61,6 +61,9 @@ export default function App() {
       setAuthReady(true);
       return;
     }
+    void getRedirectResult(firebaseAuth).catch((error) => {
+      setAuthError(errorMessage(error));
+    });
     return onAuthStateChanged(firebaseAuth, (user) => {
       setAuthUser(user);
       setAuthError(null);
