@@ -3209,7 +3209,8 @@ export class GameEngine {
       .lerp(_sunsetColor, 1 - THREE.MathUtils.clamp(sunElev / 0.5, 0, 1));
     const starOpacity = this.weather === 'clear' ? THREE.MathUtils.clamp(1 - daylight * 1.6, 0, 1) : 0;
     this.starField.visible = starOpacity > 0.02;
-    (this.starField.material as THREE.PointsMaterial).opacity = starOpacity;
+    const starTwinkle = 0.9 + Math.sin(this.elapsed * 1.7) * 0.04 + Math.sin(this.elapsed * 2.9 + 1.2) * 0.03;
+    (this.starField.material as THREE.PointsMaterial).opacity = starOpacity * starTwinkle;
     this.starField.position.set(this.catPos.x, 0, this.catPos.z);
     const weatherLightFactor =
       this.weather === 'freezing' ? 0.58 :
