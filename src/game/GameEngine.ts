@@ -785,9 +785,20 @@ export class GameEngine {
         if (id && typeof value === 'boolean') this.dialogueFlags.set(id, value);
       }
       this.acceptedDialogueTasks.clear();
-      this.playerTasks = (saved.playerTasks ?? []).filter((task) => task && typeof task.id === 'string' && Number.isFinite(task.progress) && (task.status === 'active' || task.status === 'completed')).map((task) => ({ id: task.id, progress: Math.max(0, Math.floor(task.progress)), status: task.status }));
+      this.playerTasks = [];
       for (const id of saved.acceptedDialogueTasks ?? []) {
-        if (typeof id === 'string' && id.length > 0 && id.length <= 100) this.acceptedDialogueTasks.add(id);
+        if (typeof id === 'string' && id.length > 0 && id.length <= 100) {
+          this.acceptedDialogueTasks.add(id);
+          this.playerTasks = acceptPlayerTask(this.playerTasks, id);
+        }
+      }
+      if (Array.isArray(saved.playerTasks)) {
+        this.playerTasks = saved.playerTasks.flatMap((task) => {
+          const definition = task && getPlayerTaskDefinition(task.id);
+          if (!definition || !Number.isFinite(task.progress) || (task.status !== 'active' && task.status !== 'completed')) return [];
+          const progress = THREE.MathUtils.clamp(Math.floor(task.progress), 0, definition.target);
+          return [{ id: task.id, progress, status: task.status === 'completed' || progress >= definition.target ? 'completed' as const : 'active' as const }];
+        });
       }
       this.foodCollected = saved.foodCollected || 0;
       this.waterDrunk = saved.waterDrunk || 0;
