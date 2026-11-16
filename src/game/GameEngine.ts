@@ -28,6 +28,8 @@ import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from '.
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
 import type { TaskCycleState } from './tasks/taskCycles';
+import { selectTaskGpsTarget } from './tasks/taskNavigation';
+import type { TaskGpsCandidate, TaskGpsTarget } from './tasks/taskNavigation';
 import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
 import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
@@ -114,6 +116,8 @@ export class GameEngine {
   private readonly societyActors: SocietyActors;
   private societyTickTimer = 0;
   private readonly contactShadow: THREE.Mesh;
+  private readonly gpsRoutePositions = new Float32Array(6);
+  private readonly gpsRoute: THREE.Line;
 
   private readonly sunLight: THREE.DirectionalLight;
   private readonly hemiLight: THREE.HemisphereLight;
@@ -365,6 +369,13 @@ export class GameEngine {
     const maxAniso = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
     this.textures = createProceduralTextures(maxAniso);
     this.world = buildPostApocalypticWorld(this.scene, this.textures);
+    const gpsGeometry = new THREE.BufferGeometry();
+    gpsGeometry.setAttribute('position', new THREE.BufferAttribute(this.gpsRoutePositions, 3));
+    gpsGeometry.setDrawRange(0, 2);
+    this.gpsRoute = new THREE.Line(gpsGeometry, new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.78, depthWrite: false }));
+    this.gpsRoute.frustumCulled = false;
+    this.gpsRoute.visible = false;
+    this.scene.add(this.gpsRoute);
     this.societyActors = new SocietyActors(this.scene);
     this.battleStage = new BattleStage(this.scene, this.camera);
     this.societyActors.update(0, this.society.snapshot(), false);
@@ -2091,6 +2102,7 @@ export class GameEngine {
     } else if (this.phase === 'playing') {
       if (this.duelPhase === 'fighting') this.updateBattle(dt);
       else this.updateGameplay(dt);
+      this.updateTaskGpsRoute();
       this.societyTickTimer += dt;
       while (this.societyTickTimer >= 1) {
         this.society.step(1);
@@ -2182,6 +2194,40 @@ export class GameEngine {
       gameAudio.playSwimBubbles();
       this.bubbleAudioTimer = 0.72;
     }
+  }
+
+  private getTaskGpsTarget(): TaskGpsTarget | null {
+    const task = this.taskCycle.tasks.find((candidate) => candidate.status === 'active');
+    const stage = task?.stages[task.stageIndex];
+    if (!task || !stage) return null;
+    const candidates: TaskGpsCandidate[] = [];
+    for (const item of this.world.interactables) {
+      if (!item.active) continue;
+      const event = item.kind === 'food' || item.kind === 'prey' || item.kind === 'fish'
+        ? 'food_collected'
+        : item.kind === 'water' ? 'water_drunk' : item.kind === 'scrap' ? 'scrap_collected' : null;
+      if (event === stage.event) candidates.push({ id: item.id, label: item.name, event, x: item.position.x, y: item.position.y, z: item.position.z });
+    }
+    if (stage.event === 'enemy_defeated') {
+      for (const predator of this.world.predators) {
+        if (predator.alive && !predator.isFriendly) candidates.push({ id: predator.id, label: predator.name, event: 'enemy_defeated', x: predator.group.position.x, y: predator.group.position.y, z: predator.group.position.z });
+      }
+    }
+    return selectTaskGpsTarget(stage.event, { x: this.catPos.x, z: this.catPos.z }, candidates, stage.label, task.title);
+  }
+
+  private updateTaskGpsRoute(): void {
+    const target = this.getTaskGpsTarget();
+    if (!target || this.duelPhase === 'fighting') { this.gpsRoute.visible = false; return; }
+    this.gpsRoutePositions[0] = this.catPos.x;
+    this.gpsRoutePositions[1] = Math.max(0.22, this.catPos.y + 0.25);
+    this.gpsRoutePositions[2] = this.catPos.z;
+    this.gpsRoutePositions[3] = target.x;
+    this.gpsRoutePositions[4] = Math.max(0.22, target.y + 0.25);
+    this.gpsRoutePositions[5] = target.z;
+    (this.gpsRoute.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    this.gpsRoute.geometry.computeBoundingSphere();
+    this.gpsRoute.visible = true;
   }
 
   private updateGameplay(dt: number): void {
@@ -3173,6 +3219,7 @@ export class GameEngine {
       playerTasks: this.playerTasks.map((task) => { const definition = getPlayerTaskDefinition(task.id)!; return { ...task, title: definition.title, description: definition.description, target: definition.target }; }),
       cycleTasks: this.taskCycle.tasks.filter((task) => task.status === 'active').slice(0, 3).map((task) => ({ ...task, currentStage: task.stages[task.stageIndex] })),
       secondsToNextTask: Math.max(0, 600 - this.taskCycle.activeSeconds),
+      gpsTarget: this.getTaskGpsTarget(),
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),
@@ -3235,6 +3282,8 @@ export class GameEngine {
     dom.removeEventListener('webglcontextlost', this.onContextLost);
 
     this.battleStage.dispose();
+    this.gpsRoute.geometry.dispose();
+    (this.gpsRoute.material as THREE.Material).dispose();
     this.societyActors.dispose();
     this.skyVisuals.dispose();
     this.textures.dispose();
