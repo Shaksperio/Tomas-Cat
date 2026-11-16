@@ -32,3 +32,29 @@ export function selectTaskGpsTarget(
     .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id));
   return eligible[0] ?? null;
 }
+
+
+export interface TaskGpsObjective {
+  event: CycleTaskEvent;
+  objective: string;
+  taskTitle: string;
+}
+
+/** Prioriza a fila na ordem recebida e ignora objetivos sem destino físico disponível. */
+export function selectFirstAvailableTaskGpsTarget(
+  objectives: readonly TaskGpsObjective[],
+  origin: { x: number; z: number },
+  candidates: readonly TaskGpsCandidate[],
+): TaskGpsTarget | null {
+  for (const objective of objectives) {
+    const target = selectTaskGpsTarget(
+      objective.event,
+      origin,
+      candidates,
+      objective.objective,
+      objective.taskTitle,
+    );
+    if (target) return target;
+  }
+  return null;
+}
