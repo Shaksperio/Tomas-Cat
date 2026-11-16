@@ -3,17 +3,17 @@ export interface MoveUnlock {
   name: string;
   requiredLevel: number;
   description: string;
-  /** Comando ATB ao qual a técnica pertence; técnicas novas ganharão ações próprias em sprint posterior. */
-  command: 'attack' | 'flurry' | 'limit';
+  /** Comando ATB executado quando a técnica é escolhida em batalha. */
+  command: 'attack' | 'flurry' | 'limit' | 'combo_a' | 'combo_b';
 }
 
 export const MOVE_UNLOCKS: readonly MoveUnlock[] = [
   { id: 'basic-claw', name: 'Arranhar', requiredLevel: 1, description: 'Ataque básico com as garras.', command: 'attack' },
   { id: 'double-scratch', name: 'Arranhão Duplo', requiredLevel: 5, description: 'Técnica de dois cortes rápidos.', command: 'flurry' },
   { id: 'fierce-claw', name: 'Garra Furiosa Aprimorada', requiredLevel: 12, description: 'Sequência de garras com maior domínio.', command: 'flurry' },
-  { id: 'lunar-sequence', name: 'Sequência Lunar', requiredLevel: 25, description: 'Combo especial inspirado na força lunar.', command: 'limit' },
+  { id: 'lunar-sequence', name: 'Rasante Duplo', requiredLevel: 25, description: 'Quatro golpes encadeados; custa 35 pontos de maná.', command: 'combo_a' },
   { id: 'meteor-claw', name: 'Garra Meteoro Aprimorada', requiredLevel: 40, description: 'Evolução da técnica especial existente.', command: 'limit' },
-  { id: 'shadow-combo', name: 'Combo das Sombras', requiredLevel: 55, description: 'Sequência avançada de ataques.', command: 'flurry' },
+  { id: 'shadow-combo', name: 'Tempestade de Garras', requiredLevel: 55, description: 'Seis golpes encadeados; custa 70 pontos de maná.', command: 'combo_b' },
   { id: 'apex-fury', name: 'Fúria Apex', requiredLevel: 70, description: 'Técnica de alto impacto.', command: 'limit' },
   { id: 'supreme-sequence', name: 'Sequência Suprema', requiredLevel: 85, description: 'Combo de domínio avançado.', command: 'limit' },
   { id: 'alpha-strike', name: 'Golpe do Gato Alpha', requiredLevel: 99, description: 'Técnica máxima do nível 99.', command: 'limit' },

@@ -12,6 +12,17 @@ test('desbloqueia todas as técnicas atravessadas em uma subida de vários níve
   ]);
 });
 
+test('técnicas de combo do catálogo correspondem aos comandos executáveis nos níveis corretos', () => {
+  const level25 = getNewlyUnlockedMoves(24, 25);
+  assert.deepEqual(level25.map(({ id, name, command }) => ({ id, name, command })), [
+    { id: 'lunar-sequence', name: 'Rasante Duplo', command: 'combo_a' },
+  ]);
+  const level55 = getNewlyUnlockedMoves(54, 55);
+  assert.deepEqual(level55.map(({ id, name, command }) => ({ id, name, command })), [
+    { id: 'shadow-combo', name: 'Tempestade de Garras', command: 'combo_b' },
+  ]);
+});
+
 test('nível é limitado ao intervalo válido', () => {
   assert.deepEqual(getUnlockedMovesForLevel(0), ['basic-claw']);
   assert.equal(getUnlockedMovesForLevel(100).length, 9);
