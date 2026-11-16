@@ -98,7 +98,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 ### 4.5 Tarefas cíclicas (incremento em desenvolvimento — branch `codex/task-cycles-600s`)
 - `src/game/tasks/taskCycles.ts` implementa geração determinística em ciclos de 600 segundos de jogo ativo, objetivos em duas ou três etapas, progresso por eventos reais (comida, água, sucata e inimigos), histórico de modelos emitidos para impedir repetição e recompensas de XP/sucata.
 - O motor avança o relógio somente em `updateGameplay`, portanto pausa, tela de título e batalha não contam como tempo ativo. O estado é salvo em `SavedGameState.taskCycle`; saves antigos recebem estado inicial compatível.
-- A HUD exibe até três missões ativas e o tempo estimado até o próximo ciclo. Os pedidos dos nove habitantes permanecem separados e preservados.
+- A HUD exibe até três missões ativas e o tempo estimado até o próximo ciclo. Os pedidos dos nove habitantes permanecem separados e preservados. O sistema de recompensas físicas está em implementação na branch `codex/physical-task-rewards`: sucata da missão é criada como pickup próximo a Tomas e persiste em `SavedGameState.taskRewardDrops` até a coleta.
 - **Tarefas e navegação publicadas:** ciclos de 600 segundos ativos, objetivos em múltiplas etapas, histórico anti-repetição, persistência local, recompensas XP/sucata e HUD. `taskNavigation.ts` seleciona alvo válido; `gridRoute.ts` calcula A* em grade de 4 m que contorna colisores terrestres, com margem conservadora. A HUD mostra direção/distância e o motor desenha a rota. Alvos elevados usam orientação direta (navegação vertical ainda não modelada); sem caminho terrestre a linha fica oculta. Waypoints manuais e navegação entre distritos continuam pendentes.
 
 
@@ -108,6 +108,14 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - `worldBuilder.ts` posiciona pickups físicos nos distritos; `GameEngine` coleta, concede XP, persiste o inventário em save opcional retrocompatível e impede consumo quando o atributo já está cheio.
 - A HUD possui mochila minimizável com quantidades e botão de uso. A ração energética de batalha permanece separada e compatível com saves antigos.
 - Equipamentos, lojas, crafting, recompensas físicas das missões e itens adicionais ainda não fazem parte deste incremento.
+
+
+
+### 4.7 Recompensas físicas de missões (incremento em desenvolvimento — branch `codex/physical-task-rewards`)
+- `src/game/tasks/taskRewards.ts` valida e normaliza drops persistentes, com IDs únicos e quantidades limitadas.
+- Ao concluir uma missão cíclica, XP continua sendo creditado pela progressão existente; a sucata da recompensa aparece como objeto físico próximo a Tomas, com brilho/anel e interação de coleta.
+- O drop fica em `SavedGameState.taskRewardDrops`, é recriado ao carregar o save e só é removido da lista após coleta. Não é contado como sucata de objetivo para evitar progresso recursivo em outras missões.
+- Recompensas dos pedidos de habitantes permanecem como antes neste incremento; lojas, crafting e equipamentos ainda não foram implementados.
 
 ## 5. Roteiro e decisões do autor
 
