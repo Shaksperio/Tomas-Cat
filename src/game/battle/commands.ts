@@ -1,11 +1,10 @@
 import type { BattleCommand } from './atb';
 
 /**
- * Contrato de comandos. Os quatro comandos atuais são executáveis em atb.ts.
- * item/combo_a/combo_b são extensões planejadas e só serão ativadas quando a
- * lógica determinística, inventário e UI correspondentes forem integrados.
+ * Contrato de comandos da batalha. O comando item executa a ração energética;
+ * combo_a/combo_b permanecem extensões futuras.
  */
-export type PlannedBattleCommand = BattleCommand | 'item' | 'combo_a' | 'combo_b';
+export type PlannedBattleCommand = BattleCommand | 'combo_a' | 'combo_b';
 
 export type CameraPreset = 'wide' | 'over_shoulder' | 'low_impact' | 'close_face' | 'orbit_special' | 'dramatic_side';
 
@@ -22,6 +21,7 @@ export const BATTLE_COMMAND_PRESENTATION: Record<BattleCommand, BattleCommandPre
   flurry: { animationId: 'furious-flurry', cameraSequence: ['over_shoulder', 'low_impact', 'low_impact', 'wide'], hitTimings: [0.48, 0.78, 1.08], particleProfile: 'flurry', trailColor: '#7dd3fc' },
   guard: { animationId: 'defensive-stance', cameraSequence: ['dramatic_side', 'wide'], hitTimings: [], particleProfile: 'guard' },
   limit: { animationId: 'meteor-claw', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'wide'], hitTimings: [1.7, 1.92, 2.14, 2.36, 2.58, 2.8], particleProfile: 'meteor', trailColor: '#93c5fd' },
+  item: { animationId: 'ration-heal', cameraSequence: ['wide', 'close_face', 'wide'], hitTimings: [], particleProfile: 'item', trailColor: '#86efac' },
 };
 
 export const BATTLE_ITEM_CATALOG = {
