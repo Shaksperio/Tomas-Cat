@@ -111,14 +111,6 @@ export function buildCrystalArchipelago(root: THREE.Group): BuiltWorld {
     bridge.castShadow = true;
     bridge.receiveShadow = true;
     root.add(bridge);
-    colliders.push({
-      minX: Math.min(a.x, b.x) - 2.8,
-      maxX: Math.max(a.x, b.x) + 2.8,
-      minZ: Math.min(a.z, b.z) - 2.8,
-      maxZ: Math.max(a.z, b.z) + 2.8,
-      minY: -0.4,
-      topY: 0.3,
-    });
   }
 
   const crystalSites = [
