@@ -19,6 +19,9 @@ import {
   resolveCommand,
   seedFromText,
   tickAtb,
+  tickPlayerDecisionTimer,
+  PLAYER_TURN_SECONDS,
+  MAGIC_MANA_COST,
 } from './atb.ts';
 
 function waitReady(state: BattleState): Side {
@@ -283,4 +286,37 @@ test('item não pode ser usado por oponentes', () => {
   const s = createBattle(34, 2, 1, 10, { playerItems: 1 });
   s.ready = 'opponent';
   assert.equal(canUseCommand(s, 'opponent', 'item'), false);
+});
+
+
+test('a vez de Tomas recebe 10 segundos e a contagem expira sem avançar o ATB', () => {
+  const s = createBattle(101, 2);
+  s.player.atb = 99.9;
+  s.opponent.atb = 0;
+  assert.equal(tickAtb(s, 0.01), 'player');
+  assert.equal(s.playerTurnTimeLeft, PLAYER_TURN_SECONDS);
+  const playerAtb = s.player.atb;
+  assert.equal(tickPlayerDecisionTimer(s, 9.25), false);
+  assert.equal(s.playerTurnTimeLeft, 0.75);
+  assert.equal(tickPlayerDecisionTimer(s, 1), true);
+  assert.equal(s.playerTurnTimeLeft, 0);
+  assert.equal(s.player.atb, playerAtb);
+  resolveCommand(s, 'player', 'guard');
+  assert.equal(s.playerTurnTimeLeft, 0);
+});
+
+test('magia Orbe Arcano exige 25 MP, consome o custo e causa dano', () => {
+  const s = createBattle(102, 2);
+  s.ready = 'player';
+  s.player.atb = 100;
+  s.player.limit = MAGIC_MANA_COST - 1;
+  assert.equal(canUseCommand(s, 'player', 'magic'), false);
+  s.player.limit = MAGIC_MANA_COST;
+  const before = s.opponent.vigor;
+  const action = resolveCommand(s, 'player', 'magic');
+  assert.equal(action.command, 'magic');
+  assert.equal(action.hits.length, 1);
+  assert.equal(s.opponent.vigor < before, true);
+  assert.equal(s.player.limit, 0);
+  assert.equal(s.ready, null);
 });
