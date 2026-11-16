@@ -64,7 +64,7 @@ interface GameHUDProps {
   onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
-  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item') => void;
   onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
   onSonar: () => void;
