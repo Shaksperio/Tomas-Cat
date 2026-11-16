@@ -565,6 +565,7 @@ export function GameHUD({
   const [statusOpen, setStatusOpen] = useState(false);
   const [radarOpen, setRadarOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [taskPanelOpen, setTaskPanelOpen] = useState(true);
   const [dockCollapsed, setDockCollapsed] = useState(false);
   const [showEvolutionTree, setShowEvolutionTree] = useState(false);
   const [showLoreArchive, setShowLoreArchive] = useState(false);
@@ -575,6 +576,13 @@ export function GameHUD({
   useEffect(() => {
     setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
   }, []);
+
+  useEffect(() => {
+    if (phase === 'playing' && hud.gpsTarget) {
+      setTaskPanelOpen(false);
+      setRadarOpen(true);
+    }
+  }, [phase, hud.gpsTarget?.id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -618,56 +626,6 @@ export function GameHUD({
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
-      {phase === 'playing' && ((hud.playerTasks?.length ?? 0) > 0 || (hud.cycleTasks?.length ?? 0) > 0 || (hud.pendingTaskRewards ?? 0) > 0) && (
-        <div className="pointer-events-auto fixed right-3 top-24 z-20 w-56 max-w-[48vw] rounded-lg border border-cyan-300/25 bg-[#0B1421]/90 p-2.5 shadow-lg backdrop-blur-sm">
-          {hud.gpsTarget && (
-            <div className="mb-2 flex items-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-400/10 px-2 py-1.5">
-              <Compass className="h-5 w-5 shrink-0 text-cyan-200" style={{ transform: `rotate(${Math.atan2(hud.gpsTarget.dx, hud.gpsTarget.dz) * 180 / Math.PI - hud.catYaw * 180 / Math.PI}deg)` }} />
-              <div className="min-w-0 flex-1">
-                <div className="text-[9px] font-bold uppercase tracking-wider text-cyan-200">GPS da missão · {Math.round(hud.gpsTarget.distance)} m</div>
-                <div className="truncate text-[10px] font-semibold text-white">{hud.gpsTarget.label}</div>
-                <div className="truncate text-[9px] text-slate-400">{hud.gpsTarget.objective}</div>
-              </div>
-            </div>
-          )}
-          {hud.cycleTasks && hud.cycleTasks.length > 0 && (
-            <div className="mb-2 border-b border-cyan-300/15 pb-2">
-              <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-200">
-                <span>Missões da cidade</span>
-                <span>Próxima em {Math.ceil((hud.secondsToNextTask ?? 0) / 60)} min</span>
-              </div>
-              {Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}
-              {hud.cycleTasks.map((task) => (
-                <div key={task.id} className="mb-1.5 text-[10px]">
-                  <div className="font-semibold text-slate-100">{task.title}</div>
-                  <div className="text-slate-400">Etapa {task.stageIndex + 1}/{task.stages.length}: {task.currentStage.label} · {task.progress}/{task.currentStage.target}</div>
-                  <div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10"><div className="h-full bg-amber-400" style={{ width: `${Math.min(100, task.progress / Math.max(1, task.currentStage.target) * 100)}%` }} /></div>
-                </div>
-              ))}
-            </div>
-          )}
-          {(hud.playerTasks?.length ?? 0) > 0 && <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-200">
-            <span>Pedidos dos habitantes</span>
-            <span>{hud.playerTasks?.filter((task) => task.status === 'completed').length}/{hud.playerTasks?.length}</span>
-          </div>}
-          <div className="max-h-44 space-y-2 overflow-y-auto">
-            {hud.playerTasks?.map((task) => (
-              <div key={task.id} className="text-[10px]">
-                <div className="flex items-center justify-between gap-1">
-                  <span className={task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}>{task.title}</span>
-                  <span className="shrink-0 text-slate-400">{task.status === 'completed' ? '✓' : `${task.progress}/${task.target}`}</span>
-                </div>
-                <div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10">
-                  <div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, task.progress / Math.max(1, task.target) * 100)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-
-
       {/* TOP AREA */}
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
@@ -731,6 +689,20 @@ export function GameHUD({
               </button>
             </div>
 
+            {phase === 'playing' && ((hud.playerTasks?.length ?? 0) > 0 || (hud.cycleTasks?.length ?? 0) > 0 || (hud.pendingTaskRewards ?? 0) > 0) && (
+              <div className="pointer-events-auto w-56 max-w-[min(88vw,18rem)] rounded-lg border border-cyan-300/25 bg-[#0B1421]/92 p-2.5 shadow-lg backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan-200"><Compass className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{hud.gpsTarget ? 'GPS ativo · Missão' : 'Sistema de tarefas'}</span></div>
+                  <button type="button" onClick={() => setTaskPanelOpen((open) => !open)} aria-label={taskPanelOpen ? 'Minimizar tarefas' : 'Expandir tarefas'} className="shrink-0 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] text-slate-200 hover:bg-white/10">{taskPanelOpen ? 'Minimizar' : 'Expandir'}</button>
+                </div>
+                {hud.gpsTarget && <div className="mt-1.5 flex items-center gap-2 rounded-md border border-blue-400/30 bg-blue-500/10 px-2 py-1.5"><Compass className="h-5 w-5 shrink-0 text-blue-300" style={{ transform: `rotate(${Math.atan2(hud.gpsTarget.dx, hud.gpsTarget.dz) * 180 / Math.PI - hud.catYaw * 180 / Math.PI}deg)` }} /><div className="min-w-0 flex-1"><div className="text-[9px] font-bold uppercase tracking-wider text-blue-200">{Math.round(hud.gpsTarget.distance)} m até o destino</div><div className="truncate text-[10px] font-semibold text-white">{hud.gpsTarget.label}</div><div className="truncate text-[9px] text-slate-400">{hud.gpsTarget.objective}</div></div></div>}
+                {taskPanelOpen && <>
+                  {hud.cycleTasks && hud.cycleTasks.length > 0 && <div className="mt-2 border-b border-cyan-300/15 pb-2"><div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-200"><span>Missões da cidade</span><span>Próxima em {Math.ceil((hud.secondsToNextTask ?? 0) / 60)} min</span></div>{Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}{hud.cycleTasks.map((task) => <div key={task.id} className="mb-1.5 text-[10px]"><div className="font-semibold text-slate-100">{task.title}</div><div className="text-slate-400">Etapa {task.stageIndex + 1}/{task.stages.length}: {task.currentStage.label} · {task.progress}/{task.currentStage.target}</div><div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10"><div className="h-full bg-amber-400" style={{ width: `${Math.min(100, task.progress / Math.max(1, task.currentStage.target) * 100)}%` }} /></div></div>)}</div>}
+                  {(hud.playerTasks?.length ?? 0) > 0 && <div className="mb-1.5 mt-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-200"><span>Pedidos dos habitantes</span><span>{hud.playerTasks?.filter((task) => task.status === 'completed').length}/{hud.playerTasks?.length}</span></div>}
+                  <div className="max-h-44 space-y-2 overflow-y-auto">{hud.playerTasks?.map((task) => <div key={task.id} className="text-[10px]"><div className="flex items-center justify-between gap-1"><span className={task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}>{task.title}</span><span className="shrink-0 text-slate-400">{task.status === 'completed' ? '✓' : `${task.progress}/${task.target}`}</span></div><div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10"><div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, task.progress / Math.max(1, task.target) * 100)}%` }} /></div></div>)}</div>
+                </>}
+              </div>
+            )}
             {/* Hidden-by-default Expanded Status & Evolution Drawer */}
             {statusOpen && (
               <div className="w-64 sm:w-72 rounded-xl border border-white/15 bg-[#0B0F17]/95 p-3.5 shadow-2xl">
@@ -983,6 +955,14 @@ export function GameHUD({
                 <div className="absolute inset-y-0 left-1/2 w-px bg-white/10" />
                 <div className="absolute inset-x-0 top-1/2 h-px bg-white/10" />
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white" />
+                {hud.gpsTarget && (() => {
+                  const routeRange = hud.sonarActive ? Math.max(stage.sonarRadius, 75) : 65;
+                  const routeX = Math.max(-1, Math.min(1, hud.gpsTarget.dx / routeRange));
+                  const routeZ = Math.max(-1, Math.min(1, hud.gpsTarget.dz / routeRange));
+                  const routeLength = Math.hypot(routeX, routeZ) * 44;
+                  const routeAngle = Math.atan2(routeX, routeZ) * 180 / Math.PI;
+                  return <><div className="absolute left-1/2 top-1/2 h-[3px] rounded-full bg-blue-400 shadow-[0_0_7px_rgba(59,130,246,0.95)]" style={{ width: `${routeLength}%`, transformOrigin: '0 50%', transform: `translateY(-50%) rotate(${routeAngle}deg)` }} /><span className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,1)]" style={{ left: `${50 + routeX * 44}%`, top: `${50 + routeZ * 44}%` }} /></>;
+                })()}
                 {hud.radarBlips.map((b) => {
                   const maxRange = hud.sonarActive ? Math.max(stage.sonarRadius, 75) : 65;
                   const nx = Math.max(-1, Math.min(1, b.dx / maxRange));
