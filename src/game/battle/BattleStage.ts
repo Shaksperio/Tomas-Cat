@@ -618,7 +618,16 @@ export class BattleStage {
     this.setBanner(action.name);
     let total = 1.5;
 
-    if (action.command === 'attack') {
+    if (action.command === 'item') {
+      this.wideShot(5);
+      this.ring(this.worldPos(actor, 0.08), 0x86efac, 1.8, 0.65);
+      this.glowSprite(this.worldPos(actor, 1.0), 0x86efac, 3.2, 0.8);
+      this.after(0.38, () => {
+        this.displayVigor[actor] = Math.min(100, this.displayVigor[actor] + (action.healing ?? 0));
+        this.whiteFlash = 0.18;
+      });
+      total = 1.0;
+    } else if (action.command === 'attack') {
       this.overShoulder(actor, action.target);
       this.moveTo(actor, stand(-0.45), 0.22);
       this.after(0.3, () => {
