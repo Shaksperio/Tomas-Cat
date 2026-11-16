@@ -73,10 +73,12 @@ export function findGridRoute(
   const blocked = new Uint8Array(total);
   for (const obstacle of obstacles) {
     if (![obstacle.minX, obstacle.maxX, obstacle.minZ, obstacle.maxZ].every(Number.isFinite)) continue;
-    const minX = clamp(Math.ceil((obstacle.minX - clearance + bounds) / cellSize), 0, width - 1);
-    const maxX = clamp(Math.floor((obstacle.maxX + clearance + bounds) / cellSize), 0, width - 1);
-    const minZ = clamp(Math.ceil((obstacle.minZ - clearance + bounds) / cellSize), 0, width - 1);
-    const maxZ = clamp(Math.floor((obstacle.maxZ + clearance + bounds) / cellSize), 0, width - 1);
+    // Rasterização conservadora: qualquer célula tocada pela caixa expandida fica bloqueada.
+    // floor/ceil evitam que paredes estreitas desapareçam entre centros de células.
+    const minX = clamp(Math.floor((obstacle.minX - clearance + bounds) / cellSize), 0, width - 1);
+    const maxX = clamp(Math.ceil((obstacle.maxX + clearance + bounds) / cellSize), 0, width - 1);
+    const minZ = clamp(Math.floor((obstacle.minZ - clearance + bounds) / cellSize), 0, width - 1);
+    const maxZ = clamp(Math.ceil((obstacle.maxZ + clearance + bounds) / cellSize), 0, width - 1);
     for (let z = minZ; z <= maxZ; z++) for (let x = minX; x <= maxX; x++) blocked[toIndex(x, z)] = 1;
   }
   // O jogador e o alvo podem estar sobre a borda de um colisor; esses dois nós são permitidos.
