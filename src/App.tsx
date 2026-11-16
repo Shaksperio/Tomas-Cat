@@ -7,6 +7,7 @@ import { TitleScreen } from './components/TitleScreen';
 import { gameAudio } from './game/audio';
 import { GameEngine } from './game/GameEngine';
 import { firebaseAuth, firebaseConfigured } from './firebase/client';
+import { pickBestSave } from './game/saves/saveSelection';
 import { flushAccountGameSave, loadAccountGameSave, queueAccountGameSave } from './firebase/gameSave';
 import { EVOLUTION_STAGES, GamePhase, HudSnapshot, LoreLog, MAX_CHANCES, SavedGameState } from './types/game';
 
@@ -119,7 +120,7 @@ export default function App() {
       const legacySave = GameEngine.getLegacySavedGame();
       if (currentUidRef.current !== uid) return;
       loadedAccountUidRef.current = uid;
-      setHasSave(Boolean(remoteSave || localSave || legacySave));
+      setHasSave(Boolean(remoteSave || localSave || legacySave || GameEngine.getBackupSavedGame()));
       setAccountReady(true);
     } catch (error) {
       setAccountError(`Não foi possível validar o salvamento protegido no Firebase. Confira se o Firestore está criado e se as regras firestore.rules foram publicadas. Detalhe: ${errorMessage(error)}`);
@@ -243,6 +244,12 @@ export default function App() {
 
   const handleNewGame = useCallback(() => {
     if (!authUser) return;
+    // Preserva em backup o melhor save existente antes de iniciar outro personagem.
+    const existing = pickBestSave([
+      { origin: 'local', save: GameEngine.getSavedGame(authUser.uid) as SavedGameState },
+      { origin: 'legacy', save: GameEngine.getLegacySavedGame() as SavedGameState },
+    ]);
+    if (existing) GameEngine.archiveSave(existing.save);
     GameEngine.clearLegacySavedGame();
     engineRef.current?.startNewGame();
     setPhase('playing');
@@ -253,10 +260,19 @@ export default function App() {
     if (!authUser || !engineRef.current) return;
     try {
       const remoteSave = await loadAccountGameSave(authUser.uid);
-      const save = remoteSave ?? GameEngine.getSavedGame(authUser.uid) ?? GameEngine.getLegacySavedGame();
+      // Usa o save mais avançado entre nuvem, cópia local, save legado e backup.
+      const best = pickBestSave([
+        remoteSave ? { origin: 'remote', save: remoteSave } : null,
+        { origin: 'local', save: GameEngine.getSavedGame(authUser.uid) as SavedGameState },
+        { origin: 'legacy', save: GameEngine.getLegacySavedGame() as SavedGameState },
+        { origin: 'backup', save: GameEngine.getBackupSavedGame() as SavedGameState },
+      ]);
+      const save = best?.save ?? null;
       if (save) {
+        GameEngine.archiveSave(save);
         engineRef.current.continueSavedGame(save);
         GameEngine.clearLegacySavedGame();
+        if (best && best.origin !== 'remote') showToast(`Personagem recuperado de ${best.origin === 'local' ? 'cópia local' : best.origin === 'legacy' ? 'save anterior ao login' : 'backup'} — Nível ${save.level}.`, 'success');
       } else {
         engineRef.current.startNewGame();
       }

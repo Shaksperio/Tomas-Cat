@@ -1,3 +1,4 @@
+import { saveProgressScore } from './saves/saveSelection';
 import * as THREE from 'three';
 import {
   BossCheckpointData,
@@ -99,6 +100,7 @@ import {
 import { sampleExpandedWater, type RiverWaterSample } from './survival/waterBodies';
 
 const SAVE_KEY = 'felis09_save_v4';
+const BACKUP_KEY = 'felis09_save_v4_backup';
 
 // Pre-allocated math helpers (zero GC inside animation loop)
 const _moveDir = new THREE.Vector3();
@@ -542,8 +544,32 @@ export class GameEngine {
     }
   }
 
+  /** Nunca apaga o save legado: arquiva uma cópia de segurança antes de removê-lo. */
   public static clearLegacySavedGame(): void {
-    try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) GameEngine.archiveSave(JSON.parse(raw) as SavedGameState);
+      localStorage.removeItem(SAVE_KEY);
+    } catch { /* ignore */ }
+  }
+
+  /** Cópia de segurança local; só é substituída por um save mais avançado. */
+  public static archiveSave(save: SavedGameState | null | undefined): void {
+    if (!save) return;
+    try {
+      const current = GameEngine.getBackupSavedGame();
+      if (current && saveProgressScore(current) >= saveProgressScore(save)) return;
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(save));
+    } catch { /* ignore */ }
+  }
+
+  public static getBackupSavedGame(): SavedGameState | null {
+    try {
+      const raw = localStorage.getItem(BACKUP_KEY);
+      return raw ? JSON.parse(raw) as SavedGameState : null;
+    } catch {
+      return null;
+    }
   }
 
   public static clearSavedGame(ownerId: string): void {
@@ -588,6 +614,7 @@ export class GameEngine {
 
   public startNewGame(): void {
     gameAudio.init();
+    GameEngine.archiveSave(GameEngine.getSavedGame(this.ownerId));
     GameEngine.clearSavedGame(this.ownerId);
     this.stageIndex = 0;
     this.level = 1;
@@ -2172,6 +2199,9 @@ export class GameEngine {
   }
 
   private saveGame(): void {
+    // Na tela de título não há personagem em jogo: gravar aqui sobrescrevia o
+    // progresso real (local e remoto) com um personagem novo de nível 1.
+    if (this.phase === 'title') return;
     try {
       const shelterLevels: Record<string, number> = {};
       this.world.interactables.forEach((item) => {
