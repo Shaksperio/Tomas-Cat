@@ -296,6 +296,7 @@ export interface HudSnapshot {
   /** Campos opcionais para ativação gradual dos diálogos e itens de batalha. */
   activeDialogue?: DialogueState | null;
   activeDialogueOptions?: DialogueOption[];
+  playerTasks?: Array<{ id: string; title: string; description: string; progress: number; target: number; status: 'active' | 'completed' }>;
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
   isAlphaLeader: boolean;
@@ -377,6 +378,7 @@ export interface SavedGameState {
   dialogueRelations?: Record<string, { affinity: number; trust: number }>;
   dialogueFlags?: Record<string, boolean>;
   acceptedDialogueTasks?: string[];
+  playerTasks?: Array<{ id: string; progress: number; status: 'active' | 'completed' }>;
   day: number;
   timeOfDay: number;
   currentPhase: number;
