@@ -238,3 +238,12 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - **Escopo desta entrega:** somente catálogo e regras puras, sem afirmar que rios/lagos já estejam renderizados ou conectados à física do jogador. A integração visual no `worldBuilder` e o empurrão real da corrente no `GameEngine` permanecem pendentes e serão entregues separadamente com testes de colisão/natação.
 - **Precisão temporal:** o cálculo do deslocamento da corrente recebe `dt`; não presume um segundo por chamada. O chamador deve fornecer o delta real do frame.
 - Os oito corpos d'água legados permanecem intactos; o catálogo novo é complementar e não substitui `sampleWater` até a integração completa.
+
+
+## Atualização de engenharia — águas integradas (2026-11-16)
+
+- **Lagos:** os quatro lagos médios do catálogo foram posicionados em áreas abertas dos quatro distritos e adicionados ao mesmo pipeline de geometria, profundidade, natação e pesca das oito bacias existentes. As oito bacias originais foram preservadas.
+- **Rios navegáveis:** canais low-poly recortam o piso e possuem superfície e leito próprios nas fases 1, 3 e 4. A amostragem por segmento retorna um corpo d'água compatível com a física de natação/oxigênio já existente.
+- **Fase 2:** o Canal Elevado dos Telhados é visual, com bordas metálicas e sem volume de natação ao nível da rua; as cisternas/lago continuam como água navegável. Não se deve ativar física de água para esse canal suspenso sem implementar suporte vertical/colisão de plataformas.
+- **Correnteza:** aplicada ao deslocamento horizontal do jogador somente dentro dos rios navegáveis, proporcional a `dt`, respeitando colisões e limites do mundo.
+- **Validação:** os testes de catálogo verificam a presença de lago e rio/canal em cada fase, a exclusão de natação no canal suspenso e o corpo navegável/correnteza. CI ainda precisa confirmar integração completa.

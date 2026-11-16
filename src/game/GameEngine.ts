@@ -67,10 +67,10 @@ import {
   SWIM_SURFACE_SPEED_FACTOR,
   SWIM_UNDERWATER_SPEED_FACTOR,
   WaterSample,
-  sampleWater,
   stepOxygen,
   swimVerticalVelocity,
 } from './survival/water';
+import { sampleExpandedWater, type RiverWaterSample } from './survival/waterBodies';
 
 const SAVE_KEY = 'felis09_save_v4';
 
@@ -216,7 +216,7 @@ export class GameEngine {
   private warmth = 96;
   private stamina = 100;
   private oxygen = 100;
-  private waterSample: WaterSample = { body: null, inWater: false, footDepth: 0, submerged: false, floorY: 0 };
+  private waterSample: RiverWaterSample = { body: null, river: null, inWater: false, footDepth: 0, submerged: false, floorY: 0, currentDx: 0, currentDz: 0 };
   private swimAscendTimer = 0;
   private wasSwimming = false;
   private underwaterBlend = 0;
@@ -2191,12 +2191,14 @@ export class GameEngine {
 
     const inputLen = Math.hypot(inX, inZ);
     const headHeight = 0.7 * def.scale;
-    this.waterSample = sampleWater(
+    this.waterSample = sampleExpandedWater(
       this.world.waterBodies,
+      this.world.rivers,
       this.catPos.x,
       this.catPos.y,
       this.catPos.z,
       headHeight,
+      dt,
     );
     const water = this.waterSample;
     const shiftHeld = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.virtualSprint;
@@ -2289,6 +2291,14 @@ export class GameEngine {
     } else {
       // Immediately release wall grip when no longer pushing
       this.isClimbing = false;
+    }
+
+    // Correnteza suave: deslocamento determinístico proporcional ao delta real do frame.
+    if (water.inWater && water.river && (water.currentDx !== 0 || water.currentDz !== 0)) {
+      const pushedX = THREE.MathUtils.clamp(this.catPos.x + water.currentDx, -WORLD_BOUNDS, WORLD_BOUNDS);
+      const pushedZ = THREE.MathUtils.clamp(this.catPos.z + water.currentDz, -WORLD_BOUNDS, WORLD_BOUNDS);
+      if (!this.checkHorizontalCollision(pushedX, this.catPos.z, catRadius)) this.catPos.x = pushedX;
+      if (!this.checkHorizontalCollision(this.catPos.x, pushedZ, catRadius)) this.catPos.z = pushedZ;
     }
 
     // 2. Vertical Physics: Climbing vs Gravity + Cat 4-Paw Righting Reflex!
