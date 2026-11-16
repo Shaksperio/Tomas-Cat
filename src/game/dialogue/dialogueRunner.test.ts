@@ -17,6 +17,26 @@ test('todos os nove habitantes têm quatro nós escritos', () => {
   }
 });
 
+test('cada habitante mantém falas contextuais próprias e coerentes', () => {
+  const expected: Record<string, { injured: string; night: string; territory: string; acid: string }> = {
+    'engineer-01': { injured: 'Cuide dessa ferida', night: 'À noite, mantenho', territory: 'Conquistar um território', acid: 'Chuva ácida pode comprometer' },
+    'worker-01': { injured: 'Se estiver machucado', night: 'À noite o bairro', territory: 'Com um território a mais', acid: 'A chuva ácida estraga' },
+    'worker-02': { injured: 'Não force o passo', night: 'Quando anoitece', territory: 'Território conquistado também', acid: 'Se a chuva ácida continuar' },
+    'agent-01': { injured: 'Se está ferido', night: 'À noite redobro', territory: 'Agora que avançamos', acid: 'Chuva ácida reduz' },
+    'farmer-01': { injured: 'Descanse e se recupere', night: 'À noite verifico', territory: 'Com o novo território', acid: 'Chuva ácida pode danificar' },
+    'lumberjack-01': { injured: 'Não carregue madeira ferido', night: 'À noite deixo', territory: 'O território novo', acid: 'A chuva ácida enfraquece' },
+    'miner-01': { injured: 'Se estiver ferido', night: 'À noite evito', territory: 'Com a área conquistada', acid: 'Chuva ácida pode deixar' },
+    'carpenter-01': { injured: 'Primeiro cuide da saúde', night: 'À noite guardo', territory: 'O território conquistado', acid: 'A umidade ácida' },
+    'merchant-01': { injured: 'Não se arrisque ferido', night: 'À noite fecho', territory: 'Com mais território', acid: 'Durante a chuva ácida' },
+  };
+  for (const [agentId, fields] of Object.entries(expected)) {
+    for (const [suffix, phrase] of Object.entries(fields)) {
+      const node = DIALOGUE_DATA.find((candidate) => candidate.id === `${agentId}.${suffix === 'acid' ? 'weather_alert' : suffix}`);
+      assert.ok(node?.text.startsWith(phrase), `${agentId}.${suffix} should start with "${phrase}"`);
+    }
+  }
+});
+
 test('inicia a saudação adequada e prioriza reação de moral baixa', () => {
   const normal = startDialogue('engineer-01', context(), DIALOGUE_DATA);
   assert.equal(normal?.nodeId, 'engineer-01.greeting');
