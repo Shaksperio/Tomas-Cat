@@ -44,7 +44,7 @@ export function GameCanvas({ callbacks, onEngineReady, ownerId }: GameCanvasProp
 
   if (webglError) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#0B0F17] p-6 text-center">
+      <div className="absolute inset-0 flex items-center justify-center bg-[#0B0F17] p-6 text-center">
         <div className="max-w-md rounded-xl border border-white/10 bg-[#121824] p-6">
           <h2 className="font-display text-xl font-bold text-slate-100">
             Renderização 3D Indisponível
@@ -57,5 +57,5 @@ export function GameCanvas({ callbacks, onEngineReady, ownerId }: GameCanvasProp
     );
   }
 
-  return <div ref={mountRef} className="fixed inset-0 w-full h-full overflow-hidden" />;
+  return <div ref={mountRef} className="absolute inset-0 w-full h-full overflow-hidden" />;
 }

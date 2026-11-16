@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { browserLocalPersistence, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, setPersistence, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
+import { browserPopupRedirectResolver, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { GameHUD } from './components/GameHUD';
 import { LoginScreen } from './components/LoginScreen';
@@ -41,6 +41,10 @@ export default function App() {
   const [accountReady, setAccountReady] = useState(false);
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const currentUidRef = useRef<string | null>(null);
+  const loadedAccountUidRef = useRef<string | null>(null);
+  const inIframe = typeof window !== 'undefined' && window.self !== window.top;
   const [phase, setPhase] = useState<GamePhase>('title');
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [muted, setMuted] = useState(false);
@@ -66,30 +70,37 @@ export default function App() {
     }
     let active = true;
     let unsubscribe: (() => void) | undefined;
+    const applyUser = (user: User | null) => {
+      const nextUid = user?.uid ?? null;
+      // Só reinicia a conta quando o UID muda; renovação de token reemite
+      // onAuthStateChanged e não pode desmontar o jogo.
+      if (currentUidRef.current !== nextUid) {
+        currentUidRef.current = nextUid;
+        setAccountReady(false);
+        setPhotoFailed(false);
+      }
+      setAuthUser(user);
+      setAuthReady(true);
+      setAuthError(null);
+    };
     void (async () => {
       try {
-        await setPersistence(firebaseAuth, browserLocalPersistence);
-        const redirectResult = await getRedirectResult(firebaseAuth);
+        const redirectResult = await getRedirectResult(firebaseAuth, browserPopupRedirectResolver);
         if (!active) return;
-        if (redirectResult?.user) setAuthUser(redirectResult.user);
-        else setAuthUser(firebaseAuth.currentUser);
-        unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-          if (!active) return;
-          setAuthUser(user);
-          setAuthError(null);
-          setAuthReady(true);
-          setAccountReady(false);
-        }, (error) => {
-          if (!active) return;
-          setAuthError(errorMessage(error));
-          setAuthReady(true);
-        });
+        if (redirectResult?.user) applyUser(redirectResult.user);
       } catch (error) {
         if (!active) return;
         setAuthError(errorMessage(error));
-        setAuthUser(firebaseAuth.currentUser);
-        setAuthReady(true);
       }
+      if (!active) return;
+      unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+        if (!active) return;
+        applyUser(user);
+      }, (error) => {
+        if (!active) return;
+        setAuthError(errorMessage(error));
+        setAuthReady(true);
+      });
     })();
     return () => {
       active = false;
@@ -99,13 +110,15 @@ export default function App() {
 
   const refreshAccount = useCallback(async () => {
     if (!authUser) return;
+    const uid = authUser.uid;
     setAccountLoading(true);
     setAccountError(null);
-    setAccountReady(false);
     try {
-      const remoteSave = await loadAccountGameSave(authUser.uid);
-      const localSave = GameEngine.getSavedGame(authUser.uid);
+      const remoteSave = await loadAccountGameSave(uid);
+      const localSave = GameEngine.getSavedGame(uid);
       const legacySave = GameEngine.getLegacySavedGame();
+      if (currentUidRef.current !== uid) return;
+      loadedAccountUidRef.current = uid;
       setHasSave(Boolean(remoteSave || localSave || legacySave));
       setAccountReady(true);
     } catch (error) {
@@ -116,8 +129,10 @@ export default function App() {
   }, [authUser]);
 
   useEffect(() => {
-    if (authUser) void refreshAccount();
-    else {
+    if (authUser) {
+      if (loadedAccountUidRef.current !== authUser.uid) void refreshAccount();
+    } else {
+      loadedAccountUidRef.current = null;
       setAccountReady(false);
       setHasSave(false);
       setPhase('title');
@@ -141,25 +156,36 @@ export default function App() {
     setAuthBusy(true);
     setAuthError(null);
     try {
-      await setPersistence(firebaseAuth, browserLocalPersistence);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       try {
-        // Popup avoids the mobile full-page redirect race and returns the
-        // credential directly to this tab after Google authentication.
-        const result = await signInWithPopup(firebaseAuth, provider);
-        setAuthUser(result.user);
+        const credential = await signInWithPopup(firebaseAuth, provider, browserPopupRedirectResolver);
+        const nextUid = credential.user.uid;
+        if (currentUidRef.current !== nextUid) {
+          currentUidRef.current = nextUid;
+          setAccountReady(false);
+          setPhotoFailed(false);
+        }
+        setAuthUser(credential.user);
         setAuthReady(true);
+        setAuthError(null);
       } catch (error) {
         const code = (error as { code?: string }).code;
-        if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
-          await signInWithRedirect(firebaseAuth, provider);
+        if (code === 'auth/popup-blocked' && window.self === window.top) {
+          await signInWithRedirect(firebaseAuth, provider, browserPopupRedirectResolver);
           return;
         }
-        throw error;
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          setAuthError('A janela de login do Google foi fechada antes de concluir. Tente novamente' + (window.self !== window.top ? ' ou abra o jogo em uma nova aba.' : '.'));
+        } else if (code === 'auth/popup-blocked') {
+          setAuthError('O navegador bloqueou a janela de login. Abra o jogo em uma nova aba para entrar.');
+        } else {
+          setAuthError(errorMessage(error));
+        }
       }
     } catch (error) {
       setAuthError(errorMessage(error));
+    } finally {
       setAuthBusy(false);
     }
   }, []);
@@ -279,21 +305,30 @@ export default function App() {
   }, []);
 
   if (!authReady || (authUser && (!accountReady || accountLoading || accountError))) {
-    return <LoginScreen configured={firebaseConfigured} busy={authBusy} error={authError ?? accountError} user={authUser} accountLoading={!authReady || accountLoading} onGoogleLogin={handleGoogleLogin} onRetry={refreshAccount} onLogout={handleLogout} />;
+    return <LoginScreen configured={firebaseConfigured} busy={authBusy} error={authError ?? accountError} user={authUser} accountLoading={!authReady || accountLoading} inIframe={inIframe} onGoogleLogin={handleGoogleLogin} onRetry={refreshAccount} onLogout={handleLogout} />;
   }
 
   if (!authUser) {
-    return <LoginScreen configured={firebaseConfigured} busy={authBusy} error={authError} onGoogleLogin={handleGoogleLogin} />;
+    return <LoginScreen configured={firebaseConfigured} busy={authBusy} error={authError} inIframe={inIframe} onGoogleLogin={handleGoogleLogin} />;
   }
 
   return (
-    <main className="relative h-full w-full overflow-hidden bg-[#0B0F17]">
+    <main className="relative flex h-full w-full flex-col overflow-hidden bg-[#0B0F17]">
+      <header className="relative z-30 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#080d17]/95 px-3 py-1.5 backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-2">
+          {authUser.photoURL && !photoFailed
+            ? <img src={authUser.photoURL} alt="" referrerPolicy="no-referrer" onError={() => setPhotoFailed(true)} className="h-7 w-7 rounded-full" />
+            : <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-200">{(authUser.displayName ?? authUser.email ?? 'G').slice(0, 1).toUpperCase()}</div>}
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-[11px] font-semibold text-slate-100">{authUser.displayName ?? authUser.email}</p>
+            {authUser.displayName && authUser.email && <p className="truncate text-[10px] text-slate-400">{authUser.email}</p>}
+          </div>
+        </div>
+        <button type="button" onClick={handleLogout} className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/20">Sair</button>
+      </header>
+
+      <div className="relative min-h-0 w-full flex-1 overflow-hidden">
       <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} onEngineReady={handleEngineReady} />
-      <div className="pointer-events-auto fixed left-1/2 top-2 z-50 flex max-w-[min(72vw,22rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-[#0b1421]/90 py-1 pl-2 pr-1 shadow-xl backdrop-blur-md">
-        {authUser.photoURL ? <img src={authUser.photoURL} alt="" className="h-7 w-7 rounded-full" /> : <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-200">{(authUser.displayName ?? authUser.email ?? 'G').slice(0, 1).toUpperCase()}</div>}
-        <span className="max-w-32 truncate text-[11px] text-slate-200">{authUser.displayName ?? authUser.email}</span>
-        <button type="button" onClick={handleLogout} className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/20">Sair</button>
-      </div>
 
       {phase === 'title' && <TitleScreen hasSave={hasSave} onNewGame={handleNewGame} onContinue={() => void handleContinue()} />}
 
@@ -330,6 +365,7 @@ export default function App() {
           onVirtualInput={(mx, my, sprint) => engineRef.current?.setVirtualInput(mx, my, sprint)}
         />
       )}
+      </div>
     </main>
   );
 }

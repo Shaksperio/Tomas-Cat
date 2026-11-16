@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { browserLocalPersistence, browserPopupRedirectResolver, browserSessionPersistence, getAuth, indexedDBLocalPersistence, initializeAuth, inMemoryPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -19,5 +19,23 @@ export const firebaseApp = firebaseConfigured
   ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
   : null;
 
-export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null;
-export const firestore = firebaseApp ? getFirestore(firebaseApp) : null;
+function createAuth() {
+  if (!firebaseApp) return null;
+  try {
+    // Cascata de persistência: evita sessão perdida em navegadores móveis/iframes
+    // onde IndexedDB ou localStorage podem estar bloqueados.
+    return initializeAuth(firebaseApp, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, inMemoryPersistence],
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    // Auth já inicializado (hot reload): reutiliza a instância existente.
+    return getAuth(firebaseApp);
+  }
+}
+
+export const firebaseAuth = createAuth();
+const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID as string | undefined;
+export const firestore = firebaseApp
+  ? (databaseId ? getFirestore(firebaseApp, databaseId) : getFirestore(firebaseApp))
+  : null;

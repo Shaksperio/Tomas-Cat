@@ -7,12 +7,13 @@ interface LoginScreenProps {
   error: string | null;
   user?: User | null;
   accountLoading?: boolean;
+  inIframe?: boolean;
   onGoogleLogin: () => void;
   onRetry?: () => void;
   onLogout?: () => void;
 }
 
-export function LoginScreen({ configured, busy, error, user, accountLoading, onGoogleLogin, onRetry, onLogout }: LoginScreenProps) {
+export function LoginScreen({ configured, busy, error, user, accountLoading, inIframe, onGoogleLogin, onRetry, onLogout }: LoginScreenProps) {
   return (
     <main className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-[radial-gradient(ellipse_at_top,#12334b_0%,#0b1220_48%,#070b13_100%)] p-4 text-white">
       <section className="w-full max-w-md rounded-3xl border border-cyan-300/20 bg-[#0c1523]/95 p-7 shadow-[0_24px_90px_rgba(0,0,0,.55)] backdrop-blur-xl sm:p-9">
@@ -27,7 +28,7 @@ export function LoginScreen({ configured, busy, error, user, accountLoading, onG
         {user ? (
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-200">Conta: <strong>{user.email ?? user.displayName ?? user.uid}</strong></p>
-            {accountLoading && <p className="mt-3 text-sm text-cyan-200">Verificando seu personagem e os salvamentos...</p>}
+            {accountLoading && <p className="mt-3 text-sm text-cyan-200">Conectado! Carregando seu personagem...</p>}
             {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</p>}
             {error && onRetry && <button onClick={onRetry} className="mt-4 w-full rounded-xl bg-cyan-500 px-4 py-3 font-bold text-slate-950">Tentar novamente</button>}
             {onLogout && <button onClick={onLogout} className="mt-3 w-full rounded-xl border border-white/15 px-4 py-3 text-sm text-slate-300">Sair desta conta</button>}
@@ -40,6 +41,7 @@ export function LoginScreen({ configured, busy, error, user, accountLoading, onG
               <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 font-black text-[#4285F4]">G</span>
               {busy ? 'Conectando...' : 'Entrar com Google'}
             </button>
+            {inIframe && <a href={typeof window !== 'undefined' ? window.location.href : '#'} target="_blank" rel="noopener noreferrer" className="mt-3 block w-full rounded-xl border border-cyan-300/30 px-4 py-3 text-center text-sm font-semibold text-cyan-200">Abrir em nova aba para fazer login</a>}
           </>
         )}
         <p className="mt-5 text-center text-[11px] leading-5 text-slate-500">A conta protege o acesso ao personagem. Nunca compartilhe sua sessão em dispositivos públicos.</p>

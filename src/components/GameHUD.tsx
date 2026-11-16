@@ -140,7 +140,7 @@ function BattleOverlay({
     boxShadow: '0 0 0 2px #05072a, 0 8px 24px rgba(0,0,0,0.55), inset 0 0 14px rgba(120,150,255,0.35)',
   };
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 select-none">
+    <div className="pointer-events-none absolute inset-0 z-50 select-none">
       {/* Barras de cinema */}
       <div className="battle-bar-top absolute inset-x-0 top-0 h-[11vh] bg-black" />
       <div className="battle-bar-bottom absolute inset-x-0 bottom-0 h-[11vh] bg-black" />
@@ -325,7 +325,7 @@ function DuelPanel({
   }
 
   return (
-    <div className="pointer-events-auto fixed top-20 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,26rem)] rounded-xl border border-fuchsia-400/40 bg-[#0B0F17]/95 p-3.5 shadow-2xl">
+    <div className="pointer-events-auto absolute top-20 left-1/2 -translate-x-1/2 z-40 w-[min(92vw,26rem)] rounded-xl border border-fuchsia-400/40 bg-[#0B0F17]/95 p-3.5 shadow-2xl">
       {duel.phase === 'offer' && (
         <div className="space-y-2.5">
           <div className="font-display text-sm font-bold text-fuchsia-200">
@@ -655,7 +655,7 @@ export function GameHUD({
   }
 
   return (
-    <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
+    <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
       {/* TOP AREA */}
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
@@ -1142,7 +1142,7 @@ export function GameHUD({
 
       {/* TOAST */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
           <div
             className={`rounded-lg border px-4 py-2 text-xs font-medium shadow-lg whitespace-nowrap ${
               toast.tone === 'warn'
@@ -1158,7 +1158,7 @@ export function GameHUD({
       )}
 
       {hud.activeDialogue && dialogueNode && (phase === 'playing' || phase === 'paused') && (
-        <div className="pointer-events-auto fixed bottom-24 left-1/2 z-30 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300/40 bg-[#101827]/96 p-4 shadow-2xl backdrop-blur-sm">
+        <div className="pointer-events-auto absolute bottom-24 left-1/2 z-30 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300/40 bg-[#101827]/96 p-4 shadow-2xl backdrop-blur-sm">
           <div className="mb-2 flex items-center justify-between gap-3 border-b border-white/10 pb-2">
             <div className="flex items-center gap-2 text-sm font-bold text-amber-200">
               <MessageCircle className="h-4 w-4" />
@@ -1337,7 +1337,7 @@ export function GameHUD({
 
       {/* MODALS */}
       {evolvedBannerStage !== null && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/65 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/65 p-4">
           <div className="w-full max-w-md rounded-2xl border border-cyan-400/40 bg-[#0E1523] p-6 shadow-2xl">
             <div className="flex items-center gap-2 text-xs font-semibold text-cyan-400">
               <Sparkles className="w-4 h-4" />
@@ -1369,7 +1369,7 @@ export function GameHUD({
       )}
 
       {activeLore && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/65 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/65 p-4">
           <div className="w-full max-w-lg rounded-2xl border border-sky-400/35 bg-[#0E1523] p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -1397,7 +1397,7 @@ export function GameHUD({
       )}
 
       {showEvolutionTree && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0E1523] p-6 shadow-2xl max-h-[88vh] overflow-y-auto">
             <div className="flex items-center justify-between gap-4 pb-3 border-b border-white/10">
               <div>
@@ -1468,7 +1468,7 @@ export function GameHUD({
       )}
 
       {showLoreArchive && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-white/15 bg-[#0E1523] p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between gap-4 pb-3 border-b border-white/10">
               <h2 className="font-display text-xl font-bold text-white">
@@ -1503,7 +1503,7 @@ export function GameHUD({
       )}
 
       {showHelp && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0E1523] p-6 shadow-2xl">
             <div className="flex items-center justify-between gap-4 pb-3 border-b border-white/10">
               <h2 className="font-display text-xl font-bold text-white">Controles & Habilidades</h2>
@@ -1558,7 +1558,7 @@ export function GameHUD({
       )}
 
       {phase === 'paused' && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-[#0E1523] p-6 text-center shadow-2xl">
             <h2 className="font-display text-2xl font-bold text-white">Jogo Pausado</h2>
             <p className="mt-1.5 text-xs text-slate-400">
@@ -1586,7 +1586,7 @@ export function GameHUD({
       )}
 
       {phase === 'victory' && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/75 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-md rounded-2xl border border-emerald-400/50 bg-[#0D1A18] p-6 shadow-2xl">
             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
               <Trophy className="w-4 h-4" />
@@ -1619,7 +1619,7 @@ export function GameHUD({
       )}
 
       {phase === 'fallen' && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/75 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-md rounded-2xl border border-amber-400/50 bg-[#141118] p-6 shadow-2xl">
             <div className="text-xs font-semibold text-amber-400">
               Você foi derrubado · Chance preservada
@@ -1648,7 +1648,7 @@ export function GameHUD({
       )}
 
       {phase === 'gameover' && (
-        <div className="fixed inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/75 p-4">
+        <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center bg-black/75 p-4">
           <div className="w-full max-w-md rounded-2xl border border-red-500/40 bg-[#120D14] p-6 shadow-2xl">
             <div className="text-xs font-semibold text-red-400">5 Chances Esgotadas</div>
             <h2 className="font-display mt-1 text-2xl font-bold text-white">

@@ -8,7 +8,7 @@ interface TitleScreenProps {
 
 export function TitleScreen({ hasSave, onNewGame, onContinue }: TitleScreenProps) {
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center p-4 sm:p-6 pointer-events-auto bg-[#0B0F17]/65">
+    <div className="absolute inset-0 z-20 flex items-center justify-center p-4 sm:p-6 pointer-events-auto bg-[#0B0F17]/65">
       <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl border border-white/15 bg-[#0E1420]/95 p-5 sm:p-7 md:p-9 shadow-2xl">
         <div className="flex flex-wrap items-center gap-2 text-xs text-cyan-400 font-medium tracking-wide">
           <span>Terceira Pessoa 3D</span>
