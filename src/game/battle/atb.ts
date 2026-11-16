@@ -336,6 +336,14 @@ export function resolveCommand(
       me.atb = 0;
       break;
     }
+    case 'magic': {
+      me.limit -= MAGIC_MANA_COST;
+      const r = applyHit(state, target, 18 + power * 2 + Math.floor(rand(state) * 5), false);
+      hits.push({ damage: r.damage, crit: r.crit });
+      blocked = r.blocked;
+      me.atb = 0;
+      break;
+    }
     case 'combo_a': {
       me.limit -= COMBO_MANA_COST.combo_a;
       for (let i = 0; i < 4; i += 1) {
