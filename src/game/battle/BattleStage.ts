@@ -89,6 +89,7 @@ export class BattleStage {
   private fallen = new Set<Side>();
   private active = false;
   private actionBusy = false;
+  private comboBreakerWindow = false;
   private actionDone: (() => void) | null = null;
   private introT = 0;
   private readonly introDur = 1.5;
@@ -143,6 +144,61 @@ export class BattleStage {
 
   public get introActive(): boolean {
     return this.introT < this.introDur;
+  }
+
+  /** Janela curta de contra-ataque durante a carga do especial inimigo. */
+  public get comboBreakerWindowOpen(): boolean {
+    return this.comboBreakerWindow && this.actionBusy;
+  }
+
+  /** Interrompe o especial em andamento e substitui sua conclusão pelo contra-ataque. */
+  public interruptWithComboBreaker(action: BattleAction): boolean {
+    if (!this.comboBreakerWindowOpen || action.command !== 'combo_breaker') return false;
+    this.events = [];
+    this.comboBreakerWindow = false;
+    this.darkness = 0;
+    this.orbit = null;
+    this.setBanner('COMBO BREAKERS!');
+    this.playCounterBreakerEffects(action);
+    this.after(1.65, () => {
+      this.actionBusy = false;
+      const cb = this.actionDone;
+      this.actionDone = null;
+      cb?.();
+    });
+    return true;
+  }
+
+  private playCounterBreakerEffects(action: BattleAction): void {
+    const target = action.target;
+    const dir = this.dirBetween('player', target);
+    const color = 0x38e8ff;
+    this.frameAll(3, 0, this.origFov - 2);
+    this.whiteFlash = 0.38;
+    this.shake = 1.0;
+    this.moveTo('player', new THREE.Vector3(dir.x * 1.0, 0, dir.z * 1.0), 0.18);
+    this.after(0.2, () => {
+      const point = this.worldPos(target, 0.9);
+      this.ring(point.clone().setY(0.05), color, 3.2, 0.65);
+      this.glowSprite(point, 0xffffff, 5.2, 0.55);
+      this.sparks(point, color, 38, 7.5);
+      this.impact(action, 0, { big: true, knockback: 5.5 });
+      this.moveTo(target, new THREE.Vector3(dir.x * 5.5, 0, dir.z * 5.5), 0.25);
+      this.fighters[target].tiltTarget = Math.PI / 2;
+      this.flashLightPulse(point, color, 110);
+      this.whiteFlash = 0.55;
+    });
+    this.after(1.05, () => {
+      const point = this.worldPos(target, 0.05);
+      this.ring(point, 0xffffff, 4.5, 0.65);
+      this.sparks(point, color, 18, 3.5);
+    });
+    this.after(1.35, () => {
+      this.fighters[target].tiltTarget = 0;
+      this.moveTo(target, new THREE.Vector3(), 0.3);
+      this.moveTo('player', new THREE.Vector3(), 0.3);
+      this.wideShot(4);
+    });
   }
 
   public begin(opts: {
@@ -242,6 +298,7 @@ export class BattleStage {
     this.active = false;
     this.actionBusy = false;
     this.actionDone = null;
+    this.comboBreakerWindow = false;
     this.events = [];
     for (const fx of this.effects) {
       this.group.remove(fx.obj);
@@ -634,7 +691,10 @@ export class BattleStage {
     this.setBanner(action.name);
     let total = 1.5;
 
-    if (action.command === 'item') {
+    if (action.command === 'combo_breaker') {
+      this.playCounterBreakerEffects(action);
+      total = 1.7;
+    } else if (action.command === 'item') {
       this.wideShot(5);
       this.ring(this.worldPos(actor, 0.08), 0x86efac, 1.8, 0.65);
       this.glowSprite(this.worldPos(actor, 1.0), 0x86efac, 3.2, 0.8);
@@ -730,6 +790,17 @@ export class BattleStage {
       total = 4.2;
     }
 
+    if (action.knockedDown && action.target !== 'player') {
+      const tgt = action.target;
+      this.after(0.48, () => {
+        this.fighters[tgt].tiltTarget = Math.PI / 2;
+      });
+      this.after(1.32, () => {
+        this.fighters[tgt].tiltTarget = 0;
+        this.moveTo(tgt, new THREE.Vector3(), 0.3);
+      });
+    }
+
     // Oponente derrubado no meio da batalha em grupo: cai e fica deitado.
     if (action.knockedOut && !action.finishing && action.target !== 'player') {
       const tgt = action.target;
@@ -762,6 +833,9 @@ export class BattleStage {
     this.frameAll(3, -0.35, this.origFov - 4);
     this.orbit = { around: 'center', radius: this.safeFrameDistance(this.getFighterFrame().radius, this.origFov - 4), height: 2.1, speed: 0.75, phase: Math.atan2(this.perp.z, this.perp.x) };
     this.fighters[actor].squash = 0.3;
+    this.comboBreakerWindow = false;
+    this.after(0.72, () => { this.comboBreakerWindow = true; });
+    this.after(1.62, () => { this.comboBreakerWindow = false; });
     // Carga: orbe crescente + anéis no chão.
     const orb = this.worldPos(actor, 2.4);
     for (let i = 0; i < 3; i += 1) {
