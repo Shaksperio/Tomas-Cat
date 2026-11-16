@@ -30,8 +30,10 @@ import {
   LEGACY_WORLD_ID,
   normalizeWorldTravelState,
   updateActiveWorldPosition,
+  selectPlayableActiveWorld,
   type WorldTravelSaveState,
 } from './worlds/portalWorlds';
+import { PLAYABLE_WORLD_IDS, WORLD_IDS } from './worlds/worldCatalog';
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
 import type { TaskCycleState } from './tasks/taskCycles';
@@ -799,7 +801,11 @@ export class GameEngine {
       }
       const saved: SavedGameState = JSON.parse(raw);
       // Saves v4 sem worldTravel migram de forma segura para o mundo original.
-      this.worldTravel = normalizeWorldTravelState(saved.worldTravel, [LEGACY_WORLD_ID], LEGACY_WORLD_ID);
+      this.worldTravel = selectPlayableActiveWorld(
+        normalizeWorldTravelState(saved.worldTravel, WORLD_IDS, LEGACY_WORLD_ID),
+        PLAYABLE_WORLD_IDS,
+        LEGACY_WORLD_ID,
+      );
       this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, saved.level || 1));
       this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, saved.unlockedMoves ?? []));
       this.stars = saved.stars || 0;
