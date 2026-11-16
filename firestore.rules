@@ -7,8 +7,7 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.ownerUid == userId
         && request.resource.data.schemaVersion == 1
-        && request.resource.data.payload is map
-        && request.resource.size() < 1000000;
+        && request.resource.data.payload is map;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
     match /{document=**} {
