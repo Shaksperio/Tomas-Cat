@@ -68,6 +68,14 @@ import {
   type WorldEvent,
   canAgentAcceptTask,
 } from './contracts';
+import {
+  completeProbation,
+  createDisciplineRecord,
+  evaluateViolation,
+  requestReintegration,
+  type AgentDisciplineRecord,
+  type AgentViolation,
+} from './agents/governance';
 
 export interface AgentNeeds {
   hunger: number;
@@ -187,6 +195,8 @@ export class SocietySimulation {
   private eventSequence = 0;
   /** Tarefas concluídas por agente desde o último pagamento. */
   private readonly completedSincePayday = new Map<string, number>();
+  /** Estado disciplinar autoritativo local; persistência entre sessões ainda depende do backend. */
+  private readonly discipline = new Map<string, AgentDisciplineRecord>();
   private readonly resources: SocietyResources = { food: 12, wood: 0, stone: 0, planks: 0, coins: 0 };
 
   constructor() {
@@ -278,6 +288,7 @@ export class SocietySimulation {
       if (!dependenciesComplete || !this.hasResources(task.requiredResources, this.reserveFor(task))) continue;
 
       const candidate = [...this.agents.values()]
+        .filter((agent) => this.isAgentAuthorizedForTask(agent.id, task.kind))
         .filter((agent) => canAgentAcceptTask(agent, task).valid)
         .sort((a, b) => a.id.localeCompare(b.id))[0];
       if (!candidate) continue;
@@ -639,11 +650,87 @@ export class SocietySimulation {
     return true;
   }
 
+  /** Aplica uma ocorrência verificada pelo controlador de governança e retira o agente do scheduler. */
+  public reportAgentViolation(violation: AgentViolation): AgentDisciplineRecord {
+    const current = this.discipline.get(violation.agentId)
+      ?? createDisciplineRecord(violation.agentId);
+    const decision = evaluateViolation(current, violation);
+    this.discipline.set(violation.agentId, decision.record);
+    if (decision.action === 'suspend' || decision.action === 'extend_suspension'
+      || decision.action === 'permanent_block') {
+      const agent = this.agents.get(violation.agentId);
+      if (agent) {
+        for (const task of this.tasks.values()) {
+          if (task.assignedAgentId !== agent.id
+            || !['assigned', 'in_progress'].includes(task.status)) continue;
+          task.status = 'cancelled';
+          task.updatedAtTick = this.tickCount;
+          task.version += 1;
+          this.taskRuntime.delete(task.id);
+        }
+        agent.activeTaskId = null;
+        agent.status = 'idle';
+        agent.version += 1;
+        this.emit('agent_state_changed', agent.id, {
+          agentId: agent.id,
+          status: 'idle',
+          discipline: decision.record.status,
+          reason: decision.reason,
+        });
+      }
+    }
+    return this.cloneDisciplineRecord(decision.record);
+  }
+
+  /** Reintegração exige prazo encerrado, aceite explícito e revisão aprovada. */
+  public reinstateAgent(
+    agentId: string,
+    acceptedRules: boolean,
+    reviewPassed: boolean,
+  ): AgentDisciplineRecord {
+    const current = this.discipline.get(agentId) ?? createDisciplineRecord(agentId);
+    const decision = requestReintegration(current, this.tickCount, acceptedRules, reviewPassed);
+    this.discipline.set(agentId, decision.record);
+    if (decision.action === 'reinstate_probation') {
+      const agent = this.agents.get(agentId);
+      if (agent) {
+        agent.status = 'idle';
+        agent.activeTaskId = null;
+        agent.version += 1;
+      }
+    }
+    return this.cloneDisciplineRecord(decision.record);
+  }
+
+  public getAgentDiscipline(agentId: string): AgentDisciplineRecord {
+    const record = this.discipline.get(agentId) ?? createDisciplineRecord(agentId);
+    return this.cloneDisciplineRecord(record);
+  }
+
+  private cloneDisciplineRecord(record: AgentDisciplineRecord): AgentDisciplineRecord {
+    return { ...record, violations: record.violations.map((violation) => ({
+      ...violation,
+      affectedAgentIds: violation.affectedAgentIds ? [...violation.affectedAgentIds] : undefined,
+    })) };
+  }
+
+  private isAgentAuthorizedForTask(agentId: string, taskKind: AgentTask['kind']): boolean {
+    const record = this.discipline.get(agentId);
+    if (!record || record.status === 'active') return true;
+    if (record.status === 'suspended' || record.status === 'permanently_blocked') return false;
+    // Durante a probation, agentes não executam construção, reparos ou preparação territorial.
+    return !['prepare_site', 'build_module', 'repair_structure'].includes(taskKind);
+  }
+
   /** Avança exatamente um passo lógico da simulação. */
   public step(steps = 1): SocietySimulationSnapshot {
     const safeSteps = Math.max(0, Math.min(1000, Math.floor(steps)));
     for (let index = 0; index < safeSteps; index += 1) {
       this.tickCount += 1;
+      for (const [agentId, record] of this.discipline) {
+        const updated = completeProbation(record, this.tickCount);
+        if (updated !== record) this.discipline.set(agentId, updated);
+      }
       for (const agent of this.agents.values()) this.updateNeeds(agent);
       this.assignQueuedTasks();
       this.progressTasks();
