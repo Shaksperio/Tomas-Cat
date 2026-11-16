@@ -194,8 +194,13 @@ export class BattleStage {
       this.sparks(point, color, 18, 3.5);
     });
     this.after(1.35, () => {
-      this.fighters[target].tiltTarget = 0;
-      this.moveTo(target, new THREE.Vector3(), 0.3);
+      if (action.knockedOut) {
+        this.fallen.add(target);
+        this.fighters[target].tiltTarget = Math.PI / 2;
+      } else {
+        this.fighters[target].tiltTarget = 0;
+        this.moveTo(target, new THREE.Vector3(), 0.3);
+      }
       this.moveTo('player', new THREE.Vector3(), 0.3);
       this.wideShot(4);
     });
