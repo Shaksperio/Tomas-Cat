@@ -2465,6 +2465,15 @@ export class GameEngine {
 
   private getTaskGpsTarget(): TaskGpsTarget | null {
     const objectives: Array<{ event: PlayerTaskEvent; objective: string; taskTitle: string }> = [];
+    // Recompensas físicas de missões concluídas têm prioridade: não basta avisar
+    // que existem sucatas no mundo, o GPS também precisa conduzir Tomas até elas.
+    if (this.taskRewardDrops.length > 0) {
+      objectives.push({
+        event: 'scrap_collected',
+        objective: 'Recolha a recompensa física da missão',
+        taskTitle: 'Recompensa pendente',
+      });
+    }
     for (const task of this.playerTasks) {
       if (task.status !== 'active') continue;
       const definition = getPlayerTaskDefinition(task.id);
@@ -2477,7 +2486,14 @@ export class GameEngine {
     }
     if (objectives.length === 0) return null;
 
-    const candidates: TaskGpsCandidate[] = [];
+    const candidates: TaskGpsCandidate[] = this.taskRewardDrops.map((drop) => ({
+      id: drop.id,
+      label: `Recompensa: ${drop.title} (+${drop.amount} sucatas)`,
+      event: 'scrap_collected',
+      x: drop.x,
+      y: drop.y,
+      z: drop.z,
+    }));
     for (const item of this.world.interactables) {
       if (!item.active || item.taskRewardId) continue;
       const event = item.kind === 'food' || item.kind === 'prey' || item.kind === 'fish'
