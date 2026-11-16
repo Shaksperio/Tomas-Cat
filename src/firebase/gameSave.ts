@@ -37,10 +37,17 @@ export function queueAccountGameSave(
   onError?: (error: unknown) => void,
 ): void {
   const previous = pending.get(uid);
-  if (previous) window.clearTimeout(previous.timer);
+  if (previous) {
+    // Keep only the latest snapshot, but retain the first timer to throttle
+    // the engine's six-second autosave cadence into a cloud write every ~15s.
+    previous.payload = payload;
+    previous.onSaved = onSaved;
+    previous.onError = onError;
+    return;
+  }
   const timer = window.setTimeout(() => {
     void flushAccountGameSave(uid).catch(onError);
-  }, 1200);
+  }, 15_000);
   pending.set(uid, { payload, timer, onSaved, onError });
 }
 
