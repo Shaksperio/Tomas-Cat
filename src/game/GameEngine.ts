@@ -1366,6 +1366,7 @@ export class GameEngine {
     this.battleInventory = combat.playerItems > 0 ? [{ itemId: 'ration', quantity: combat.playerItems }] : [];
     this.duelPhase = 'result';
     this.battle = null;
+    this.pendingOpponentSpecial = null;
     this.battleEnding = false;
     this.duelResultTimer = 5;
     this.callbacks.onToast(this.duelResultText, this.duelResultWon === false ? 'warn' : 'success');
