@@ -1632,7 +1632,7 @@ export class GameEngine {
       this.gainXp(task.rewardXp);
       this.callbacks.onToast(`Missão concluída: ${task.title}. +${task.rewardXp} XP e +${task.rewardScrap} sucata.`, 'success');
     }
-    if (result.completed.length > 0 || cycleResult.state !== this.taskCycle) this.saveGame();
+    this.saveGame();
   }
 
   public chooseDialogueOption(optionId: string): void {
