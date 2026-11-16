@@ -218,3 +218,34 @@ test('em grupo o oponente caído não age mais e o jogador perde ao zerar o vigo
     assert.equal(s.winner, 'opponent');
   }
 });
+
+
+test('item consome uma ração, recupera vigor até 100 e gasta o turno', () => {
+  const s = createBattle(31, 2, 1, 10, { playerItems: 2 });
+  s.player.vigor = 61;
+  s.ready = 'player';
+  const beforeMana = s.player.limit;
+  const action = resolveCommand(s, 'player', 'item');
+  assert.equal(action.healing, 28);
+  assert.equal(s.player.vigor, 89);
+  assert.equal(s.playerItems, 1);
+  assert.equal(s.player.atb, 0);
+  assert.equal(s.player.limit, beforeMana);
+  assert.equal(action.target, 'player');
+});
+
+test('item não pode ser usado sem estoque nem com vigor cheio', () => {
+  const empty = createBattle(32, 2, 1, 10);
+  empty.ready = 'player';
+  assert.equal(canUseCommand(empty, 'player', 'item'), false);
+  const full = createBattle(33, 2, 1, 10, { playerItems: 1 });
+  full.ready = 'player';
+  assert.equal(canUseCommand(full, 'player', 'item'), false);
+  assert.throws(() => resolveCommand(full, 'player', 'item'));
+});
+
+test('item não pode ser usado por oponentes', () => {
+  const s = createBattle(34, 2, 1, 10, { playerItems: 1 });
+  s.ready = 'opponent';
+  assert.equal(canUseCommand(s, 'opponent', 'item'), false);
+});
