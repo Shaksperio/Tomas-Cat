@@ -258,7 +258,7 @@ export function canUseCommand(state: BattleState, side: Side, command: BattleCom
 }
 
 /** Dano máximo, já reduzido pela defesa, para classificar um golpe como fraco. */
-export const COMBO_BREAKER_WEAK_HIT_MAX = 10;
+export const COMBO_BREAKER_WEAK_HIT_MAX = 14;
 export const COMBO_BREAKER_DAMAGE = 16;
 
 /** Contra-ataque defensivo acionado após bloquear um ataque simples e fraco. */
