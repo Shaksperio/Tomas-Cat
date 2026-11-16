@@ -16,6 +16,7 @@ import {
   WeatherState,
 } from '../types/game';
 import { gameAudio } from './audio';
+import type { BattleInventoryItem } from './battle/commands';
 import { ArticulatedCat } from './catModel';
 import { PredatorActor } from './enemyModels';
 import { createProceduralTextures, ProceduralTextureSet } from './textures';
@@ -195,6 +196,7 @@ export class GameEngine {
   private battleTarget: FoeSide | null = null;
   /** Maná guardado de batalhas vencidas (0–100). */
   private battleMana = 0;
+  private battleInventory: BattleInventoryItem[] = [];
   private battle: BattleState | null = null;
   private battleEnding = false;
   private readonly battleStage: BattleStage;
@@ -507,6 +509,7 @@ export class GameEngine {
     this.defeatedBosses.clear();
     this.conqueredTerritories.clear();
     this.battleMana = 0;
+    this.battleInventory = [];
     this.announcedRivals.clear();
     this.scrap = 0;
     this.coins = 60;
@@ -758,6 +761,7 @@ export class GameEngine {
       this.scrap = saved.scrap || 0;
       this.coins = typeof saved.coins === 'number' ? Math.max(0, saved.coins) : 60;
       this.battleMana = typeof saved.battleMana === 'number' ? Math.max(0, Math.min(100, saved.battleMana)) : 0;
+      this.battleInventory = (saved.battleInventory ?? []).filter((entry) => entry?.itemId === 'ration' && Number.isFinite(entry.quantity) && entry.quantity > 0).map((entry) => ({ itemId: 'ration', quantity: Math.min(99, Math.floor(entry.quantity)) }));
       this.day = saved.day || 1;
       this.timeOfDay = saved.timeOfDay ?? 0.34;
       this.health = Math.min(this.getEffectiveMaxHealth(), Math.max(25, saved.health || def.maxHealth));
@@ -1102,7 +1106,7 @@ export class GameEngine {
       this.getCurrentAttackDamage() / 12,
       this.level,
       foeLevels[0],
-      { playerMana: this.battleMana, foeLevels },
+      { playerMana: this.battleMana, foeLevels, playerItems: this.getBattleItemCount('ration') },
     );
     this.battleTarget = defaultTarget(this.battle);
     this.battleEnding = false;
@@ -1137,6 +1141,8 @@ export class GameEngine {
     if (this.battleStage.busy || this.battleEnding) return;
     if (!canUseCommand(this.battle, 'player', command)) {
       if (command === 'limit') this.callbacks.onToast('A barra de maná ainda não está cheia.', 'info');
+      else if (command === 'item' && this.battle?.playerItems === 0) this.callbacks.onToast('Você não tem rações de combate.', 'info');
+      else if (command === 'item') this.callbacks.onToast('O vigor já está cheio.', 'info');
       return;
     }
     this.runBattleCommand('player', command);
@@ -1150,6 +1156,7 @@ export class GameEngine {
     if (side === 'player') this.battleTarget = livingFoes(battle).includes(action.target as FoeSide) ? (action.target as FoeSide) : defaultTarget(battle);
     if (command === 'limit') gameAudio.playBossRoar();
     else if (command === 'guard') gameAudio.playSonar();
+    else if (command === 'item') gameAudio.playEat();
     this.battleStage.playAction(action, () => {
       if (battle.finished) this.beginBattleEnding();
     });
@@ -1265,6 +1272,7 @@ export class GameEngine {
     // O maná de uma batalha vencida é guardado para a próxima; derrota ou desistência zera.
     if (this.duelResultWon === true) this.battleMana = Math.round(combat.player.limit);
     else if (this.duelResultWon === false) this.battleMana = 0;
+    this.battleInventory = combat.playerItems > 0 ? [{ itemId: 'ration', quantity: combat.playerItems }] : [];
     this.duelPhase = 'result';
     this.battle = null;
     this.battleEnding = false;
@@ -1317,6 +1325,7 @@ export class GameEngine {
       foes,
       targetSide: this.battleTarget,
       storedMana: this.battleMana,
+      playerItems: battle?.playerItems ?? this.getBattleItemCount('ration'),
       groupAvailable: this.duelPhase === 'offer' ? this.duelCandidateIds.length : 0,
       limits: {
         coins: me.coins,
@@ -1583,6 +1592,18 @@ export class GameEngine {
     }
   }
 
+  private getBattleItemCount(itemId: string): number {
+    return this.battleInventory.find((entry) => entry.itemId === itemId)?.quantity ?? 0;
+  }
+
+  private addBattleItem(itemId: string, amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const current = this.battleInventory.find((entry) => entry.itemId === itemId);
+    if (current) current.quantity = Math.min(99, current.quantity + Math.floor(amount));
+    else this.battleInventory.push({ itemId, quantity: Math.min(99, Math.floor(amount)) });
+    this.callbacks.onToast('Ração energética +1: disponível para usar em batalhas.', 'success');
+  }
+
   private recordPlayerTaskEvent(event: PlayerTaskEvent, amount = 1): void {
     const result = advancePlayerTasks(this.playerTasks, event, amount);
     this.playerTasks = result.states;
@@ -1629,6 +1650,7 @@ export class GameEngine {
       this.health = Math.min(maxHp, this.health + 12);
       this.gainXp(item.xpGain);
       this.foodCollected++;
+      this.addBattleItem('ration', 1);
       this.recordPlayerTaskEvent('food_collected');
       item.active = false;
       item.mesh.visible = false;
@@ -1839,6 +1861,7 @@ export class GameEngine {
         scrap: this.scrap,
         coins: this.coins,
         battleMana: this.battleMana,
+        battleInventory: this.battleInventory,
         unlockedMoves: Array.from(this.unlockedMoves),
         dialogueRelations: Object.fromEntries(this.dialogueRelations),
         dialogueFlags: Object.fromEntries(this.dialogueFlags),
@@ -1919,6 +1942,8 @@ export class GameEngine {
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);
+      } else if (code === 'KeyI' && this.duelPhase === 'fighting') {
+        this.battleCommand('item');
       } else if (code === 'KeyT' && this.duelPhase === 'fighting' && this.battle) {
         // Troca o alvo entre os oponentes de pé.
         const alive = livingFoes(this.battle);
