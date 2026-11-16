@@ -381,3 +381,14 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - A organização dos papéis foi inspirada em `msitarzewski/agency-agents` (licença MIT), mas os perfis são uma adaptação própria para as profissões e tarefas existentes no Tomas. Não foram copiados prompts de motores Unity/Godot.
 - **Limite desta fase:** o orquestrador produz propostas e não modifica a simulação. Uma proposta aceita ainda precisa ser aplicada por controlador autoritativo; não há integração com HUD/GameEngine, LLM/Cowila remoto, Worker, Durable Objects, D1 ou simulação offline compartilhada. Não anunciar habitantes autônomos integrados ao jogo até concluir essa ligação e testá-la no mundo 3D.
 - Documentação: `docs/architecture/SPECIALIST-AGENTS.md`.
+
+
+## Atualização de engenharia — Cowila, expansão territorial e governança (2026-11-16)
+
+- Engenheiros recebem mandato explícito para explorar territórios, desenhar bairros, propor cenários e planejar expansão urbana.
+- Operários recebem mandato explícito para executar obras, ampliar bairros, abrir caminhos e construir infraestrutura após aprovação.
+- `agents/expansion.ts` define propostas de expansão que precisam referenciar mundo jogável, template de cenário aprovado e módulos 3D autorizados pelo catálogo do motor.
+- `agents/governance.ts` implementa estado disciplinar determinístico: suspensão por violações verificadas, reintegração condicionada a aceite das regras e avaliação, período probatório e bloqueio permanente após incitação reiterada comprovada.
+- Discordância, crítica e propostas alternativas não são infrações. Evidência não verificada e eventos duplicados não geram punição.
+- O bloqueio global exige persistência compartilhada da identidade/blocklist; a integração com backend e execução real de projetos ainda não está concluída.
+- Documentação detalhada em `docs/architecture/COWILA-GOVERNANCE-AND-WORLD-EXPANSION.md`.
