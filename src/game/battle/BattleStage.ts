@@ -661,6 +661,31 @@ export class BattleStage {
         this.wideShot(5);
       });
       total = 2.1;
+    } else if (action.command === 'combo_a' || action.command === 'combo_b') {
+      const color = action.command === 'combo_a' ? 0xc4b5fd : 0xf9a8d4;
+      const duration = action.command === 'combo_a' ? 1.8 : 2.35;
+      this.overShoulder(actor, action.target);
+      this.moveTo(actor, stand(-0.5), 0.18);
+      this.after(0.24, () => this.moveTo(actor, stand(reach), 0.16));
+      for (let i = 0; i < action.hits.length; i += 1) {
+        const last = i === action.hits.length - 1;
+        this.after(0.38 + i * (action.command === 'combo_a' ? 0.22 : 0.25), () => {
+          if (i === 0) this.impactShot(action.target, 14);
+          if (actor === 'player') this.onPlayerClaw();
+          const p = this.worldPos(action.target, 0.8);
+          p.x += ((i % 3) - 1) * 0.28;
+          p.z += (i % 2 === 0 ? -0.2 : 0.2);
+          this.beam(p, color, 0.32);
+          this.sparks(p, color, last ? 18 : 8, last ? 2.8 : 1.5);
+          this.impact(action, i, { big: last, knockback: last ? 1.8 : 0.45 });
+        });
+      }
+      this.after(duration - 0.15, () => {
+        this.moveTo(actor, new THREE.Vector3(), 0.3);
+        this.ring(this.worldPos(action.target, 0.05), color, action.command === 'combo_b' ? 4.4 : 3.2, 0.55);
+        this.wideShot(5);
+      });
+      total = duration;
     } else if (action.command === 'guard') {
       const p = this.worldPos(actor, 0.1);
       this.wideShot(5);

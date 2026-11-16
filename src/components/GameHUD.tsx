@@ -102,7 +102,7 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
