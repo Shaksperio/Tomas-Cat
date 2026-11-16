@@ -69,7 +69,7 @@ interface GameHUDProps {
   onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
-  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
+  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
   onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
   onSonar: () => void;
@@ -107,12 +107,13 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
   { id: 'limit', label: 'Especial', key: '4' },
   { id: 'item', label: 'Ração energética', key: 'I' },
+  { id: 'magic', label: 'Orbe Arcano', key: '8', manaCost: 25 },
   { id: 'combo_a', label: 'Rasante Duplo', key: '6', requiredLevel: 25, manaCost: 35 },
   { id: 'combo_b', label: 'Tempestade de Garras', key: '7', requiredLevel: 55, manaCost: 70 },
 ];
@@ -124,7 +125,7 @@ function BattleOverlay({
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b' | 'combo_a' | 'combo_b') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'combo_a' | 'combo_b') => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
@@ -252,6 +253,18 @@ function BattleOverlay({
               />
             </div>
             <div className="mt-1 text-[10px] text-slate-300">
+              {duel.awaitingCommand && (
+                <div className="mt-1 flex items-center gap-2" aria-live="polite">
+                  <span className="w-10 text-[10px] font-bold text-amber-200">TEMPO</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/45">
+                    <div
+                      className={duel.playerTurnTimeLeft <= 3 ? 'h-full rounded-full bg-rose-400' : 'h-full rounded-full bg-amber-300'}
+                      style={{ width: `${Math.max(0, Math.min(100, duel.playerTurnTimeLeft / 10 * 100))}%` }}
+                    />
+                  </div>
+                  <span className="w-6 text-right text-[11px] font-mono-tabular text-amber-100">{Math.ceil(duel.playerTurnTimeLeft)}s</span>
+                </div>
+              )}
               Aposta: {duel.stakeText}{duel.foes.length > 1 ? ' por oponente' : ''}
               {duel.awaitingCommand ? ' · Sua vez!' : ''}
             </div>
@@ -274,7 +287,7 @@ function DuelPanel({
   onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onCancel: () => void;
   onForfeit: () => void;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
   const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
