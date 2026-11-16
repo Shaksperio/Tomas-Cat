@@ -5,6 +5,7 @@ import type { TaskGpsTarget } from '../game/tasks/taskNavigation';
 import type { InventoryEntry } from '../game/items/inventory';
 import type { EquipmentState } from '../game/items/equipment';
 import type { TaskRewardDrop } from '../game/tasks/taskRewards';
+import type { WorldTravelSaveState } from '../game/worlds/portalWorlds';
 
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
 
@@ -400,6 +401,8 @@ export interface SavedGameState {
   acceptedDialogueTasks?: string[];
   playerTasks?: Array<{ id: string; progress: number; status: 'active' | 'completed' }>;
   taskCycle?: TaskCycleState;
+  /** Estado de viagem entre mundos; opcional para compatibilidade com saves v4 antigos. */
+  worldTravel?: WorldTravelSaveState;
   day: number;
   timeOfDay: number;
   currentPhase: number;
