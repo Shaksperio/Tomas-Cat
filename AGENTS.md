@@ -86,7 +86,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - `src/game/battle/commands.ts` descreve metadados cinematográficos da ração e dos dois combos; `atb.ts` executa item, Rasante Duplo e Tempestade de Garras com custos de turno/maná e desbloqueio por nível. Campos opcionais de diálogo, comandos e inventário mantêm compatibilidade com saves antigos.
 
 ### 4.3 O que NÃO existe ainda
-Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
+Portais físicos e transição jogável entre mundos; carregamento de cenas independentes por worldId; snapshots completos por mundo; Galáxia visual. Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
 ### 4.4 Lacunas de jogabilidade conhecidas
 - Sol (disco) e estrelas existem (estrelas à noite com tempo limpo), mas a lua ainda é uma esfera simples e não há nuvens nem fases lunares.
@@ -294,3 +294,13 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - Quando um alvo GPS de missão passa a existir, abrir automaticamente o radar e recolher a lista de tarefas para um resumo compacto com destino e distância. O jogador pode expandir/recolher manualmente sem perder o acompanhamento.
 - O radar apresenta o rumo até o destino em azul, com marcador terminal. A rota navegável calculada no mundo 3D usa linha azul de alto contraste e continua sendo atualizada conforme o jogador se desloca.
 - Preservar o roteamento por obstáculos (A*) existente; o indicador 2D do radar é uma representação de rumo, não deve substituir nem falsificar a rota calculada no mundo.
+
+
+## Atualização de engenharia — contratos iniciais de portais e mundos (2026-11-16)
+
+- `src/game/worlds/portalWorlds.ts` introduz contratos puros para `WorldId`, pontos, portais, requisitos de desbloqueio, progresso por mundo e âncora de retorno.
+- `currentPhase` permanece independente de `WorldId`. O mundo legado é `quarantine-city`; isso não cria uma segunda cena nem altera as quatro fases existentes.
+- A resolução de viagem exige origem ativa correspondente, destino registrado, coordenadas válidas e todos os requisitos determinísticos (chefes, tarefas e flags). O retorno usa a posição salva no portal de origem.
+- `SavedGameState.worldTravel` foi adicionado como campo opcional, preservando a leitura de saves v4 antigos. A normalização ignora mundos não registrados e dados malformados.
+- Testes puros cobrem compatibilidade de save legado, bloqueio, validação de destino, retorno e normalização. O comando `npm test` inclui `src/game/worlds/*.test.ts`.
+- **Limite desta entrega:** contratos e testes apenas. A transição ainda não está conectada ao `GameEngine`, não há portal físico/HUD nem carregamento de outro mundo. Não anunciar viagem entre mundos como funcional até existir carregamento, salvamento automático e retorno jogável.
