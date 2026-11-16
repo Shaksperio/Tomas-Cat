@@ -614,7 +614,7 @@ export function GameHUD({
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
-      {phase === 'playing' && ((hud.playerTasks?.length ?? 0) > 0 || (hud.cycleTasks?.length ?? 0) > 0) && (
+      {phase === 'playing' && ((hud.playerTasks?.length ?? 0) > 0 || (hud.cycleTasks?.length ?? 0) > 0 || (hud.pendingTaskRewards ?? 0) > 0) && (
         <div className="pointer-events-auto fixed right-3 top-24 z-20 w-56 max-w-[48vw] rounded-lg border border-cyan-300/25 bg-[#0B1421]/90 p-2.5 shadow-lg backdrop-blur-sm">
           {hud.gpsTarget && (
             <div className="mb-2 flex items-center gap-2 rounded-md border border-cyan-300/25 bg-cyan-400/10 px-2 py-1.5">
@@ -632,6 +632,7 @@ export function GameHUD({
                 <span>Missões da cidade</span>
                 <span>Próxima em {Math.ceil((hud.secondsToNextTask ?? 0) / 60)} min</span>
               </div>
+              {Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}
               {hud.cycleTasks.map((task) => (
                 <div key={task.id} className="mb-1.5 text-[10px]">
                   <div className="font-semibold text-slate-100">{task.title}</div>
@@ -704,6 +705,7 @@ export function GameHUD({
                   );
                 })}
               </div>
+              {Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}
               <div className="mt-2 text-[9px] text-slate-500">A ração energética continua no inventário separado de batalha (tecla I durante duelos).</div>
             </div>
           )}

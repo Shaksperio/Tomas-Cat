@@ -44,6 +44,7 @@ export interface WorldInteractable {
   wanderAngle?: number;
   lore?: LoreLog;
   itemId?: InventoryItemId;
+  taskRewardId?: string;
 }
 
 export interface IndoorZone {
