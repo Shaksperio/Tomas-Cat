@@ -197,6 +197,8 @@ export default function App() {
           onPauseToggle={handlePauseToggle}
           onContinueAfterVictory={handleContinueAfterVictory}
           onInteract={() => engineRef.current?.triggerInteract()}
+          onDialogueOption={(optionId) => engineRef.current?.chooseDialogueOption(optionId)}
+          onDialogueClose={() => engineRef.current?.closeDialogue()}
           onUpgradeShelter={() => engineRef.current?.triggerShelterUpgrade()}
           onClawAttack={() => engineRef.current?.triggerClawAttack()}
           onChallenge={() => engineRef.current?.challengeNearest()}
