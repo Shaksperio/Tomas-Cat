@@ -15,7 +15,7 @@ const INITIAL_HUD: HudSnapshot = {
   hunger: 92, maxHunger: EVOLUTION_STAGES[0].maxHunger,
   thirst: 90, maxThirst: EVOLUTION_STAGES[0].maxThirst,
   warmth: 96, maxWarmth: EVOLUTION_STAGES[0].maxWarmth,
-  stamina: 100, maxStamina: EVOLUTION_STAGES[0].maxStamina,
+  stamina: EVOLUTION_STAGES[0].maxStamina, maxStamina: EVOLUTION_STAGES[0].maxStamina,
   oxygen: 100, maxOxygen: 100, level: 1, stars: 0, starProgress: 0, starNext: 57,
   unlockedMoves: ['basic-claw'], isAlphaLeader: false, rankTitle: 'Sobrevivente Errante',
   attackPower: EVOLUTION_STAGES[0].attackDamage, stageIndex: 0, scrap: 0, coins: 60,
