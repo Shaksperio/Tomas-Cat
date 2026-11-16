@@ -1279,32 +1279,37 @@ export function GameHUD({
 
           {!dockCollapsed && (
             <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0B0F17]/90 px-3 py-2 shadow-xl">
-              <button
-                type="button"
-                onClick={onClawAttack}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/20 border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <Swords className="w-3.5 h-3.5" />
-                <span>[J / Clique] Azunhar</span>
-              </button>
+              {/* No toque, Azunhar/Miar/Desafiar já existem nos botões de ação: não duplicar. */}
+              {!isTouchDevice && (
+                <>
+                  <button
+                    type="button"
+                    onClick={onClawAttack}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/20 border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/30 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>[J / Clique] Azunhar</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={onMeow}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/35 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span>[V] Miar</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={onMeow}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/35 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>[V] Miar</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={onChallenge}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/15 border border-fuchsia-500/35 px-3 py-1.5 text-xs font-semibold text-fuchsia-200 hover:bg-fuchsia-500/25 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <Swords className="w-3.5 h-3.5" />
-                <span>[B] Desafiar</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={onChallenge}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/15 border border-fuchsia-500/35 px-3 py-1.5 text-xs font-semibold text-fuchsia-200 hover:bg-fuchsia-500/25 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>[B] Desafiar</span>
+                  </button>
+                </>
+              )}
 
               <button
                 type="button"
