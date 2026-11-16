@@ -369,3 +369,15 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - A construção é determinística e isolada em uma raiz `THREE.Group`, compatível com `WorldSceneManager`.
 - Os testes validam composição da cena, setores e limites de colisão.
 - Esta etapa entrega o construtor da cena, mas ainda não a registra como jogável no motor. O mundo permanece `planned` até a integração de spawn/retorno, física de água, navegação e transição persistente.
+
+
+
+## Atualização de engenharia — agentes especialistas da sociedade (2026-11-16)
+
+- Criado `src/game/society/agents/catalog.ts` com perfis tipados para as oito profissões já existentes, incluindo missão, princípios operacionais, prioridade e allowlist de tarefas.
+- Criado `policies.ts` para validar propostas quanto a identidade, tick, prioridade, profissão, setor, alvo, recursos disponíveis, disponibilidade do habitante e duplicidade de trabalho.
+- Criado `orchestrator.ts` com ciclo determinístico de propostas e fallback local sem LLM, rede ou aleatoriedade.
+- Criados testes específicos em `agents/agents.test.ts`; o comando `npm test` agora os inclui.
+- A organização dos papéis foi inspirada em `msitarzewski/agency-agents` (licença MIT), mas os perfis são uma adaptação própria para as profissões e tarefas existentes no Tomas. Não foram copiados prompts de motores Unity/Godot.
+- **Limite desta fase:** o orquestrador produz propostas e não modifica a simulação. Uma proposta aceita ainda precisa ser aplicada por controlador autoritativo; não há integração com HUD/GameEngine, LLM/Cowila remoto, Worker, Durable Objects, D1 ou simulação offline compartilhada. Não anunciar habitantes autônomos integrados ao jogo até concluir essa ligação e testá-la no mundo 3D.
+- Documentação: `docs/architecture/SPECIALIST-AGENTS.md`.
