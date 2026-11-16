@@ -30,6 +30,9 @@ import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCy
 import type { TaskCycleState } from './tasks/taskCycles';
 import { selectTaskGpsTarget } from './tasks/taskNavigation';
 import type { TaskGpsCandidate, TaskGpsTarget } from './tasks/taskNavigation';
+import { addInventoryItem, consumeInventoryItem, createInventoryState, inventoryCount, normalizeInventory } from './items/inventory';
+import type { InventoryState } from './items/inventory';
+import { ITEM_CATALOG, isInventoryItemId, type InventoryItemId } from './items/itemCatalog';
 import { findGridRoute } from './tasks/gridRoute';
 import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
 import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
@@ -211,6 +214,7 @@ export class GameEngine {
   /** Maná guardado de batalhas vencidas (0–100). */
   private battleMana = 0;
   private battleInventory: BattleInventoryItem[] = [];
+  private inventory: InventoryState = createInventoryState();
   private battle: BattleState | null = null;
   private battleEnding = false;
   private readonly battleStage: BattleStage;
@@ -533,6 +537,7 @@ export class GameEngine {
     this.conqueredTerritories.clear();
     this.battleMana = 0;
     this.battleInventory = [];
+    this.inventory = createInventoryState();
     this.announcedRivals.clear();
     this.scrap = 0;
     this.coins = 60;
@@ -786,6 +791,7 @@ export class GameEngine {
       this.coins = typeof saved.coins === 'number' ? Math.max(0, saved.coins) : 60;
       this.battleMana = typeof saved.battleMana === 'number' ? Math.max(0, Math.min(100, saved.battleMana)) : 0;
       this.battleInventory = (saved.battleInventory ?? []).filter((entry) => entry?.itemId === 'ration' && Number.isFinite(entry.quantity) && entry.quantity > 0).map((entry) => ({ itemId: 'ration', quantity: Math.min(99, Math.floor(entry.quantity)) }));
+      this.inventory = normalizeInventory(saved.inventory);
       this.day = saved.day || 1;
       this.timeOfDay = saved.timeOfDay ?? 0.34;
       this.health = Math.min(this.getEffectiveMaxHealth(), Math.max(25, saved.health || def.maxHealth));
@@ -1717,6 +1723,22 @@ export class GameEngine {
       this.cat.triggerAction('pounce');
       gameAudio.playCollectScrap();
       this.callbacks.onToast('+1 Sucata Tecnológica coletada', 'info');
+    } else if (item.kind === 'pickup' && item.itemId && isInventoryItemId(item.itemId)) {
+      const itemId = item.itemId;
+      const next = addInventoryItem(this.inventory, itemId, item.amount);
+      const added = inventoryCount(next, itemId) - inventoryCount(this.inventory, itemId);
+      if (added <= 0) {
+        this.callbacks.onToast(`Inventário cheio: ${ITEM_CATALOG[itemId].name} já está no limite.`, 'warn');
+        return;
+      }
+      this.inventory = next;
+      item.active = false;
+      item.mesh.visible = false;
+      item.respawnTimer = item.maxRespawn;
+      this.gainXp(item.xpGain);
+      this.cat.triggerAction('pounce');
+      this.callbacks.onToast(`+${added} · ${ITEM_CATALOG[itemId].name} guardado no inventário.`, 'success');
+      this.saveGame();
     } else if (item.kind === 'shelter') {
       const lvl = item.shelterLevel || 1;
       this.warmth = def.maxWarmth;
@@ -1743,6 +1765,51 @@ export class GameEngine {
       this.callbacks.onLoreOpen(item.lore);
     }
 
+    this.syncHud();
+  }
+
+  public useInventoryItem(itemId: InventoryItemId): void {
+    if (this.phase !== 'playing' || this.duelPhase === 'fighting') return;
+    if (inventoryCount(this.inventory, itemId) <= 0) {
+      this.callbacks.onToast('Você não possui esse item.', 'warn');
+      return;
+    }
+    const effect = ITEM_CATALOG[itemId].effect;
+    const def = EVOLUTION_STAGES[this.stageIndex];
+    let applied = 0;
+    if (effect.kind === 'health') {
+      const before = this.health;
+      this.health = Math.min(this.getEffectiveMaxHealth(), this.health + effect.amount);
+      applied = this.health - before;
+    } else if (effect.kind === 'hunger') {
+      const before = this.hunger;
+      this.hunger = Math.min(def.maxHunger, this.hunger + effect.amount);
+      applied = this.hunger - before;
+    } else if (effect.kind === 'thirst') {
+      const before = this.thirst;
+      this.thirst = Math.min(def.maxThirst, this.thirst + effect.amount);
+      applied = this.thirst - before;
+    } else if (effect.kind === 'stamina') {
+      const before = this.stamina;
+      this.stamina = Math.min(this.getEffectiveMaxStamina(), this.stamina + effect.amount);
+      applied = this.stamina - before;
+    }
+    if (applied <= 0) {
+      this.callbacks.onToast('Esse atributo já está cheio; o item foi preservado.', 'info');
+      return;
+    }
+    const next = consumeInventoryItem(this.inventory, itemId);
+    if (!next) return;
+    this.inventory = next;
+    if (effect.kind === 'thirst') {
+      this.cat.triggerAction('drink');
+      gameAudio.playDrink();
+    } else {
+      this.cat.triggerAction('eat');
+      gameAudio.playEat();
+    }
+    this.callbacks.onToast(`${ITEM_CATALOG[itemId].name}: +${Math.round(applied)} ${effect.kind === 'health' ? 'Saúde' : effect.kind === 'thirst' ? 'Sede' : effect.kind === 'stamina' ? 'Resistência' : 'Fome'}.`, 'success');
+    this.saveGame();
     this.syncHud();
   }
 
@@ -1899,6 +1966,7 @@ export class GameEngine {
         coins: this.coins,
         battleMana: this.battleMana,
         battleInventory: this.battleInventory,
+        inventory: this.inventory,
         unlockedMoves: Array.from(this.unlockedMoves),
         dialogueRelations: Object.fromEntries(this.dialogueRelations),
         dialogueFlags: Object.fromEntries(this.dialogueFlags),
@@ -3143,6 +3211,17 @@ export class GameEngine {
         actionText: 'Coletar',
       };
     }
+    if (item.kind === 'pickup' && item.itemId && isInventoryItemId(item.itemId)) {
+      const definition = ITEM_CATALOG[item.itemId];
+      return {
+        id: item.id,
+        kind: item.kind,
+        itemId: item.itemId,
+        label: item.name,
+        detail: definition.description,
+        actionText: 'Guardar',
+      };
+    }
     if (item.kind === 'shelter') {
       const lvl = item.shelterLevel || 1;
       const cost = lvl * 2;
@@ -3262,6 +3341,7 @@ export class GameEngine {
       cycleTasks: this.taskCycle.tasks.filter((task) => task.status === 'active').slice(0, 3).map((task) => ({ ...task, currentStage: task.stages[task.stageIndex] })),
       secondsToNextTask: Math.max(0, 600 - this.taskCycle.activeSeconds),
       gpsTarget: this.getTaskGpsTarget(),
+      inventory: this.inventory,
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),

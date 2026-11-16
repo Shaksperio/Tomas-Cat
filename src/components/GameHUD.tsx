@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  Backpack,
   BookOpen,
   Camera,
   ChevronDown,
@@ -44,6 +45,7 @@ import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
 import { MOVE_UNLOCKS } from '../game/progression/unlocks';
 import { DIALOGUE_DATA } from '../game/dialogue/dialogueData';
+import { ITEM_CATALOG, type InventoryItemId } from '../game/items/itemCatalog';
 
 interface GameHUDProps {
   phase: GamePhase;
@@ -56,6 +58,7 @@ interface GameHUDProps {
   onPauseToggle: () => void;
   onContinueAfterVictory: () => void;
   onInteract: () => void;
+  onUseInventoryItem: (itemId: InventoryItemId) => void;
   onDialogueOption: (optionId: string) => void;
   onDialogueClose: () => void;
   onUpgradeShelter: () => void;
@@ -530,6 +533,7 @@ export function GameHUD({
   onPauseToggle,
   onContinueAfterVictory,
   onInteract,
+  onUseInventoryItem,
   onDialogueOption,
   onDialogueClose,
   onUpgradeShelter,
@@ -556,6 +560,7 @@ export function GameHUD({
   // Status & Evolution card starts HIDDEN in the corner; only a compact energy strip is visible!
   const [statusOpen, setStatusOpen] = useState(false);
   const [radarOpen, setRadarOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const [dockCollapsed, setDockCollapsed] = useState(false);
   const [showEvolutionTree, setShowEvolutionTree] = useState(false);
   const [showLoreArchive, setShowLoreArchive] = useState(false);
@@ -653,6 +658,55 @@ export function GameHUD({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {phase === 'playing' && (
+        <div className="pointer-events-auto fixed right-3 top-3 z-40 flex flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={() => setInventoryOpen((open) => !open)}
+            className="flex items-center gap-2 rounded-xl border border-violet-300/25 bg-[#0B0F17]/90 px-3 py-2 text-xs font-semibold text-violet-100 shadow-lg backdrop-blur"
+            aria-expanded={inventoryOpen}
+          >
+            <Backpack className="h-4 w-4 text-violet-300" />
+            Mochila
+            <span className="rounded-md bg-violet-400/15 px-1.5 py-0.5 font-mono text-violet-200">
+              {(hud.inventory ?? []).reduce((sum, entry) => sum + entry.quantity, 0)}
+            </span>
+          </button>
+          {inventoryOpen && (
+            <div className="w-64 max-w-[calc(100vw-1.5rem)] rounded-xl border border-violet-300/20 bg-[#0B0F17]/95 p-3 shadow-2xl backdrop-blur">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-violet-200">Inventário</span>
+                <button type="button" onClick={() => setInventoryOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Fechar inventário"><X className="h-3.5 w-3.5" /></button>
+              </div>
+              <div className="space-y-2">
+                {(['medicinal_herb', 'clean_water', 'energy_berry'] as const).map((itemId) => {
+                  const definition = ITEM_CATALOG[itemId];
+                  const quantity = hud.inventory?.find((entry) => entry.itemId === itemId)?.quantity ?? 0;
+                  return (
+                    <div key={itemId} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-semibold text-slate-100">{definition.name}</div>
+                        <div className="text-[9px] text-slate-400">{definition.description}</div>
+                        <div className="mt-0.5 text-[10px] text-violet-200">Quantidade: {quantity}</div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={quantity <= 0 || phase !== 'playing'}
+                        onClick={() => onUseInventoryItem(itemId)}
+                        className="rounded-md border border-violet-300/25 bg-violet-500/15 px-2 py-1.5 text-[10px] font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        Usar
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 text-[9px] text-slate-500">A ração energética continua no inventário separado de batalha (tecla I durante duelos).</div>
+            </div>
+          )}
         </div>
       )}
 

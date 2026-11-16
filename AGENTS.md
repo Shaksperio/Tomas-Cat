@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-16. Estado do código descrito: base da batalha ATB/cinematográfica e contratos iniciais de diálogo em branch de trabalho.
+> Última atualização: 2026-11-16. Estado do código descrito: batalha ATB/cinematográfica, diálogos, missões cíclicas e GPS de missões publicados; inventário geral em implementação.
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
@@ -99,7 +99,15 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - `src/game/tasks/taskCycles.ts` implementa geração determinística em ciclos de 600 segundos de jogo ativo, objetivos em duas ou três etapas, progresso por eventos reais (comida, água, sucata e inimigos), histórico de modelos emitidos para impedir repetição e recompensas de XP/sucata.
 - O motor avança o relógio somente em `updateGameplay`, portanto pausa, tela de título e batalha não contam como tempo ativo. O estado é salvo em `SavedGameState.taskCycle`; saves antigos recebem estado inicial compatível.
 - A HUD exibe até três missões ativas e o tempo estimado até o próximo ciclo. Os pedidos dos nove habitantes permanecem separados e preservados.
-- A navegação de missão usa `src/game/tasks/taskNavigation.ts` para selecionar o recurso/inimigo ativo mais próximo e `src/game/tasks/gridRoute.ts` para calcular uma rota A* em grade de 4 m que contorna colisores no nível do solo; a HUD mostra direção/distância e o motor desenha o trajeto. Para alvos elevados, mantém orientação direta porque a navegação vertical exige um modelo próprio de superfícies/escadas. Se não houver caminho terrestre calculável, a linha é ocultada em vez de sugerir atravessar obstáculos. Ainda não há waypoints manuais, navegação de longa distância nem recompensas físicas no mapa. Inventário geral e equipamentos também continuam pendentes.
+- **Tarefas e navegação publicadas:** ciclos de 600 segundos ativos, objetivos em múltiplas etapas, histórico anti-repetição, persistência local, recompensas XP/sucata e HUD. `taskNavigation.ts` seleciona alvo válido; `gridRoute.ts` calcula A* em grade de 4 m que contorna colisores terrestres, com margem conservadora. A HUD mostra direção/distância e o motor desenha a rota. Alvos elevados usam orientação direta (navegação vertical ainda não modelada); sem caminho terrestre a linha fica oculta. Waypoints manuais e navegação entre distritos continuam pendentes.
+
+
+
+### 4.6 Inventário geral (incremento em desenvolvimento — branch `codex/general-item-inventory`)
+- `src/game/items/itemCatalog.ts` define IDs e efeitos tipados para erva medicinal (saúde), frasco de água limpa (sede) e fruta energética (resistência); `inventory.ts` valida, limita pilhas e consome um item por vez.
+- `worldBuilder.ts` posiciona pickups físicos nos distritos; `GameEngine` coleta, concede XP, persiste o inventário em save opcional retrocompatível e impede consumo quando o atributo já está cheio.
+- A HUD possui mochila minimizável com quantidades e botão de uso. A ração energética de batalha permanece separada e compatível com saves antigos.
+- Equipamentos, lojas, crafting, recompensas físicas das missões e itens adicionais ainda não fazem parte deste incremento.
 
 ## 5. Roteiro e decisões do autor
 
