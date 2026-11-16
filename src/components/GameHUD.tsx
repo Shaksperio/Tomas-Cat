@@ -1023,7 +1023,7 @@ export function GameHUD({
         </div>
       )}
 
-      {hud.activeDialogue && dialogueNode && phase === 'playing' && (
+      {hud.activeDialogue && dialogueNode && (phase === 'playing' || phase === 'paused') && (
         <div className="pointer-events-auto fixed bottom-24 left-1/2 z-30 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300/40 bg-[#101827]/96 p-4 shadow-2xl backdrop-blur-sm">
           <div className="mb-2 flex items-center justify-between gap-3 border-b border-white/10 pb-2">
             <div className="flex items-center gap-2 text-sm font-bold text-amber-200">
