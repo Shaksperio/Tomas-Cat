@@ -251,7 +251,7 @@ export default function App() {
   return (
     <main className="relative h-full w-full overflow-hidden bg-[#0B0F17]">
       <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} onEngineReady={handleEngineReady} />
-      <div className="pointer-events-auto fixed right-2 top-2 z-50 flex max-w-[min(92vw,22rem)] items-center gap-2 rounded-full border border-white/15 bg-[#0b1421]/90 py-1 pl-2 pr-1 shadow-xl backdrop-blur-md">
+      <div className="pointer-events-auto fixed left-1/2 top-2 z-50 flex max-w-[min(72vw,22rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-[#0b1421]/90 py-1 pl-2 pr-1 shadow-xl backdrop-blur-md">
         {authUser.photoURL ? <img src={authUser.photoURL} alt="" className="h-7 w-7 rounded-full" /> : <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-bold text-cyan-200">{(authUser.displayName ?? authUser.email ?? 'G').slice(0, 1).toUpperCase()}</div>}
         <span className="max-w-32 truncate text-[11px] text-slate-200">{authUser.displayName ?? authUser.email}</span>
         <button type="button" onClick={handleLogout} className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/20">Sair</button>
