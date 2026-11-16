@@ -26,6 +26,8 @@ import { SocietyActors } from './society/SocietyActors';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
 import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
+import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
+import type { TaskCycleState } from './tasks/taskCycles';
 import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
 import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
@@ -241,6 +243,7 @@ export class GameEngine {
   private readonly dialogueFlags = new Map<string, boolean>();
   private readonly acceptedDialogueTasks = new Set<string>();
   private playerTasks: PlayerTaskState[] = [];
+  private taskCycle: TaskCycleState = createTaskCycleState();
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -523,6 +526,7 @@ export class GameEngine {
     this.dialogueFlags.clear();
     this.acceptedDialogueTasks.clear();
     this.playerTasks = [];
+    this.taskCycle = createTaskCycleState();
     this.day = 1;
     this.timeOfDay = 0.34;
     this.weather = 'clear';
@@ -808,6 +812,7 @@ export class GameEngine {
           return [{ id: task.id, progress, status: task.status === 'completed' || progress >= definition.target ? 'completed' as const : 'active' as const }];
         });
       }
+      this.taskCycle = cloneTaskCycleState(saved.taskCycle ?? createTaskCycleState());
       this.foodCollected = saved.foodCollected || 0;
       this.waterDrunk = saved.waterDrunk || 0;
       this.sheltersUpgraded = saved.sheltersUpgraded || 0;
@@ -1620,6 +1625,14 @@ export class GameEngine {
       this.gainXp(task.rewardXp);
       this.callbacks.onToast(`Tarefa concluída: ${task.title}. +${task.rewardXp} XP e +${task.rewardScrap} sucata.`, 'success');
     }
+    const cycleResult = advanceTaskCycleEvent(this.taskCycle, event, amount);
+    this.taskCycle = cycleResult.state;
+    for (const task of cycleResult.completed) {
+      this.scrap += task.rewardScrap;
+      this.gainXp(task.rewardXp);
+      this.callbacks.onToast(`Missão concluída: ${task.title}. +${task.rewardXp} XP e +${task.rewardScrap} sucata.`, 'success');
+    }
+    this.saveGame();
   }
 
   public chooseDialogueOption(optionId: string): void {
@@ -1875,6 +1888,7 @@ export class GameEngine {
         dialogueFlags: Object.fromEntries(this.dialogueFlags),
         acceptedDialogueTasks: Array.from(this.acceptedDialogueTasks),
         playerTasks: this.playerTasks,
+        taskCycle: this.taskCycle,
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
@@ -2171,6 +2185,12 @@ export class GameEngine {
   }
 
   private updateGameplay(dt: number): void {
+    const cycleTick = tickTaskCycle(this.taskCycle, dt);
+    this.taskCycle = cycleTick.state;
+    if (cycleTick.created.length > 0) {
+      for (const task of cycleTick.created) this.callbacks.onToast(`Nova missão disponível: ${task.title}.`, 'info');
+      this.saveGame();
+    }
     const def = EVOLUTION_STAGES[this.stageIndex];
     const maxStamina = this.getEffectiveMaxStamina();
     const maxHealth = this.getEffectiveMaxHealth();
@@ -3151,6 +3171,8 @@ export class GameEngine {
       activeDialogue: this.activeDialogue,
       activeDialogueOptions: dialogueOptions,
       playerTasks: this.playerTasks.map((task) => { const definition = getPlayerTaskDefinition(task.id)!; return { ...task, title: definition.title, description: definition.description, target: definition.target }; }),
+      cycleTasks: this.taskCycle.tasks.filter((task) => task.status === 'active').slice(0, 3).map((task) => ({ ...task, currentStage: task.stages[task.stageIndex] })),
+      secondsToNextTask: Math.max(0, 600 - this.taskCycle.activeSeconds),
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),

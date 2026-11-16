@@ -95,6 +95,12 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).
 - A pesca está funcional como coleta renovável, mas ainda não há animação de nado própria para o gato, bolhas/sons, predadores aquáticos nem água em escala de lago/rio.
 
+### 4.5 Tarefas cíclicas (incremento em desenvolvimento — branch `codex/task-cycles-600s`)
+- `src/game/tasks/taskCycles.ts` implementa geração determinística em ciclos de 600 segundos de jogo ativo, objetivos em duas ou três etapas, progresso por eventos reais (comida, água, sucata e inimigos), histórico de modelos emitidos para impedir repetição e recompensas de XP/sucata.
+- O motor avança o relógio somente em `updateGameplay`, portanto pausa, tela de título e batalha não contam como tempo ativo. O estado é salvo em `SavedGameState.taskCycle`; saves antigos recebem estado inicial compatível.
+- A HUD exibe até três missões ativas e o tempo estimado até o próximo ciclo. Os pedidos dos nove habitantes permanecem separados e preservados.
+- Esta entrega não inclui GPS/rota/waypoints nem recompensas físicas no mapa; esses itens continuam pendentes, assim como inventário geral e equipamentos. O ciclo só será considerado publicado após CI verde, merge e deploy verificados.
+
 ## 5. Roteiro e decisões do autor
 
 ### 5.1 Decisões de arquitetura (definidas)
