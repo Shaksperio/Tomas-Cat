@@ -2164,7 +2164,7 @@ export class GameEngine {
         this.triggerShelterUpgrade();
       } else if (code === 'KeyJ' || code === 'KeyC') {
         this.triggerClawAttack();
-      } else if (this.duelPhase === 'fighting' && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].includes(code)) {
+      } else if (this.duelPhase === 'fighting' && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(code)) {
         const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit', Digit6: 'combo_a', Digit7: 'combo_b', Digit8: 'magic' };
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
