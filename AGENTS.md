@@ -106,7 +106,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 ### 4.6 Inventário geral (incremento em desenvolvimento — branch `codex/general-item-inventory`)
 - `src/game/items/itemCatalog.ts` define IDs e efeitos tipados para erva medicinal (saúde), frasco de água limpa (sede) e fruta energética (resistência); `inventory.ts` valida, limita pilhas e consome um item por vez.
 - `worldBuilder.ts` posiciona pickups físicos nos distritos; `GameEngine` coleta, concede XP, persiste o inventário em save opcional retrocompatível e impede consumo quando o atributo já está cheio.
-- A HUD possui mochila minimizável com quantidades e botão de uso. A ração energética de batalha permanece separada e compatível com saves antigos.
+- A HUD possui mochila minimizável com quantidades e botão de uso, posicionada na coluna superior direita logo abaixo dos controles da câmera 3D e do radar, sem sobrepor esses elementos. A ração energética de batalha permanece separada e compatível com saves antigos.
 - Lojas, crafting e equipamentos ainda estão fora do incremento inicial do inventário; o sistema de equipamentos está em desenvolvimento separado na branch `codex/equipment-system`.
 
 
@@ -154,6 +154,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 **Expansão de jogabilidade solicitada pelo autor (incremental, sem substituir sistemas existentes)**
 - Progressão: preservar níveis/estrelas e a barra `starProgress`; evoluir a partir dela, sem criar XP paralelo. Técnicas são liberadas por nível e persistidas retrocompativelmente.
 - Economia: catálogo único de itens, inventário e equipamentos; lojas e pickups devem compartilhar os mesmos IDs e efeitos. Todo item de loja deve ter ao menos uma fonte gratuita no mundo ou em tarefas.
+- **HUD do inventário:** o atalho da mochila fica abaixo da câmera 3D e do radar na coluna superior direita; manter o painel minimizável e sem sobreposição com controles de navegação.
 - Tarefas: geração em ciclos de 600 segundos de jogo ativo, com estado persistente, painel aceito minimizado, rota navegável e recompensa física coletável. Nunca repetir tarefas concluídas.
 - Posturas: alternância quadrúpede/bípede com animações, modificadores e compatibilidade com natação/escalada; preservar a locomoção atual como postura padrão.
 - Territórios: expandir os rivais existentes em gangues e líderes regionais; preservar IDs, chefes principais e progresso de conquista.
