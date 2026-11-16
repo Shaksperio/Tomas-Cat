@@ -1,0 +1,45 @@
+--- a/src/game/GameEngine.ts
++++ b/src/game/GameEngine.ts
+@@ -23,6 +23,8 @@
+ import { SocietySimulation } from './society/simulation';
+ import { SocietyActors } from './society/SocietyActors';
+ import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
++import { sampleSkyAtmosphere } from './sky/skyAtmosphere';
++import { SkyVisuals } from './sky/skyVisuals';
+ import {
+   DEFAULT_COIN_STAKE,
+   type DuelFighter,
+@@ -112,6 +114,7 @@
+   private readonly starField: THREE.Points;
+   private readonly moonLight: THREE.PointLight;
+   private moonPowerActive = false;
++  private readonly skyVisuals: SkyVisuals;
+ 
+   private readonly sonarRing: THREE.Mesh;
+   private sonarWaveProgress = -1;
+@@ -336,6 +339,7 @@
+     this.scene.add(this.starField);
+     this.moonLight = new THREE.PointLight(0xc8dcff, 0, 140, 1.6);
+     this.scene.add(this.moonLight);
++    this.skyVisuals = new SkyVisuals(this.scene);
+ 
+     this.catTorch = new THREE.PointLight(0x22d3ee, 0.9, 12);
+     this.catTorch.position.set(0, 1.4, 0);
+@@ -2717,7 +2721,10 @@
+     this.moonMesh.position.set(this.catPos.x + 40, 68, this.catPos.z - 65);
+     this.moonLight.position.copy(this.moonMesh.position);
+     this.moonMesh.visible = moonStrength > 0.08;
+-    this.moonLight.intensity = moonStrength * 3.6;
++    // Intensidade da luz lunar combina força noturna + fase (cheia = mais luz)
++    const skySample = sampleSkyAtmosphere(this.day, this.timeOfDay, this.weather);
++    this.moonLight.intensity = moonStrength * 3.6 * (0.55 + skySample.moonIllumination * 0.55);
++    this.skyVisuals.update(dt, this.catPos.x, this.catPos.z, skySample, this.moonMesh);
+     const lunarPowerNow = moonStrength >= 0.72;
+     if (lunarPowerNow && !this.moonPowerActive) {
+       this.moonPowerActive = true;
+@@ -2961,6 +2968,7 @@
+ 
+     this.battleStage.dispose();
+     this.societyActors.dispose();
++    this.skyVisuals.dispose();
+     this.textures.dispose();
