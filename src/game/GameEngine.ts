@@ -3557,7 +3557,10 @@ export class GameEngine {
       activeDialogue: this.activeDialogue,
       activeDialogueOptions: dialogueOptions,
       playerTasks: this.playerTasks.map((task) => { const definition = getPlayerTaskDefinition(task.id)!; return { ...task, title: definition.title, description: definition.description, target: definition.target }; }),
-      cycleTasks: this.taskCycle.tasks.filter((task) => task.status === 'active').slice(0, 3).map((task) => ({ ...task, currentStage: task.stages[task.stageIndex] })),
+      cycleTasks: [
+        ...this.taskCycle.tasks.filter((task) => task.status === 'active').slice(0, 3),
+        ...this.taskCycle.tasks.filter((task) => task.status === 'completed').slice(-2),
+      ].map((task) => ({ ...task, currentStage: task.stages[task.stageIndex] })),
       secondsToNextTask: Math.max(0, 600 - this.taskCycle.activeSeconds),
       gpsTarget: this.getTaskGpsTarget(),
       inventory: this.inventory,
