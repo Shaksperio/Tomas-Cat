@@ -105,7 +105,7 @@ export class BattleStage {
   private camK = 6;
   /** Afasta a câmera conforme o tamanho do grupo. */
   private spread = 1;
-  private orbit: { around: Side | 'center'; radius: number; height: number; speed: number; phase: number } | null = null;
+  private orbit: { around: 'center'; radius: number; height: number; speed: number; phase: number } | null = null;
   private guardDomes: Record<Side, THREE.Mesh> | null = null;
   private onPlayerClaw: () => void = () => undefined;
   private onPlayerCheer: () => void = () => undefined;
@@ -308,14 +308,6 @@ export class BattleStage {
     f.jumpT = 0;
     f.jumpDur = dur;
     f.jumpHeight = height;
-  }
-
-  private shot(pos: THREE.Vector3, look: THREE.Vector3, k: number, fov = this.origFov): void {
-    this.camPosTarget.copy(pos);
-    this.camLookTarget.copy(look);
-    this.camK = k;
-    this.fovTarget = fov;
-    this.orbit = null;
   }
 
   /** Centro e raio reais do grupo, incluindo investidas e saltos em andamento. */
