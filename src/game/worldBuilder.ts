@@ -950,6 +950,7 @@ export function buildPostApocalypticWorld(
     herb: new THREE.MeshStandardMaterial({ color: 0x65a30d, emissive: 0x365314, emissiveIntensity: 0.5, roughness: 0.7 }),
     water: new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x075985, emissiveIntensity: 0.65, metalness: 0.25, roughness: 0.2 }),
     energy: new THREE.MeshStandardMaterial({ color: 0xc084fc, emissive: 0x7e22ce, emissiveIntensity: 0.75, roughness: 0.35 }),
+    gear: new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xb45309, emissiveIntensity: 0.8, metalness: 0.82, roughness: 0.22 }),
   };
   const pickupConfigs: Array<{ id: InventoryItemId; x: number; z: number }> = [
     { id: 'medicinal_herb', x: -28, z: -10 },
@@ -961,20 +962,24 @@ export function buildPostApocalypticWorld(
     { id: 'energy_berry', x: 36, z: -96 },
     { id: 'energy_berry', x: -88, z: 132 },
     { id: 'energy_berry', x: 176, z: 82 },
+    { id: 'reinforced_collar', x: 112, z: -38 },
+    { id: 'scavenger_harness', x: -168, z: 102 },
   ];
   pickupConfigs.forEach(({ id, x, z }, index) => {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
-    const material = id === 'medicinal_herb' ? pickupMaterials.herb : id === 'clean_water' ? pickupMaterials.water : pickupMaterials.energy;
+    const material = id === 'medicinal_herb' ? pickupMaterials.herb : id === 'clean_water' ? pickupMaterials.water : id === 'energy_berry' ? pickupMaterials.energy : pickupMaterials.gear;
     const shape = id === 'medicinal_herb'
       ? new THREE.DodecahedronGeometry(0.32, 0)
       : id === 'clean_water'
         ? new THREE.OctahedronGeometry(0.34, 0)
-        : new THREE.IcosahedronGeometry(0.3, 0);
+        : id === 'reinforced_collar'
+          ? new THREE.TorusGeometry(0.34, 0.09, 8, 16)
+          : new THREE.IcosahedronGeometry(0.3, 0);
     const core = new THREE.Mesh(shape, material);
     core.position.y = 0.55;
     core.castShadow = true;
-    const beaconRing = createBeaconRing(id === 'medicinal_herb' ? 0x84cc16 : id === 'clean_water' ? 0x38bdf8 : 0xc084fc);
+    const beaconRing = createBeaconRing(id === 'medicinal_herb' ? 0x84cc16 : id === 'clean_water' ? 0x38bdf8 : id === 'energy_berry' ? 0xc084fc : 0xfbbf24);
     group.add(core, beaconRing);
     scene.add(group);
     interactables.push({

@@ -3,6 +3,7 @@ import type { BattleInventoryItem } from '../game/battle/commands';
 import type { TaskCycleState, CycleTaskInstance, CycleTaskStage } from '../game/tasks/taskCycles';
 import type { TaskGpsTarget } from '../game/tasks/taskNavigation';
 import type { InventoryEntry } from '../game/items/inventory';
+import type { EquipmentState } from '../game/items/equipment';
 import type { TaskRewardDrop } from '../game/tasks/taskRewards';
 
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
@@ -313,6 +314,7 @@ export interface HudSnapshot {
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
   inventory?: InventoryEntry[];
+  equipment?: EquipmentState;
   pendingTaskRewards?: number;
   isAlphaLeader: boolean;
   rankTitle: string;
@@ -391,6 +393,7 @@ export interface SavedGameState {
   unlockedCommands?: string[];
   battleInventory?: BattleInventoryItem[];
   inventory?: InventoryEntry[];
+  equipment?: EquipmentState;
   taskRewardDrops?: TaskRewardDrop[];
   dialogueRelations?: Record<string, { affinity: number; trust: number }>;
   dialogueFlags?: Record<string, boolean>;
