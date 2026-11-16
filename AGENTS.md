@@ -82,7 +82,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - Testes: `contracts.test.ts` e `simulation.test.ts`.
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
 
-- **Diálogos locais (branch `codex/dialogue-phase0`, PR #3):** `src/game/dialogue/` contém contratos, dados escritos e runner puro para os nove habitantes. A interação por proximidade abre uma janela clássica na HUD; opções condicionais e efeitos são validados pelo runner antes de o motor aplicá-los. Afinidade, confiança, flags e IDs de pedidos aceitos são salvos em campos opcionais retrocompatíveis. A condição `night` usa o relógio normalizado do motor (0–1). **Limitação atual da Fase 1:** pedidos aceitos ficam registrados, mas ainda não possuem objetivos, etapas ou conclusão no sistema de tarefas do jogador; as falas de clima/ajuda são conteúdo inicial, ainda sem ramificações específicas para todos os contextos. A conversa ativa não é retomada após recarregar o save.
+- **Diálogos locais (branch `codex/dialogue-phase0`, PR #3):** `src/game/dialogue/` contém contratos, dados escritos e runner puro para os nove habitantes, com nove nós por habitante (saudação, clima, pedido de ajuda, moral baixa e ramificações contextuais). A interação por proximidade abre uma janela clássica na HUD; opções condicionais verificam ferimento do jogador, noite, território conquistado, chuva ácida e flags de encontros anteriores. Afinidade, confiança, flags e IDs de pedidos aceitos são salvos em campos opcionais retrocompatíveis. A condição `night` usa o relógio normalizado do motor (0–1). **Limitação atual da Fase 1:** pedidos aceitos ficam registrados, mas ainda não possuem objetivos, etapas ou conclusão no sistema de tarefas do jogador. A conversa ativa não é retomada após recarregar o save.
 - `src/game/battle/commands.ts` descreve metadados de apresentação dos quatro comandos atuais e reserva contratos para item/combos futuros, sem habilitar comandos novos no ATB. Campos opcionais de diálogo, comandos e inventário mantêm compatibilidade com saves antigos.
 
 ### 4.3 O que NÃO existe ainda
@@ -180,7 +180,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 
 ### 5.4 Roteiro de diálogos e batalha cinematográfica (decisão do autor)
 1. Fase 0 — **feito**: contratos tipados, dados iniciais, runner puro, testes e campos opcionais retrocompatíveis.
-2. Fase 1 — **parcial**: interação por proximidade, janela de diálogo, opções condicionais e aplicação validada de afinidade, confiança, flags, XP, sucata e registro de pedidos. Faltam objetivos reais para os pedidos, ramificações contextuais mais completas e testes de integração do motor/HUD.
+2. Fase 1 — **parcial**: interação por proximidade, janela de diálogo, opções condicionais e aplicação validada de afinidade, confiança, flags, XP, sucata e registro de pedidos. Faltam objetivos reais para os pedidos e testes dedicados de integração do motor/HUD.
 3. Fase 2 — aprofundar a cena cinematográfica já existente; integrar itens e comandos desbloqueáveis sem alterar a lógica de apresentação/dano.
 4. Fase 3 — diálogos de provocação e resultado conectados às batalhas e às flags de história.
 5. Fase 4 — conteúdo, acessibilidade, desempenho móvel e regressão.
