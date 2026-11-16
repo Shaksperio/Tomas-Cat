@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/game/society/*.test.ts src/game/survival/*.test.ts src/game/dayCycle.test.ts src/game/style/*.test.ts src/game/battle/*.test.ts src/game/progression/*.test.ts src/game/dialogue/*.test.ts src/game/tasks/*.test.ts src/game/sky/*.test.ts"
+    "test": "tsx --test src/game/society/*.test.ts src/game/survival/*.test.ts src/game/dayCycle.test.ts src/game/style/*.test.ts src/game/battle/*.test.ts src/game/progression/*.test.ts src/game/dialogue/*.test.ts src/game/tasks/*.test.ts src/game/items/*.test.ts src/game/sky/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
