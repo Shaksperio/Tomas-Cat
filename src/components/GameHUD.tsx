@@ -43,6 +43,7 @@ import { getDayPeriod } from '../game/dayCycle';
 import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
 import { MOVE_UNLOCKS } from '../game/progression/unlocks';
+import { DIALOGUE_DATA } from '../game/dialogue/dialogueData';
 
 interface GameHUDProps {
   phase: GamePhase;
@@ -55,6 +56,8 @@ interface GameHUDProps {
   onPauseToggle: () => void;
   onContinueAfterVictory: () => void;
   onInteract: () => void;
+  onDialogueOption: (optionId: string) => void;
+  onDialogueClose: () => void;
   onUpgradeShelter: () => void;
   onClawAttack: () => void;
   onChallenge: () => void;
@@ -524,6 +527,8 @@ export function GameHUD({
   onPauseToggle,
   onContinueAfterVictory,
   onInteract,
+  onDialogueOption,
+  onDialogueClose,
   onUpgradeShelter,
   onClawAttack,
   onChallenge,
@@ -583,6 +588,9 @@ export function GameHUD({
 
   const stage = EVOLUTION_STAGES[hud.stageIndex];
   const chapter = CHAPTER_PHASES[Math.min(hud.currentPhase - 1, CHAPTER_PHASES.length - 1)];
+  const dialogueNode = hud.activeDialogue
+    ? DIALOGUE_DATA.find((node) => node.id === hud.activeDialogue?.nodeId)
+    : undefined;
   const starPct =
     hud.level >= MAX_CAT_LEVEL
       ? 100
@@ -1015,9 +1023,38 @@ export function GameHUD({
         </div>
       )}
 
+      {hud.activeDialogue && dialogueNode && phase === 'playing' && (
+        <div className="pointer-events-auto fixed bottom-24 left-1/2 z-30 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300/40 bg-[#101827]/96 p-4 shadow-2xl backdrop-blur-sm">
+          <div className="mb-2 flex items-center justify-between gap-3 border-b border-white/10 pb-2">
+            <div className="flex items-center gap-2 text-sm font-bold text-amber-200">
+              <MessageCircle className="h-4 w-4" />
+              <span>{dialogueNode.speaker}</span>
+            </div>
+            <button type="button" onClick={onDialogueClose} aria-label="Fechar conversa" className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mb-3 text-sm leading-relaxed text-slate-100">{dialogueNode.text}</p>
+          {!hud.activeDialogue.ended && (hud.activeDialogueOptions?.length ?? 0) > 0 ? (
+            <div className="grid gap-1.5">
+              {hud.activeDialogueOptions?.map((option, index) => (
+                <button key={option.id} type="button" onClick={() => onDialogueOption(option.id)} className="rounded-lg border border-cyan-300/20 bg-[#172438] px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-[#20334e]">
+                  <span className="mr-2 text-amber-300">{index + 1}.</span>{option.text}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
+              <span>Conversa concluída.</span>
+              <button type="button" onClick={onDialogueClose} className="rounded-lg bg-amber-400 px-3 py-1.5 font-bold text-slate-950 hover:bg-amber-300">Fechar</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* BOTTOM ACTION BAR */}
       <div className="flex flex-col items-center gap-2.5">
-        {hud.prompt && phase === 'playing' && (
+        {hud.prompt && phase === 'playing' && !hud.activeDialogue && (
           <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-xl border border-cyan-400/35 bg-[#0E1523]/95 px-4 py-2.5 shadow-xl">
             <div>
               <div className="font-display text-sm font-bold text-white">{hud.prompt.label}</div>
@@ -1047,7 +1084,7 @@ export function GameHUD({
           <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} onCommand={onBattleCommand} onTarget={onBattleTarget} />
         )}
 
-        {isTouchDevice && phase === 'playing' && (
+        {isTouchDevice && phase === 'playing' && !hud.activeDialogue && (
           <div className="pointer-events-auto w-full flex items-end justify-between px-1 pb-1">
             <VirtualJoystick sprint={touchSprint} onMove={onVirtualInput} />
 
