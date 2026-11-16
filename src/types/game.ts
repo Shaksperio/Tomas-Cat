@@ -264,6 +264,8 @@ export interface DuelHud {
   playerLevel: number;
   /** Aguardando o comando do jogador. */
   awaitingCommand: boolean;
+  /** Segundos restantes para Tomas escolher uma ação (0–10). */
+  playerTurnTimeLeft: number;
   intro: boolean;
   banner: { text: string; id: number } | null;
   darkness: number;
