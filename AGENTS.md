@@ -230,3 +230,11 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 1. Validar céu vivo integrado em CI e publicar após CI verde.
 2. Auditar e integrar o catálogo de águas sem confundir dados de lago/segmento com malhas já jogáveis; correnteza exige integração física explícita e testes.
 3. Auditar os contratos de portais/WorldId, persistência retrocompatível e transição real antes da Galáxia visual.
+
+
+## Atualização de engenharia — catálogo de águas (2026-11-16)
+
+- **Contrato determinístico adicionado:** `src/game/survival/waterBodies.ts` define lagos por fase, segmentos de rios, distância ponto-segmento, direção/velocidade da corrente e amostragem combinada com as bacias legadas.
+- **Escopo desta entrega:** somente catálogo e regras puras, sem afirmar que rios/lagos já estejam renderizados ou conectados à física do jogador. A integração visual no `worldBuilder` e o empurrão real da corrente no `GameEngine` permanecem pendentes e serão entregues separadamente com testes de colisão/natação.
+- **Precisão temporal:** o cálculo do deslocamento da corrente recebe `dt`; não presume um segundo por chamada. O chamador deve fornecer o delta real do frame.
+- Os oito corpos d'água legados permanecem intactos; o catálogo novo é complementar e não substitui `sampleWater` até a integração completa.
