@@ -82,7 +82,8 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - Testes: `contracts.test.ts` e `simulation.test.ts`.
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
 
-- **Contratos iniciais de diálogo (branch de trabalho):** `src/game/dialogue/types.ts`, `dialogueData.ts` e `dialogueRunner.ts` definem nós, opções, condições, efeitos e avanço puro. Há quatro nós escritos para cada um dos nove habitantes (saudação, clima, oferta de ajuda e reação à moral baixa). Os efeitos são apenas propostas devolvidas pelo runner; ainda não são aplicados ao mundo. `src/game/battle/commands.ts` descreve metadados de apresentação dos quatro comandos atuais e reserva contratos para item/combos futuros, sem habilitar comandos novos no ATB. Campos opcionais de diálogo, comandos e inventário foram acrescentados aos tipos de HUD/save para migração gradual; ainda não há integração de UI nem salvamento desses campos pelo motor.
+- **Diálogos locais (branch `codex/dialogue-phase0`, PR #3):** `src/game/dialogue/` contém contratos, dados escritos e runner puro para os nove habitantes. A interação por proximidade abre uma janela clássica na HUD; opções condicionais e efeitos são validados pelo runner antes de o motor aplicá-los. Afinidade, confiança, flags e IDs de pedidos aceitos são salvos em campos opcionais retrocompatíveis. A condição `night` usa o relógio normalizado do motor (0–1). **Limitação atual da Fase 1:** pedidos aceitos ficam registrados, mas ainda não possuem objetivos, etapas ou conclusão no sistema de tarefas do jogador; as falas de clima/ajuda são conteúdo inicial, ainda sem ramificações específicas para todos os contextos. A conversa ativa não é retomada após recarregar o save.
+- `src/game/battle/commands.ts` descreve metadados de apresentação dos quatro comandos atuais e reserva contratos para item/combos futuros, sem habilitar comandos novos no ATB. Campos opcionais de diálogo, comandos e inventário mantêm compatibilidade com saves antigos.
 
 ### 4.3 O que NÃO existe ainda
 Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
@@ -178,8 +179,8 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - "Infinito" na prática: mundos procedurais, simulação por regiões, arquivo histórico comprimido, estados resumidos, instâncias criadas e encerradas, IDs permanentes, relógio lógico independente dos jogadores, recuperação automática.
 
 ### 5.4 Roteiro de diálogos e batalha cinematográfica (decisão do autor)
-1. Fase 0 — contratos tipados, dados iniciais, runner puro, testes e campos opcionais retrocompatíveis.
-2. Fase 1 — iniciar conversas com os nove habitantes, UI clássica, opções e aplicação validada dos efeitos.
+1. Fase 0 — **feito**: contratos tipados, dados iniciais, runner puro, testes e campos opcionais retrocompatíveis.
+2. Fase 1 — **parcial**: interação por proximidade, janela de diálogo, opções condicionais e aplicação validada de afinidade, confiança, flags, XP, sucata e registro de pedidos. Faltam objetivos reais para os pedidos, ramificações contextuais mais completas e testes de integração do motor/HUD.
 3. Fase 2 — aprofundar a cena cinematográfica já existente; integrar itens e comandos desbloqueáveis sem alterar a lógica de apresentação/dano.
 4. Fase 3 — diálogos de provocação e resultado conectados às batalhas e às flags de história.
 5. Fase 4 — conteúdo, acessibilidade, desempenho móvel e regressão.
