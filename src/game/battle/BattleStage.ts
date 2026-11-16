@@ -226,7 +226,8 @@ export class BattleStage {
       this.group.add(m);
       return m;
     };
-    this.guardDomes = { player: mkDome(0x67e8f9) } as Record<Side, THREE.Mesh>;
+    // Só os lados ativos recebem domos; os demais não existem nesta batalha.
+    this.guardDomes = { player: mkDome(0x67e8f9) } as unknown as Record<Side, THREE.Mesh>;
     for (const side of this.activeSides) {
       if (side !== 'player') this.guardDomes[side] = mkDome(0xfbbf24);
     }
