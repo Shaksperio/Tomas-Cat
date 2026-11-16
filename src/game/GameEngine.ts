@@ -22,6 +22,9 @@ import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuilder';
 import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
+import { DIALOGUE_DATA } from './dialogue/dialogueData';
+import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
+import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
 import { getNewlyUnlockedMoves, mergeUnlockedMoves } from './progression/unlocks';
 import {
@@ -226,6 +229,10 @@ export class GameEngine {
   private sheltersUpgraded = 0;
   private enemiesDefeated = 0;
   private lastThreatCause = '';
+  private activeDialogue: DialogueState | null = null;
+  private readonly dialogueRelations = new Map<string, { affinity: number; trust: number }>();
+  private readonly dialogueFlags = new Map<string, boolean>();
+  private readonly acceptedDialogueTasks = new Set<string>();
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -501,6 +508,10 @@ export class GameEngine {
     this.scrap = 0;
     this.coins = 60;
     this.resetDuel();
+    this.activeDialogue = null;
+    this.dialogueRelations.clear();
+    this.dialogueFlags.clear();
+    this.acceptedDialogueTasks.clear();
     this.day = 1;
     this.timeOfDay = 0.34;
     this.weather = 'clear';
@@ -755,6 +766,24 @@ export class GameEngine {
       this.catVelY = 0;
       this.isClimbing = false;
       this.discoveredTerminals = new Set(saved.discoveredTerminals || []);
+      this.activeDialogue = null;
+      this.dialogueRelations.clear();
+      for (const [id, relation] of Object.entries(saved.dialogueRelations ?? {})) {
+        if (id && Number.isFinite(relation?.affinity) && Number.isFinite(relation?.trust)) {
+          this.dialogueRelations.set(id, {
+            affinity: THREE.MathUtils.clamp(relation.affinity, 0, 100),
+            trust: THREE.MathUtils.clamp(relation.trust, 0, 100),
+          });
+        }
+      }
+      this.dialogueFlags.clear();
+      for (const [id, value] of Object.entries(saved.dialogueFlags ?? {})) {
+        if (id && typeof value === 'boolean') this.dialogueFlags.set(id, value);
+      }
+      this.acceptedDialogueTasks.clear();
+      for (const id of saved.acceptedDialogueTasks ?? []) {
+        if (typeof id === 'string' && id.length > 0 && id.length <= 100) this.acceptedDialogueTasks.add(id);
+      }
       this.foodCollected = saved.foodCollected || 0;
       this.waterDrunk = saved.waterDrunk || 0;
       this.sheltersUpgraded = saved.sheltersUpgraded || 0;
@@ -1458,8 +1487,106 @@ export class GameEngine {
     this.syncHud();
   }
 
+  private getNearbyDialogueAgent(maxDistance = 4.5) {
+    return this.society.snapshot().agents
+      .filter((agent) => agent.status !== 'disabled' && DIALOGUE_DATA.some((node) => node.agentId === agent.id))
+      .map((agent) => ({ agent, distance: Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z) }))
+      .filter((entry) => entry.distance <= maxDistance)
+      .sort((a, b) => a.distance - b.distance || a.agent.id.localeCompare(b.agent.id))[0]?.agent ?? null;
+  }
+
+  private buildDialogueContext(agentId: string): DialogueContext | null {
+    const agent = this.society.snapshot().agents.find((candidate) => candidate.id === agentId);
+    if (!agent) return null;
+    const relation = this.dialogueRelations.get(agentId) ?? { affinity: 50, trust: 50 };
+    return {
+      agentId,
+      affinity: relation.affinity,
+      trust: relation.trust,
+      morale: agent.needs.morale,
+      weather: this.weather,
+      timeOfDay: this.timeOfDay,
+      playerHealthRatio: this.health / Math.max(1, this.getEffectiveMaxHealth()),
+      territoryControlled: this.conqueredTerritories.size > 0,
+      completedTaskIds: [],
+      flags: Object.fromEntries(this.dialogueFlags),
+    };
+  }
+
+  private startNearbyDialogue(): boolean {
+    if (this.activeDialogue) return false;
+    const agent = this.getNearbyDialogueAgent();
+    if (!agent) return false;
+    const context = this.buildDialogueContext(agent.id);
+    if (!context) return false;
+    const state = startDialogue(agent.id, context, DIALOGUE_DATA);
+    if (!state) return false;
+    this.activeDialogue = state;
+    this.phase = 'paused';
+    this.syncHud();
+    return true;
+  }
+
+  private applyDialogueEffect(agentId: string, effect: DialogueEffect): void {
+    switch (effect.kind) {
+      case 'affinity':
+      case 'trust': {
+        const current = this.dialogueRelations.get(agentId) ?? { affinity: 50, trust: 50 };
+        current[effect.kind] = THREE.MathUtils.clamp(current[effect.kind] + Math.trunc(effect.amount), 0, 100);
+        this.dialogueRelations.set(agentId, current);
+        break;
+      }
+      case 'give_item': {
+        if (effect.itemId !== 'scrap' || !Number.isFinite(effect.quantity)) break;
+        const quantity = Math.max(1, Math.min(10, Math.floor(effect.quantity)));
+        this.scrap += quantity;
+        this.callbacks.onToast(`Recebeu ${quantity} sucata.`, 'success');
+        break;
+      }
+      case 'open_task': {
+        if (!effect.taskId || effect.taskId.length > 100) break;
+        const wasAccepted = this.acceptedDialogueTasks.has(effect.taskId);
+        this.acceptedDialogueTasks.add(effect.taskId);
+        this.callbacks.onToast(wasAccepted ? 'Esse pedido já está registrado.' : 'Pedido registrado para acompanhamento.', 'success');
+        break;
+      }
+      case 'grant_xp': {
+        if (!Number.isFinite(effect.amount) || effect.amount <= 0) break;
+        this.gainXp(Math.min(10000, Math.floor(effect.amount)));
+        break;
+      }
+      case 'set_flag': {
+        if (!effect.flagId || effect.flagId.length > 100 || typeof effect.value !== 'boolean') break;
+        this.dialogueFlags.set(effect.flagId, effect.value);
+        break;
+      }
+    }
+  }
+
+  public chooseDialogueOption(optionId: string): void {
+    const state = this.activeDialogue;
+    if (!state || state.ended) return;
+    const context = this.buildDialogueContext(state.agentId);
+    if (!context) return;
+    const transition = chooseOption(state, optionId, context, DIALOGUE_DATA);
+    if (!transition) return;
+    for (const effect of transition.effects) this.applyDialogueEffect(state.agentId, effect);
+    this.activeDialogue = transition.state;
+    this.saveGame();
+    this.syncHud();
+  }
+
+  public closeDialogue(): void {
+    if (!this.activeDialogue) return;
+    this.activeDialogue = null;
+    if (this.phase === 'paused') this.phase = 'playing';
+    this.syncHud();
+  }
+
   public triggerInteract(): void {
-    if (this.phase !== 'playing' || !this.activeInteractableId) return;
+    if (this.phase !== 'playing') return;
+    if (this.startNearbyDialogue()) return;
+    if (!this.activeInteractableId) return;
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return;
 
@@ -1679,6 +1806,9 @@ export class GameEngine {
         coins: this.coins,
         battleMana: this.battleMana,
         unlockedMoves: Array.from(this.unlockedMoves),
+        dialogueRelations: Object.fromEntries(this.dialogueRelations),
+        dialogueFlags: Object.fromEntries(this.dialogueFlags),
+        acceptedDialogueTasks: Array.from(this.acceptedDialogueTasks),
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
@@ -2782,6 +2912,18 @@ export class GameEngine {
   }
 
   private buildPrompt(): PromptInfo | null {
+    if (!this.activeDialogue) {
+      const resident = this.getNearbyDialogueAgent();
+      if (resident) {
+        return {
+          id: resident.id,
+          kind: 'resident',
+          label: resident.displayName,
+          detail: 'Habitante da comunidade · Relação social',
+          actionText: 'Conversar',
+        };
+      }
+    }
     if (!this.activeInteractableId) return null;
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return null;
@@ -2898,6 +3040,16 @@ export class GameEngine {
       }
     }
 
+    const dialogueNode = this.activeDialogue
+      ? DIALOGUE_DATA.find((node) => node.id === this.activeDialogue?.nodeId)
+      : undefined;
+    const dialogueContext = this.activeDialogue && !this.activeDialogue.ended
+      ? this.buildDialogueContext(this.activeDialogue.agentId)
+      : null;
+    const dialogueOptions = dialogueNode && dialogueContext
+      ? availableOptions(dialogueNode, dialogueContext)
+      : [];
+
     return {
       health: this.health,
       maxHealth: this.getEffectiveMaxHealth(),
@@ -2916,6 +3068,8 @@ export class GameEngine {
       starProgress: this.starProgress,
       starNext: this.getStarNext(),
       unlockedMoves: Array.from(this.unlockedMoves),
+      activeDialogue: this.activeDialogue,
+      activeDialogueOptions: dialogueOptions,
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),
