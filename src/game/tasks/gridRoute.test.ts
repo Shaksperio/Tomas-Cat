@@ -22,6 +22,16 @@ test('contorna um edifício bloqueando a passagem direta', () => {
   assert.ok(route.some((point) => Math.abs(point.z) > 12));
 });
 
+test('não deixa paredes estreitas desaparecerem entre centros da grade', () => {
+  const route = findGridRoute(
+    { x: -20, z: 0 },
+    { x: 20, z: 0 },
+    [{ minX: 0.8, maxX: 0.9, minZ: -40, maxZ: 40 }],
+    { bounds: 40, cellSize: 4, clearance: 0.1 },
+  );
+  assert.deepEqual(route, []);
+});
+
 test('é determinístico e retorna vazio quando uma barreira fecha o mapa', () => {
   const start = { x: -20, z: 0 }, goal = { x: 20, z: 0 };
   const wall = [{ minX: -1, maxX: 1, minZ: -40, maxZ: 40 }];
