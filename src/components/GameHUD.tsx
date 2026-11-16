@@ -64,7 +64,7 @@ interface GameHUDProps {
   onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
-  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item') => void;
+  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
   onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
   onSonar: () => void;
@@ -102,7 +102,7 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
@@ -119,7 +119,7 @@ function BattleOverlay({
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b' | 'combo_a' | 'combo_b') => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
@@ -269,7 +269,7 @@ function DuelPanel({
   onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onCancel: () => void;
   onForfeit: () => void;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
   const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
