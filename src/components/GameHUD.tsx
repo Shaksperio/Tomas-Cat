@@ -609,12 +609,27 @@ export function GameHUD({
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
-      {phase === 'playing' && (hud.playerTasks?.length ?? 0) > 0 && (
+      {phase === 'playing' && ((hud.playerTasks?.length ?? 0) > 0 || (hud.cycleTasks?.length ?? 0) > 0) && (
         <div className="pointer-events-auto fixed right-3 top-24 z-20 w-56 max-w-[48vw] rounded-lg border border-cyan-300/25 bg-[#0B1421]/90 p-2.5 shadow-lg backdrop-blur-sm">
-          <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-200">
+          {hud.cycleTasks && hud.cycleTasks.length > 0 && (
+            <div className="mb-2 border-b border-cyan-300/15 pb-2">
+              <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                <span>Missões da cidade</span>
+                <span>Próxima em {Math.ceil((hud.secondsToNextTask ?? 0) / 60)} min</span>
+              </div>
+              {hud.cycleTasks.map((task) => (
+                <div key={task.id} className="mb-1.5 text-[10px]">
+                  <div className="font-semibold text-slate-100">{task.title}</div>
+                  <div className="text-slate-400">Etapa {task.stageIndex + 1}/{task.stages.length}: {task.currentStage.label} · {task.progress}/{task.currentStage.target}</div>
+                  <div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10"><div className="h-full bg-amber-400" style={{ width: `${Math.min(100, task.progress / Math.max(1, task.currentStage.target) * 100)}%` }} /></div>
+                </div>
+              ))}
+            </div>
+          )}
+          {(hud.playerTasks?.length ?? 0) > 0 && <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-200">
             <span>Pedidos dos habitantes</span>
             <span>{hud.playerTasks?.filter((task) => task.status === 'completed').length}/{hud.playerTasks?.length}</span>
-          </div>
+          </div>}
           <div className="max-h-44 space-y-2 overflow-y-auto">
             {hud.playerTasks?.map((task) => (
               <div key={task.id} className="text-[10px]">
