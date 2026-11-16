@@ -3232,7 +3232,15 @@ export class GameEngine {
     this.moonMesh.visible = moonStrength > 0.08;
     const skySample = sampleSkyAtmosphere(this.day, this.timeOfDay, this.weather);
     this.moonLight.intensity = moonStrength * 3.6 * skySample.moonIllumination;
-    this.skyVisuals.update(dt, this.catPos.x, this.catPos.z, skySample, this.moonMesh);
+    this.skyVisuals.update(
+      dt,
+      this.catPos.x,
+      this.catPos.z,
+      skySample,
+      this.moonMesh,
+      this.sunMesh,
+      this.duelPhase === 'fighting' || this.battle !== null,
+    );
     const lunarPowerNow = moonStrength >= 0.72;
     if (lunarPowerNow && !this.moonPowerActive) {
       this.moonPowerActive = true;
