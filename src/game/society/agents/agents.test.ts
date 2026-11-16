@@ -55,7 +55,8 @@ test('rejects proposals that request unavailable community resources', () => {
 });
 
 test('accepts a valid specialist proposal without executing or mutating it', () => {
-  const snapshot = new SocietySimulation().snapshot();
+  const original = new SocietySimulation().snapshot();
+  const snapshot = { ...original, tasks: [] };
   const proposal = proposalFor(snapshot);
   const before = structuredClone(snapshot);
   const result = authorizeSpecialistProposal(proposal, snapshot);
