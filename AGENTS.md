@@ -46,7 +46,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 ## 4. Estado atual do código (o que existe)
 
 ### 4.1 Jogo base (`src/game/`, `src/components/`)
-- `GameEngine.ts`: laço principal, física, câmera, combate, sobrevivência, clima, progressão, salvamento. Salva em `localStorage` com a chave `felis09_save_v4`.
+- `GameEngine.ts`: laço principal, física, câmera, combate, sobrevivência, clima, progressão e salvamento. O save local agora é particionado por UID Firebase (`felis09_save_v4_{uid}`); o documento remoto do personagem fica em `users/{uid}/gameSaves/main`.
 - `worldBuilder.ts`: cidade pré-construída (limite do mundo `WORLD_BOUNDS = 220`), 4 distritos, 6 abrigos, prédios ocos acessíveis (`addAccessibleBuilding`), colisores, gates de fase, terminais de lore.
 - `catModel.ts`, `enemyModels.ts`, `textures.ts`, `audio.ts`: modelos, texturas e áudio procedurais (sem arquivos de asset).
 - `GameHUD.tsx`, `TitleScreen.tsx`, `App.tsx`: interface em React.
@@ -86,7 +86,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - `src/game/battle/commands.ts` descreve metadados cinematográficos da ração e dos dois combos; `atb.ts` executa item, Rasante Duplo e Tempestade de Garras com custos de turno/maná e desbloqueio por nível. Campos opcionais de diálogo, comandos e inventário mantêm compatibilidade com saves antigos.
 
 ### 4.3 O que NÃO existe ainda
-Portais físicos e transição jogável entre mundos; carregamento de cenas independentes por worldId; snapshots completos por mundo; Galáxia visual. Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
+Portais físicos e transição jogável entre mundos; carregamento de cenas independentes por worldId; snapshots completos por mundo; Galáxia visual. Backend autoritativo para validar transações e anti-cheat; a sociedade ainda não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
 ### 4.4 Lacunas de jogabilidade conhecidas
 - Sol (disco) e estrelas existem (estrelas à noite com tempo limpo), mas a lua ainda é uma esfera simples e não há nuvens nem fases lunares.
@@ -102,6 +102,17 @@ Portais físicos e transição jogável entre mundos; carregamento de cenas inde
 - **Tarefas e navegação publicadas:** ciclos de 600 segundos ativos, objetivos em múltiplas etapas, histórico anti-repetição, persistência local, recompensas XP/sucata e HUD. `taskNavigation.ts` seleciona alvo válido; `gridRoute.ts` calcula A* em grade de 4 m que contorna colisores terrestres, com margem conservadora. A HUD mostra direção/distância e o motor desenha a rota. Alvos elevados usam orientação direta (navegação vertical ainda não modelada); sem caminho terrestre a linha fica oculta. Waypoints manuais e navegação entre distritos continuam pendentes.
 
 
+
+
+### 4.7 Conta Google e salvamento protegido (integração em código; configuração externa pendente)
+
+- `src/firebase/client.ts` inicializa Firebase Authentication/Firestore usando somente variáveis `VITE_FIREBASE_*` de build. `LoginScreen.tsx` bloqueia a montagem do jogo até existir sessão Google válida.
+- O UID autenticado é passado ao `GameEngine`; cada cópia local usa chave exclusiva por UID. Não existe modo anônimo nem fallback para jogar sem autenticação.
+- `src/firebase/gameSave.ts` carrega e sincroniza `SavedGameState` em `users/{uid}/gameSaves/main`, com fila de escrita curta para agrupar salvamentos frequentes.
+- `firestore.rules` permite acesso somente ao proprietário (`request.auth.uid == userId`) e bloqueia todos os outros caminhos. `docs/FIREBASE-AUTH.md` descreve criação do projeto, secrets, domínios autorizados e publicação das regras.
+- O save legado sem proprietário pode ser migrado uma única vez pela primeira conta autenticada no navegador; após gravação local no espaço da conta, a chave antiga é removida. Não compartilhe a mesma cópia local entre UIDs.
+- **Configuração ainda necessária antes de publicar/usar:** criar projeto Firebase próprio para Tomas, habilitar Google Authentication, criar Firestore, publicar as regras e cadastrar os secrets `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` e `VITE_FIREBASE_APP_ID` no GitHub Actions. O build sem essas variáveis mantém o login bloqueado intencionalmente.
+- **Limite de segurança:** Auth + Firestore Rules protegem a identidade e a propriedade/acesso aos saves, mas o cliente ainda calcula XP, moedas e combate. Anti-cheat forte requer backend autoritativo e validação de transações.
 
 ### 4.6 Inventário geral (incremento em desenvolvimento — branch `codex/general-item-inventory`)
 - `src/game/items/itemCatalog.ts` define IDs e efeitos tipados para erva medicinal (saúde), frasco de água limpa (sede) e fruta energética (resistência); `inventory.ts` valida, limita pilhas e consome um item por vez.
