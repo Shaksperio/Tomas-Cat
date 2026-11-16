@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-15. Estado do código descrito: base da batalha ATB/cinematográfica e contratos iniciais de diálogo em branch de trabalho.
+> Última atualização: 2026-11-16. Estado do código descrito: base da batalha ATB/cinematográfica e contratos iniciais de diálogo em branch de trabalho.
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
@@ -99,7 +99,7 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - `src/game/tasks/taskCycles.ts` implementa geração determinística em ciclos de 600 segundos de jogo ativo, objetivos em duas ou três etapas, progresso por eventos reais (comida, água, sucata e inimigos), histórico de modelos emitidos para impedir repetição e recompensas de XP/sucata.
 - O motor avança o relógio somente em `updateGameplay`, portanto pausa, tela de título e batalha não contam como tempo ativo. O estado é salvo em `SavedGameState.taskCycle`; saves antigos recebem estado inicial compatível.
 - A HUD exibe até três missões ativas e o tempo estimado até o próximo ciclo. Os pedidos dos nove habitantes permanecem separados e preservados.
-- Esta entrega não inclui GPS/rota/waypoints nem recompensas físicas no mapa; esses itens continuam pendentes, assim como inventário geral e equipamentos. O ciclo só será considerado publicado após CI verde, merge e deploy verificados.
+- A navegação de missão está em incremento separado: `src/game/tasks/taskNavigation.ts` seleciona o recurso/inimigo ativo mais próximo que corresponde à etapa, a HUD mostra direção/distância e o motor desenha uma linha direta até o alvo. Ainda não há A* para contornar prédios, waypoints manuais, navegação de longa distância ou recompensas físicas no mapa. Inventário geral e equipamentos também continuam pendentes. A navegação só será considerada publicada após CI verde, merge e deploy verificados.
 
 ## 5. Roteiro e decisões do autor
 
