@@ -344,3 +344,11 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - O descarte de uma cena libera geometrias e materiais da raiz. Texturas compartilhadas continuam sob responsabilidade do motor.
 - A implementação ainda registra somente a Cidade da Quarentena. O Arquipélago continua planejado e ainda não existe como cena jogável; a viagem e os portais não foram ativados nesta etapa.
 - Testes cobrem construção lazy, alternância de visibilidade, cache, descarte/reconstrução, destinos desconhecidos e IDs duplicados.
+
+
+## Atualização de engenharia — cenário procedural do Arquipélago de Cristal (2026-11-16)
+
+- `src/game/worlds/crystalArchipelago.ts` cria um cenário 3D original com cinco ilhas, quatro pontes atravessáveis, oceano visual, cristais ressonantes, observatório central, setores nomeados e colisores para estruturas sólidas.
+- A construção é determinística e isolada em uma raiz `THREE.Group`, compatível com `WorldSceneManager`.
+- Os testes validam composição da cena, setores e limites de colisão.
+- Esta etapa entrega o construtor da cena, mas ainda não a registra como jogável no motor. O mundo permanece `planned` até a integração de spawn/retorno, física de água, navegação e transição persistente.
