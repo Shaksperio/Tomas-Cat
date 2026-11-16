@@ -70,6 +70,7 @@ interface GameHUDProps {
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
   onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
+  onComboBreaker: () => void;
   onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
   onSonar: () => void;
@@ -121,11 +122,13 @@ const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'it
 function BattleOverlay({
   duel,
   onCommand,
+  onComboBreaker,
   onForfeit,
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'combo_a' | 'combo_b') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
+  onComboBreaker: () => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
@@ -146,6 +149,16 @@ function BattleOverlay({
       <div className="absolute inset-0 bg-black" style={{ opacity: duel.darkness, transition: 'opacity 0.35s' }} />
       <div className="absolute inset-0 bg-white" style={{ opacity: duel.flash }} />
       {duel.intro && <div className="battle-swirl absolute inset-0" />}
+
+      {duel.comboBreakerWindowOpen && !duel.intro && (
+        <button
+          type="button"
+          onClick={onComboBreaker}
+          className="pointer-events-auto absolute left-1/2 top-[27vh] -translate-x-1/2 rounded-xl border-2 border-cyan-200 bg-cyan-500/90 px-5 py-3 text-sm sm:text-base font-black tracking-widest text-slate-950 shadow-[0_0_28px_rgba(34,211,238,0.8)] animate-pulse"
+        >
+          COMBO BREAKERS! [9]
+        </button>
+      )}
 
       {/* Nome do golpe */}
       {duel.banner && !duel.intro && (
@@ -281,6 +294,7 @@ function DuelPanel({
   onCancel,
   onForfeit,
   onCommand,
+  onComboBreaker,
   onTarget,
 }: {
   duel: DuelHud;
@@ -288,6 +302,7 @@ function DuelPanel({
   onCancel: () => void;
   onForfeit: () => void;
   onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
+  onComboBreaker: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
   const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
@@ -306,7 +321,7 @@ function DuelPanel({
   ];
 
   if (duel.phase === 'fighting') {
-    return <BattleOverlay duel={duel} onCommand={onCommand} onForfeit={onForfeit} onTarget={onTarget} />;
+    return <BattleOverlay duel={duel} onCommand={onCommand} onComboBreaker={onComboBreaker} onForfeit={onForfeit} onTarget={onTarget} />;
   }
 
   return (
@@ -560,6 +575,7 @@ export function GameHUD({
   onDuelCancel,
   onDuelForfeit,
   onBattleCommand,
+  onComboBreaker,
   onBattleTarget,
   onMeow,
   onSonar,
@@ -634,7 +650,7 @@ export function GameHUD({
 
   // Durante a batalha só ficam os duelistas, os comandos e o botão de abandonar.
   if (phase === 'playing' && hud.duel?.phase === 'fighting') {
-    return <BattleOverlay duel={hud.duel} onCommand={onBattleCommand} onForfeit={onDuelForfeit} onTarget={onBattleTarget} />;
+    return <BattleOverlay duel={hud.duel} onCommand={onBattleCommand} onComboBreaker={onComboBreaker} onForfeit={onDuelForfeit} onTarget={onBattleTarget} />;
   }
 
   return (
@@ -1198,7 +1214,7 @@ export function GameHUD({
         )}
 
         {phase === 'playing' && hud.duel && (
-          <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} onCommand={onBattleCommand} onTarget={onBattleTarget} />
+          <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} onCommand={onBattleCommand} onComboBreaker={onComboBreaker} onTarget={onBattleTarget} />
         )}
 
         {isTouchDevice && phase === 'playing' && !hud.activeDialogue && (

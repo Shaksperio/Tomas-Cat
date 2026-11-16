@@ -304,3 +304,13 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - `SavedGameState.worldTravel` foi adicionado como campo opcional, preservando a leitura de saves v4 antigos. A normalização ignora mundos não registrados e dados malformados.
 - Testes puros cobrem compatibilidade de save legado, bloqueio, validação de destino, retorno e normalização. O comando `npm test` inclui `src/game/worlds/*.test.ts`.
 - **Limite desta entrega:** contratos e testes apenas. A transição ainda não está conectada ao `GameEngine`, não há portal físico/HUD nem carregamento de outro mundo. Não anunciar viagem entre mundos como funcional até existir carregamento, salvamento automático e retorno jogável.
+
+
+## Atualização de engenharia — Combo Breakers (2026-11-16)
+
+- A câmera cinematográfica usa enquadramento adaptativo do conjunto de duelistas e distância ajustada pelo campo de visão e proporção da tela, inclusive em ataques, investidas e especiais.
+- O jogador recebe 10 segundos por decisão ATB; ao expirar, a defesa é executada automaticamente.
+- Combo Breaker automático: se Tomas estiver defendendo e bloquear um ataque simples fraco (até 14 pontos de dano após redução), rebate e derruba temporariamente o agressor.
+- Combo Breaker manual: durante a carga de um especial inimigo, uma janela entre 0,72 s e 1,62 s permite interromper a sequência antes do primeiro impacto, por meio da tecla 9 ou botão na HUD.
+- O contra-ataque causa dano determinístico, interrompe o especial, restaura o vigor que o especial ainda não chegou a exibir, lança o oponente para longe e o derruba com faíscas, clarão, tremor e câmera aberta.
+- Testes de regras cobrem ativação defensiva, ausência de ativação sem defesa/contra sequência e finalização de alvo.

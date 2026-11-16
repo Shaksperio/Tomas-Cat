@@ -58,6 +58,7 @@ import {
 } from './battle/duel';
 import {
   type BattleCommand,
+  type BattleAction,
   type BattleState,
   type FoeSide,
   FOE_SIDES,
@@ -71,6 +72,8 @@ import {
   isFoe,
   livingFoes,
   resolveCommand,
+  resolveGuardComboBreaker,
+  resolveComboBreaker,
   seedFromText,
   tickAtb,
   tickPlayerDecisionTimer,
@@ -222,6 +225,7 @@ export class GameEngine {
   private inventory: InventoryState = createInventoryState();
   private equipment: EquipmentState = createEquipmentState();
   private battle: BattleState | null = null;
+  private pendingOpponentSpecial: BattleAction | null = null;
   private battleEnding = false;
   private readonly battleStage: BattleStage;
   private duelResultText = '';
@@ -991,6 +995,7 @@ export class GameEngine {
     this.duelNames = [];
     this.battleTarget = null;
     this.battle = null;
+    this.pendingOpponentSpecial = null;
     this.battleEnding = false;
     this.battleStage.end();
     this.societyActors.setSceneControl(null);
@@ -1194,16 +1199,49 @@ export class GameEngine {
     this.runBattleCommand('player', command);
   }
 
+  /** Ativação manual [9] durante a janela de interrupção do especial inimigo. */
+  public activateComboBreaker(): void {
+    const battle = this.battle;
+    const special = this.pendingOpponentSpecial;
+    if (!battle || !special || !isFoe(special.actor) || !this.battleStage.comboBreakerWindowOpen || this.battleEnding) return;
+
+    // O primeiro impacto visual ainda não aconteceu; revertemos o dano pré-calculado.
+    const restoredVigor = special.hits.reduce((sum, hit) => sum + hit.damage, 0);
+    battle.player.vigor = Math.min(100, battle.player.vigor + restoredVigor);
+    if (battle.finished && special.finishing) {
+      battle.finished = false;
+      battle.winner = null;
+      battle.reason = null;
+    }
+    const counter = resolveComboBreaker(battle, special.actor);
+    if (!counter) return;
+    this.battleStage.displayVigor.player = battle.player.vigor;
+    if (!this.battleStage.interruptWithComboBreaker(counter)) return;
+    this.pendingOpponentSpecial = null;
+    gameAudio.playSonar();
+  }
+
   private runBattleCommand(side: Side, command: BattleCommand): void {
     const battle = this.battle;
     if (!battle) return;
     const chosen = side === 'player' && this.battleTarget && livingFoes(battle).includes(this.battleTarget) ? this.battleTarget : undefined;
     const action = resolveCommand(battle, side, command, chosen);
     if (side === 'player') this.battleTarget = livingFoes(battle).includes(action.target as FoeSide) ? (action.target as FoeSide) : defaultTarget(battle);
+    if (side !== 'player' && command === 'limit') this.pendingOpponentSpecial = action;
     if (command === 'limit') gameAudio.playBossRoar();
     else if (command === 'guard') gameAudio.playSonar();
     else if (command === 'item') gameAudio.playEat();
+
+    const defensiveCounter = side !== 'player' ? resolveGuardComboBreaker(battle, action) : null;
     this.battleStage.playAction(action, () => {
+      if (defensiveCounter) {
+        this.battleStage.displayVigor.player = battle.player.vigor;
+        this.battleStage.playAction(defensiveCounter, () => {
+          if (battle.finished) this.beginBattleEnding();
+        });
+        return;
+      }
+      this.pendingOpponentSpecial = null;
       if (battle.finished) this.beginBattleEnding();
     });
   }
@@ -1328,6 +1366,7 @@ export class GameEngine {
     this.battleInventory = combat.playerItems > 0 ? [{ itemId: 'ration', quantity: combat.playerItems }] : [];
     this.duelPhase = 'result';
     this.battle = null;
+    this.pendingOpponentSpecial = null;
     this.battleEnding = false;
     this.duelResultTimer = 5;
     this.callbacks.onToast(this.duelResultText, this.duelResultWon === false ? 'warn' : 'success');
@@ -1371,6 +1410,7 @@ export class GameEngine {
         battle && battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !battle.finished,
       ),
       playerTurnTimeLeft: battle?.playerTurnTimeLeft ?? 0,
+      comboBreakerWindowOpen: this.battleStage.comboBreakerWindowOpen,
       intro: this.battleStage.introActive,
       banner: this.battleStage.banner,
       darkness: this.battleStage.darkness,
@@ -2169,6 +2209,8 @@ export class GameEngine {
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);
+      } else if (code === 'Digit9' && this.duelPhase === 'fighting') {
+        this.activateComboBreaker();
       } else if (code === 'KeyI' && this.duelPhase === 'fighting') {
         this.battleCommand('item');
       } else if (code === 'KeyT' && this.duelPhase === 'fighting' && this.battle) {

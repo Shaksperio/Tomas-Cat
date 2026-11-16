@@ -209,6 +209,7 @@ export default function App() {
           onDuelCancel={() => engineRef.current?.cancelDuelOffer()}
           onDuelForfeit={() => engineRef.current?.forfeitDuel()}
           onBattleCommand={(cmd) => engineRef.current?.battleCommand(cmd)}
+          onComboBreaker={() => engineRef.current?.activateComboBreaker()}
           onBattleTarget={(side) => engineRef.current?.selectBattleTarget(side)}
           onMeow={() => engineRef.current?.triggerMeow()}
           onSonar={() => engineRef.current?.triggerSonar()}

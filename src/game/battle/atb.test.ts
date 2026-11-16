@@ -17,6 +17,9 @@ import {
   createBattle,
   forfeitBattle,
   resolveCommand,
+  resolveGuardComboBreaker,
+  resolveComboBreaker,
+  COMBO_BREAKER_WEAK_HIT_MAX,
   seedFromText,
   tickAtb,
   tickPlayerDecisionTimer,
@@ -319,4 +322,40 @@ test('magia Orbe Arcano exige 25 MP, consome o custo e causa dano', () => {
   assert.equal(s.opponent.vigor < before, true);
   assert.equal(s.player.limit, 0);
   assert.equal(s.ready, null);
+});
+
+
+test('Combo Breaker automático dispara ao bloquear ataque simples fraco', () => {
+  const s = createBattle(401, 2);
+  s.ready = 'opponent';
+  s.opponent.atb = 100;
+  s.player.guarding = true;
+  const incoming = resolveCommand(s, 'opponent', 'attack');
+  assert.equal(incoming.blocked, true);
+  assert.ok(incoming.hits[0].damage <= COMBO_BREAKER_WEAK_HIT_MAX);
+  const counter = resolveGuardComboBreaker(s, incoming);
+  assert.equal(counter?.command, 'combo_breaker');
+  assert.equal(counter?.knockedDown, true);
+  assert.equal(s.opponent.vigor, 100 - counter!.hits[0].damage);
+  assert.equal(s.opponent.atb, 0);
+  assert.equal(s.player.guarding, false);
+});
+
+test('Combo Breaker não dispara sem defesa ou contra sequência de golpes', () => {
+  const s = createBattle(402, 2);
+  s.ready = 'opponent';
+  s.opponent.atb = 100;
+  const incoming = resolveCommand(s, 'opponent', 'attack');
+  assert.equal(resolveGuardComboBreaker(s, incoming), null);
+  assert.equal(resolveGuardComboBreaker(s, { ...incoming, command: 'flurry' }), null);
+});
+
+test('Combo Breaker manual derruba o alvo e pode finalizar a batalha', () => {
+  const s = createBattle(403, 2);
+  s.opponent.vigor = 12;
+  const counter = resolveComboBreaker(s, 'opponent');
+  assert.equal(counter?.command, 'combo_breaker');
+  assert.equal(counter?.knockedOut, true);
+  assert.equal(s.finished, true);
+  assert.equal(s.winner, 'player');
 });
