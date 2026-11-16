@@ -2339,7 +2339,7 @@ export class GameEngine {
     if (!task || !stage) return null;
     const candidates: TaskGpsCandidate[] = [];
     for (const item of this.world.interactables) {
-      if (!item.active) continue;
+      if (!item.active || item.taskRewardId) continue;
       const event = item.kind === 'food' || item.kind === 'prey' || item.kind === 'fish'
         ? 'food_collected'
         : item.kind === 'water' ? 'water_drunk' : item.kind === 'scrap' ? 'scrap_collected' : null;
@@ -3271,7 +3271,7 @@ export class GameEngine {
         id: item.id,
         kind: item.kind,
         label: item.name,
-        detail: '+1 Sucata para Abrigo',
+        detail: item.taskRewardId ? `+${item.amount} Sucatas · Recompensa de missão` : `+${item.amount} Sucata para Abrigo`,
         actionText: 'Coletar',
       };
     }
