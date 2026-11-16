@@ -1,8 +1,18 @@
 # Integração do céu vivo no GameEngine
 
-Os módulos em `src/game/sky/` estão prontos e testados (lógica pura + `SkyVisuals`).
+Os módulos em `src/game/sky/` estão prontos (lógica pura + `SkyVisuals` + testes).
 
-Para ligar no `GameEngine.ts` (edição pequena, ~10 linhas):
+## Aplicar com um comando
+
+Na raiz do repositório (com a branch `grok/sky-atmosphere-v2` ou após merge):
+
+```bash
+git apply src/game/sky/GameEngine_sky.patch
+```
+
+Ou manualmente (~10 linhas), como abaixo.
+
+## Passos manuais
 
 1. Imports:
 ```ts
@@ -15,7 +25,7 @@ import { SkyVisuals } from './sky/skyVisuals';
 private readonly skyVisuals: SkyVisuals;
 ```
 
-3. No construtor, após `this.moonLight = ...; this.scene.add(this.moonLight);`:
+3. No construtor, após `this.scene.add(this.moonLight);`:
 ```ts
 this.skyVisuals = new SkyVisuals(this.scene);
 ```
@@ -32,6 +42,7 @@ this.skyVisuals.update(dt, this.catPos.x, this.catPos.z, skySample, this.moonMes
 this.skyVisuals.dispose();
 ```
 
-Não alterar `atb.ts`, `dialogue/` nem o PR #3.
+## Coordenação
 
-Usar a branch `grok/sky-atmosphere-v2`. A branch `grok/sky-atmosphere` (v1) corrompeu o GameEngine com placeholder e deve ser ignorada.
+Não alterar `atb.ts`, `dialogue/` nem o PR #3.
+Usar branch/PR: **`grok/sky-atmosphere-v2` / PR #4**. Ignorar `grok/sky-atmosphere` (v1).
