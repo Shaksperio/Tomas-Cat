@@ -323,3 +323,14 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - A atualização de posição é imutável e preserva os registros e âncoras de retorno dos outros mundos; coordenadas inválidas são ignoradas.
 - O motor permanece limitado ao mundo legado nesta etapa. O catálogo/loader de cenas, portais físicos, troca de mundo e retorno jogável ainda não estão conectados; não anunciar essas funções como concluídas.
 - Testes cobrem preservação de posição por mundo, âncora de retorno, dados legados e rejeição de coordenadas inválidas.
+
+
+## Atualização de engenharia — catálogo de mundos e carregamento seguro (2026-11-16)
+
+- `src/game/worlds/worldCatalog.ts` passa a ser a fonte explícita dos IDs, nomes, pontos de surgimento, chaves de cena e disponibilidade dos mundos.
+- `quarantine-city` é o único mundo jogável nesta entrega; `crystal-archipelago` está registrado como planejado, sem fingir que sua cena 3D ou viagem já existem.
+- O carregamento de saves normaliza contra todos os IDs registrados, preservando posições e desbloqueios de mundos planejados.
+- Antes de iniciar a simulação, o motor seleciona apenas um mundo marcado como jogável. Se um save apontar para um mundo ainda planejado, o jogo inicia na cidade original sem apagar o progresso salvo daquele mundo.
+- `currentPhase` continua sendo progressão interna da campanha, não identidade de mundo.
+- Testes cobrem IDs únicos, disponibilidade, separação entre fase e mundo e preservação de progresso quando um mundo planejado não pode ser carregado.
+- Próxima etapa: definir contrato de ciclo de vida da cena (construção, ativação, descarte e restauração de estado), então construir o primeiro ambiente independente e ligar os portais a esse ciclo.

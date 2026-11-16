@@ -7,6 +7,7 @@ import {
   resolvePortalTransition,
   resolveReturnTransition,
   updateActiveWorldPosition,
+  selectPlayableActiveWorld,
   type PortalDefinition,
   type PortalProgressContext,
 } from './portalWorlds';
@@ -92,4 +93,19 @@ test('salvar posição ativa preserva progresso e âncora dos demais mundos', ()
 test('posição inválida não corrompe o estado de viagem', () => {
   const initial = createInitialWorldTravelState();
   assert.equal(updateActiveWorldPosition(initial, { x: Number.NaN, z: 4 }), initial);
+});
+
+
+test('mundo planejado preserva progresso, mas não é carregado como cena ativa', () => {
+  const state = normalizeWorldTravelState({
+    activeWorldId: 'crystal-archipelago',
+    worlds: {
+      'quarantine-city': { visited: true, playerPosition: { x: 5, z: 6 }, unlockedPortalIds: ['gate-crystal'] },
+      'crystal-archipelago': { visited: true, playerPosition: { x: 22, z: 31 }, unlockedPortalIds: ['gate-return'] },
+    },
+  }, known);
+  const runtime = selectPlayableActiveWorld(state, ['quarantine-city']);
+  assert.equal(runtime.activeWorldId, 'quarantine-city');
+  assert.deepEqual(runtime.worlds['crystal-archipelago'].playerPosition, { x: 22, z: 31 });
+  assert.deepEqual(runtime.worlds['crystal-archipelago'].unlockedPortalIds, ['gate-return']);
 });
