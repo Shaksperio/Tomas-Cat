@@ -16,13 +16,20 @@ import {
   WeatherState,
 } from '../types/game';
 import { gameAudio } from './audio';
+import type { BattleInventoryItem } from './battle/commands';
 import { ArticulatedCat } from './catModel';
 import { PredatorActor } from './enemyModels';
 import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuilder';
 import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
+import { DIALOGUE_DATA } from './dialogue/dialogueData';
+import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
+import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
+import { availableOptions, chooseOption, startDialogue } from './dialogue/dialogueRunner';
+import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/types';
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
+import { getNewlyUnlockedMoves, mergeUnlockedMoves } from './progression/unlocks';
 import {
   DEFAULT_COIN_STAKE,
   type DuelFighter,
@@ -169,6 +176,7 @@ export class GameEngine {
   private level = 1;
   private stars = 0;
   private starProgress = 0;
+  private unlockedMoves = new Set<string>(['basic-claw']);
   private chances = MAX_CHANCES;
   private spawnGraceTimer = 0;
   private bossCheckpoint: BossCheckpointData | null = null;
@@ -188,6 +196,7 @@ export class GameEngine {
   private battleTarget: FoeSide | null = null;
   /** Maná guardado de batalhas vencidas (0–100). */
   private battleMana = 0;
+  private battleInventory: BattleInventoryItem[] = [];
   private battle: BattleState | null = null;
   private battleEnding = false;
   private readonly battleStage: BattleStage;
@@ -224,6 +233,11 @@ export class GameEngine {
   private sheltersUpgraded = 0;
   private enemiesDefeated = 0;
   private lastThreatCause = '';
+  private activeDialogue: DialogueState | null = null;
+  private readonly dialogueRelations = new Map<string, { affinity: number; trust: number }>();
+  private readonly dialogueFlags = new Map<string, boolean>();
+  private readonly acceptedDialogueTasks = new Set<string>();
+  private playerTasks: PlayerTaskState[] = [];
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -487,6 +501,7 @@ export class GameEngine {
     this.level = 1;
     this.stars = 0;
     this.starProgress = 0;
+    this.unlockedMoves = new Set(mergeUnlockedMoves(1));
     this.chances = MAX_CHANCES;
     this.spawnGraceTimer = 0;
     this.bossCheckpoint = null;
@@ -494,10 +509,16 @@ export class GameEngine {
     this.defeatedBosses.clear();
     this.conqueredTerritories.clear();
     this.battleMana = 0;
+    this.battleInventory = [];
     this.announcedRivals.clear();
     this.scrap = 0;
     this.coins = 60;
     this.resetDuel();
+    this.activeDialogue = null;
+    this.dialogueRelations.clear();
+    this.dialogueFlags.clear();
+    this.acceptedDialogueTasks.clear();
+    this.playerTasks = [];
     this.day = 1;
     this.timeOfDay = 0.34;
     this.weather = 'clear';
@@ -611,6 +632,7 @@ export class GameEngine {
       return;
     }
     this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, cp.level));
+    this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, cp.unlockedMoves ?? []));
     this.stars = cp.stars;
     this.starProgress = cp.starProgress;
     this.stageIndex = Math.max(0, Math.min(EVOLUTION_STAGES.length - 1, cp.stageIndex));
@@ -697,6 +719,7 @@ export class GameEngine {
       level: this.level,
       stars: this.stars,
       starProgress: this.starProgress,
+      unlockedMoves: Array.from(this.unlockedMoves),
       scrap: this.scrap,
       day: this.day,
       timeOfDay: this.timeOfDay,
@@ -724,6 +747,7 @@ export class GameEngine {
       }
       const saved: SavedGameState = JSON.parse(raw);
       this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, saved.level || 1));
+      this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, saved.unlockedMoves ?? []));
       this.stars = saved.stars || 0;
       this.starProgress = saved.starProgress || 0;
       this.chances = typeof saved.chances === 'number' ? saved.chances : MAX_CHANCES;
@@ -737,6 +761,7 @@ export class GameEngine {
       this.scrap = saved.scrap || 0;
       this.coins = typeof saved.coins === 'number' ? Math.max(0, saved.coins) : 60;
       this.battleMana = typeof saved.battleMana === 'number' ? Math.max(0, Math.min(100, saved.battleMana)) : 0;
+      this.battleInventory = (saved.battleInventory ?? []).filter((entry) => entry?.itemId === 'ration' && Number.isFinite(entry.quantity) && entry.quantity > 0).map((entry) => ({ itemId: 'ration', quantity: Math.min(99, Math.floor(entry.quantity)) }));
       this.day = saved.day || 1;
       this.timeOfDay = saved.timeOfDay ?? 0.34;
       this.health = Math.min(this.getEffectiveMaxHealth(), Math.max(25, saved.health || def.maxHealth));
@@ -749,6 +774,36 @@ export class GameEngine {
       this.catVelY = 0;
       this.isClimbing = false;
       this.discoveredTerminals = new Set(saved.discoveredTerminals || []);
+      this.activeDialogue = null;
+      this.dialogueRelations.clear();
+      for (const [id, relation] of Object.entries(saved.dialogueRelations ?? {})) {
+        if (id && Number.isFinite(relation?.affinity) && Number.isFinite(relation?.trust)) {
+          this.dialogueRelations.set(id, {
+            affinity: THREE.MathUtils.clamp(relation.affinity, 0, 100),
+            trust: THREE.MathUtils.clamp(relation.trust, 0, 100),
+          });
+        }
+      }
+      this.dialogueFlags.clear();
+      for (const [id, value] of Object.entries(saved.dialogueFlags ?? {})) {
+        if (id && typeof value === 'boolean') this.dialogueFlags.set(id, value);
+      }
+      this.acceptedDialogueTasks.clear();
+      this.playerTasks = [];
+      for (const id of saved.acceptedDialogueTasks ?? []) {
+        if (typeof id === 'string' && id.length > 0 && id.length <= 100) {
+          this.acceptedDialogueTasks.add(id);
+          this.playerTasks = acceptPlayerTask(this.playerTasks, id);
+        }
+      }
+      if (Array.isArray(saved.playerTasks)) {
+        this.playerTasks = saved.playerTasks.flatMap((task) => {
+          const definition = task && getPlayerTaskDefinition(task.id);
+          if (!definition || !Number.isFinite(task.progress) || (task.status !== 'active' && task.status !== 'completed')) return [];
+          const progress = THREE.MathUtils.clamp(Math.floor(task.progress), 0, definition.target);
+          return [{ id: task.id, progress, status: task.status === 'completed' || progress >= definition.target ? 'completed' as const : 'active' as const }];
+        });
+      }
       this.foodCollected = saved.foodCollected || 0;
       this.waterDrunk = saved.waterDrunk || 0;
       this.sheltersUpgraded = saved.sheltersUpgraded || 0;
@@ -1004,7 +1059,7 @@ export class GameEngine {
     }
     this.duelStake = stake;
     this.startBattle(accepted);
-    if (this.duelPhase !== 'fighting') return;
+    if (!this.battle) return;
     const names = accepted.map((a) => a.displayName).join(', ');
     const per = accepted.length > 1 ? ` por oponente (${accepted.length}×)` : ' cada';
     this.callbacks.onToast(
@@ -1051,7 +1106,7 @@ export class GameEngine {
       this.getCurrentAttackDamage() / 12,
       this.level,
       foeLevels[0],
-      { playerMana: this.battleMana, foeLevels },
+      { playerMana: this.battleMana, foeLevels, playerItems: this.getBattleItemCount('ration') },
     );
     this.battleTarget = defaultTarget(this.battle);
     this.battleEnding = false;
@@ -1086,6 +1141,11 @@ export class GameEngine {
     if (this.battleStage.busy || this.battleEnding) return;
     if (!canUseCommand(this.battle, 'player', command)) {
       if (command === 'limit') this.callbacks.onToast('A barra de maná ainda não está cheia.', 'info');
+      else if (command === 'item' && this.battle?.playerItems === 0) this.callbacks.onToast('Você não tem rações de combate.', 'info');
+      else if (command === 'item') this.callbacks.onToast('O vigor já está cheio.', 'info');
+      else if (command === 'combo_a' && this.level < 25) this.callbacks.onToast('Rasante Duplo desbloqueia no nível 25.', 'info');
+      else if (command === 'combo_b' && this.level < 55) this.callbacks.onToast('Tempestade de Garras desbloqueia no nível 55.', 'info');
+      else if (command === 'combo_a' || command === 'combo_b') this.callbacks.onToast('Maná insuficiente para esta técnica.', 'info');
       return;
     }
     this.runBattleCommand('player', command);
@@ -1099,6 +1159,7 @@ export class GameEngine {
     if (side === 'player') this.battleTarget = livingFoes(battle).includes(action.target as FoeSide) ? (action.target as FoeSide) : defaultTarget(battle);
     if (command === 'limit') gameAudio.playBossRoar();
     else if (command === 'guard') gameAudio.playSonar();
+    else if (command === 'item') gameAudio.playEat();
     this.battleStage.playAction(action, () => {
       if (battle.finished) this.beginBattleEnding();
     });
@@ -1214,6 +1275,7 @@ export class GameEngine {
     // O maná de uma batalha vencida é guardado para a próxima; derrota ou desistência zera.
     if (this.duelResultWon === true) this.battleMana = Math.round(combat.player.limit);
     else if (this.duelResultWon === false) this.battleMana = 0;
+    this.battleInventory = combat.playerItems > 0 ? [{ itemId: 'ration', quantity: combat.playerItems }] : [];
     this.duelPhase = 'result';
     this.battle = null;
     this.battleEnding = false;
@@ -1254,6 +1316,7 @@ export class GameEngine {
       playerAtb: Math.max(0, Math.min(100, battle?.player.atb ?? 0)),
       opponentAtb: first?.atb ?? 0,
       playerLimit: battle?.player.limit ?? 0,
+      playerLevel: this.level,
       awaitingCommand: Boolean(
         battle && battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !battle.finished,
       ),
@@ -1266,6 +1329,7 @@ export class GameEngine {
       foes,
       targetSide: this.battleTarget,
       storedMana: this.battleMana,
+      playerItems: battle?.playerItems ?? this.getBattleItemCount('ration'),
       groupAvailable: this.duelPhase === 'offer' ? this.duelCandidateIds.length : 0,
       limits: {
         coins: me.coins,
@@ -1370,6 +1434,7 @@ export class GameEngine {
     pred.hp = 0;
     pred.group.visible = false;
     this.enemiesDefeated++;
+    this.recordPlayerTaskEvent('enemy_defeated');
     this.scrap += pred.scrapReward;
     this.coins += Math.max(1, Math.round(pred.scrapReward / 2));
 
@@ -1452,8 +1517,131 @@ export class GameEngine {
     this.syncHud();
   }
 
+  private getNearbyDialogueAgent(maxDistance = 4.5) {
+    return this.society.snapshot().agents
+      .filter((agent) => agent.status !== 'disabled' && DIALOGUE_DATA.some((node) => node.agentId === agent.id))
+      .map((agent) => ({ agent, distance: Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z) }))
+      .filter((entry) => entry.distance <= maxDistance)
+      .sort((a, b) => a.distance - b.distance || a.agent.id.localeCompare(b.agent.id))[0]?.agent ?? null;
+  }
+
+  private buildDialogueContext(agentId: string): DialogueContext | null {
+    const agent = this.society.snapshot().agents.find((candidate) => candidate.id === agentId);
+    if (!agent) return null;
+    const relation = this.dialogueRelations.get(agentId) ?? { affinity: 50, trust: 50 };
+    return {
+      agentId,
+      affinity: relation.affinity,
+      trust: relation.trust,
+      morale: agent.needs.morale,
+      weather: this.weather,
+      timeOfDay: this.timeOfDay,
+      playerHealthRatio: this.health / Math.max(1, this.getEffectiveMaxHealth()),
+      territoryControlled: this.conqueredTerritories.size > 0,
+      completedTaskIds: [],
+      flags: Object.fromEntries(this.dialogueFlags),
+    };
+  }
+
+  private startNearbyDialogue(): boolean {
+    if (this.activeDialogue) return false;
+    const agent = this.getNearbyDialogueAgent();
+    if (!agent) return false;
+    const context = this.buildDialogueContext(agent.id);
+    if (!context) return false;
+    const state = startDialogue(agent.id, context, DIALOGUE_DATA);
+    if (!state) return false;
+    this.activeDialogue = state;
+    this.phase = 'paused';
+    this.syncHud();
+    return true;
+  }
+
+  private applyDialogueEffect(agentId: string, effect: DialogueEffect): void {
+    switch (effect.kind) {
+      case 'affinity':
+      case 'trust': {
+        const current = this.dialogueRelations.get(agentId) ?? { affinity: 50, trust: 50 };
+        current[effect.kind] = THREE.MathUtils.clamp(current[effect.kind] + Math.trunc(effect.amount), 0, 100);
+        this.dialogueRelations.set(agentId, current);
+        break;
+      }
+      case 'give_item': {
+        if (effect.itemId !== 'scrap' || !Number.isFinite(effect.quantity)) break;
+        const quantity = Math.max(1, Math.min(10, Math.floor(effect.quantity)));
+        this.scrap += quantity;
+        this.callbacks.onToast(`Recebeu ${quantity} sucata.`, 'success');
+        break;
+      }
+      case 'open_task': {
+        if (!effect.taskId || effect.taskId.length > 100) break;
+        const definition = getPlayerTaskDefinition(effect.taskId);
+        if (!definition) break;
+        const wasAccepted = this.acceptedDialogueTasks.has(effect.taskId);
+        this.acceptedDialogueTasks.add(effect.taskId);
+        this.playerTasks = acceptPlayerTask(this.playerTasks, effect.taskId);
+        this.callbacks.onToast(wasAccepted ? 'Esse pedido já está registrado.' : `Tarefa aceita: ${definition.title}.`, 'success');
+        break;
+      }
+      case 'grant_xp': {
+        if (!Number.isFinite(effect.amount) || effect.amount <= 0) break;
+        this.gainXp(Math.min(10000, Math.floor(effect.amount)));
+        break;
+      }
+      case 'set_flag': {
+        if (!effect.flagId || effect.flagId.length > 100 || typeof effect.value !== 'boolean') break;
+        this.dialogueFlags.set(effect.flagId, effect.value);
+        break;
+      }
+    }
+  }
+
+  private getBattleItemCount(itemId: string): number {
+    return this.battleInventory.find((entry) => entry.itemId === itemId)?.quantity ?? 0;
+  }
+
+  private addBattleItem(itemId: string, amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const current = this.battleInventory.find((entry) => entry.itemId === itemId);
+    if (current) current.quantity = Math.min(99, current.quantity + Math.floor(amount));
+    else this.battleInventory.push({ itemId, quantity: Math.min(99, Math.floor(amount)) });
+    this.callbacks.onToast('Ração energética +1: disponível para usar em batalhas.', 'success');
+  }
+
+  private recordPlayerTaskEvent(event: PlayerTaskEvent, amount = 1): void {
+    const result = advancePlayerTasks(this.playerTasks, event, amount);
+    this.playerTasks = result.states;
+    for (const task of result.completed) {
+      this.scrap += task.rewardScrap;
+      this.gainXp(task.rewardXp);
+      this.callbacks.onToast(`Tarefa concluída: ${task.title}. +${task.rewardXp} XP e +${task.rewardScrap} sucata.`, 'success');
+    }
+  }
+
+  public chooseDialogueOption(optionId: string): void {
+    const state = this.activeDialogue;
+    if (!state || state.ended) return;
+    const context = this.buildDialogueContext(state.agentId);
+    if (!context) return;
+    const transition = chooseOption(state, optionId, context, DIALOGUE_DATA);
+    if (!transition) return;
+    for (const effect of transition.effects) this.applyDialogueEffect(state.agentId, effect);
+    this.activeDialogue = transition.state;
+    this.saveGame();
+    this.syncHud();
+  }
+
+  public closeDialogue(): void {
+    if (!this.activeDialogue) return;
+    this.activeDialogue = null;
+    if (this.phase === 'paused') this.phase = 'playing';
+    this.syncHud();
+  }
+
   public triggerInteract(): void {
-    if (this.phase !== 'playing' || !this.activeInteractableId) return;
+    if (this.phase !== 'playing') return;
+    if (this.startNearbyDialogue()) return;
+    if (!this.activeInteractableId) return;
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return;
 
@@ -1466,6 +1654,8 @@ export class GameEngine {
       this.health = Math.min(maxHp, this.health + 12);
       this.gainXp(item.xpGain);
       this.foodCollected++;
+      this.addBattleItem('ration', 1);
+      this.recordPlayerTaskEvent('food_collected');
       item.active = false;
       item.mesh.visible = false;
       item.respawnTimer = item.maxRespawn;
@@ -1477,6 +1667,7 @@ export class GameEngine {
       this.stamina = Math.min(maxStam, this.stamina + 25);
       this.gainXp(item.xpGain);
       this.waterDrunk++;
+      this.recordPlayerTaskEvent('water_drunk');
       item.active = false;
       item.mesh.visible = false;
       item.respawnTimer = item.maxRespawn;
@@ -1485,6 +1676,7 @@ export class GameEngine {
       this.callbacks.onToast(`+${item.amount} Sede (${item.name})`, 'success');
     } else if (item.kind === 'scrap') {
       this.scrap += item.amount;
+      this.recordPlayerTaskEvent('scrap_collected', item.amount);
       this.gainXp(item.xpGain);
       item.active = false;
       item.mesh.visible = false;
@@ -1540,6 +1732,7 @@ export class GameEngine {
     this.scrap -= cost;
     shelter.shelterLevel = currentLevel + 1;
     this.sheltersUpgraded++;
+    this.recordPlayerTaskEvent('shelter_upgraded');
     this.applyShelterVisual(shelter);
     this.awardStars(2);
     gameAudio.playEvolution();
@@ -1594,6 +1787,7 @@ export class GameEngine {
     this.stamina = this.getEffectiveMaxStamina();
 
     if (this.level > prevLevel) {
+      this.unlockMovesForLevel(prevLevel);
       this.applyStageFromLevel(true);
       if (this.level >= MAX_CAT_LEVEL && prevLevel < MAX_CAT_LEVEL) {
         this.callbacks.onToast(
@@ -1624,6 +1818,15 @@ export class GameEngine {
       shelter.shelterDome.scale.set(1.5, 1.25, 1.5);
       mat.color.setHex(0x065f46);
       if (shelter.shelterLight) shelter.shelterLight.color.setHex(0x10b981);
+    }
+  }
+
+  private unlockMovesForLevel(previousLevel: number): void {
+    const newlyUnlocked = getNewlyUnlockedMoves(previousLevel, this.level);
+    for (const move of newlyUnlocked) {
+      if (this.unlockedMoves.has(move.id)) continue;
+      this.unlockedMoves.add(move.id);
+      this.callbacks.onToast(`Nova técnica aprendida: ${move.name}!`, 'success');
     }
   }
 
@@ -1662,6 +1865,12 @@ export class GameEngine {
         scrap: this.scrap,
         coins: this.coins,
         battleMana: this.battleMana,
+        battleInventory: this.battleInventory,
+        unlockedMoves: Array.from(this.unlockedMoves),
+        dialogueRelations: Object.fromEntries(this.dialogueRelations),
+        dialogueFlags: Object.fromEntries(this.dialogueFlags),
+        acceptedDialogueTasks: Array.from(this.acceptedDialogueTasks),
+        playerTasks: this.playerTasks,
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
@@ -1732,11 +1941,13 @@ export class GameEngine {
         this.triggerShelterUpgrade();
       } else if (code === 'KeyJ' || code === 'KeyC') {
         this.triggerClawAttack();
-      } else if (this.duelPhase === 'fighting' && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5')) {
-        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit' };
+      } else if (this.duelPhase === 'fighting' && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].includes(code)) {
+        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit', Digit6: 'combo_a', Digit7: 'combo_b' };
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);
+      } else if (code === 'KeyI' && this.duelPhase === 'fighting') {
+        this.battleCommand('item');
       } else if (code === 'KeyT' && this.duelPhase === 'fighting' && this.battle) {
         // Troca o alvo entre os oponentes de pé.
         const alive = livingFoes(this.battle);
@@ -2765,6 +2976,18 @@ export class GameEngine {
   }
 
   private buildPrompt(): PromptInfo | null {
+    if (!this.activeDialogue) {
+      const resident = this.getNearbyDialogueAgent();
+      if (resident) {
+        return {
+          id: resident.id,
+          kind: 'resident',
+          label: resident.displayName,
+          detail: 'Habitante da comunidade · Relação social',
+          actionText: 'Conversar',
+        };
+      }
+    }
     if (!this.activeInteractableId) return null;
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return null;
@@ -2881,6 +3104,16 @@ export class GameEngine {
       }
     }
 
+    const dialogueNode = this.activeDialogue
+      ? DIALOGUE_DATA.find((node) => node.id === this.activeDialogue?.nodeId)
+      : undefined;
+    const dialogueContext = this.activeDialogue && !this.activeDialogue.ended
+      ? this.buildDialogueContext(this.activeDialogue.agentId)
+      : null;
+    const dialogueOptions = dialogueNode && dialogueContext
+      ? availableOptions(dialogueNode, dialogueContext)
+      : [];
+
     return {
       health: this.health,
       maxHealth: this.getEffectiveMaxHealth(),
@@ -2898,6 +3131,10 @@ export class GameEngine {
       stars: this.stars,
       starProgress: this.starProgress,
       starNext: this.getStarNext(),
+      unlockedMoves: Array.from(this.unlockedMoves),
+      activeDialogue: this.activeDialogue,
+      activeDialogueOptions: dialogueOptions,
+      playerTasks: this.playerTasks.map((task) => { const definition = getPlayerTaskDefinition(task.id)!; return { ...task, title: definition.title, description: definition.description, target: definition.target }; }),
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),

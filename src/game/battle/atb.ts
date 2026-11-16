@@ -13,7 +13,7 @@ export type FoeSide = 'opponent' | 'opponent2' | 'opponent3' | 'opponent4';
 export type Side = 'player' | FoeSide;
 export const FOE_SIDES: readonly FoeSide[] = ['opponent', 'opponent2', 'opponent3', 'opponent4'];
 export const MAX_FOES = FOE_SIDES.length;
-export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit';
+export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b';
 
 export interface Combatant {
   vigor: number;
@@ -33,6 +33,8 @@ export interface BattleState {
   opponent4?: Combatant;
   /** Quantos oponentes existem (1 a 4). */
   foeCount: number;
+  /** Raçoes consumíveis disponíveis para o jogador nesta batalha. */
+  playerItems: number;
   /** Quem está pronto para agir (aguardando comando/IA). */
   ready: Side | null;
   turn: number;
@@ -68,6 +70,8 @@ export interface BattleAction {
   knockedOut: boolean;
   /** Esta ação encerrou a batalha. */
   finishing: boolean;
+  /** Recuperação de vigor aplicada por um item. */
+  healing?: number;
 }
 
 export const VIGOR_MAX = 100;
@@ -95,11 +99,17 @@ export const MAX_TURNS = 60;
 /** Turnos extras permitidos por oponente adicional. */
 export const EXTRA_TURNS_PER_FOE = 30;
 
+export const COMBO_UNLOCKS = { combo_a: 25, combo_b: 55 } as const;
+export const COMBO_MANA_COST = { combo_a: 35, combo_b: 70 } as const;
+
 export const COMMAND_LABELS: Record<BattleCommand, string> = {
   attack: 'Arranhar',
   flurry: 'Garra Furiosa',
   guard: 'Defender',
   limit: 'Sequência Especial: Garra Meteoro',
+  item: 'Usar Ração',
+  combo_a: 'Rasante Duplo',
+  combo_b: 'Tempestade de Garras',
 };
 
 function nextRandom(state: number): { value: number; state: number } {
@@ -129,6 +139,7 @@ export interface CreateBattleExtra {
   playerMana?: number;
   /** Níveis dos oponentes; o tamanho define o grupo (1 a 4). */
   foeLevels?: number[];
+  playerItems?: number;
 }
 
 export function createBattle(
@@ -149,6 +160,7 @@ export function createBattle(
     },
     opponent: { vigor: VIGOR_MAX, atb: 20, limit: 0, guarding: false, speed: 18 },
     foeCount: foeLevels.length,
+    playerItems: Math.max(0, Math.floor(extra.playerItems ?? 0)),
     ready: null,
     turn: 0,
     finished: false,
@@ -222,6 +234,9 @@ export function tickAtb(state: BattleState, dt: number): Side | null {
 export function canUseCommand(state: BattleState, side: Side, command: BattleCommand): boolean {
   if (state.finished || state.ready !== side) return false;
   if (command === 'limit') return fighter(state, side).limit >= LIMIT_MAX;
+  if (command === 'item') return side === 'player' && state.playerItems > 0 && state.player.vigor < VIGOR_MAX;
+  if (command === 'combo_a') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_a && state.player.limit >= COMBO_MANA_COST.combo_a;
+  if (command === 'combo_b') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_b && state.player.limit >= COMBO_MANA_COST.combo_b;
   return true;
 }
 
@@ -267,13 +282,14 @@ export function resolveCommand(
 ): BattleAction {
   if (!canUseCommand(state, actor, command)) throw new Error('Comando indisponível.');
   let target: Side = 'player';
-  if (actor === 'player') {
+  if (actor === 'player' && command !== 'item') {
     target = chosenTarget && fighter(state, chosenTarget).vigor > 0 && foeSides(state).includes(chosenTarget) ? chosenTarget : defaultTarget(state);
   }
   const me = fighter(state, actor);
   const power = actor === 'player' ? state.playerPower : foePower(state);
   const hits: BattleHit[] = [];
   let blocked = false;
+  let healing: number | undefined;
 
   me.guarding = false; // a defesa dura até a próxima ação de quem defendeu
   switch (command) {
@@ -298,6 +314,33 @@ export function resolveCommand(
       me.atb = 25; // defender é rápido
       break;
     }
+    case 'item': {
+      state.playerItems = Math.max(0, state.playerItems - 1);
+      healing = Math.min(28, VIGOR_MAX - state.player.vigor);
+      state.player.vigor = Math.min(VIGOR_MAX, state.player.vigor + healing);
+      me.atb = 0;
+      break;
+    }
+    case 'combo_a': {
+      me.limit -= COMBO_MANA_COST.combo_a;
+      for (let i = 0; i < 4; i += 1) {
+        const r = applyHit(state, target, 7 + power * 1.6 + Math.floor(rand(state) * 3), false);
+        hits.push({ damage: r.damage, crit: r.crit });
+        blocked = blocked || r.blocked;
+      }
+      me.atb = -10;
+      break;
+    }
+    case 'combo_b': {
+      me.limit -= COMBO_MANA_COST.combo_b;
+      for (let i = 0; i < 6; i += 1) {
+        const r = applyHit(state, target, 8 + power * 1.9 + Math.floor(rand(state) * 4), false);
+        hits.push({ damage: r.damage, crit: r.crit });
+        blocked = blocked || r.blocked;
+      }
+      me.atb = -25;
+      break;
+    }
     case 'limit': {
       me.limit = 0;
       const sp = specialProfile(levelOf(state, actor));
@@ -310,10 +353,10 @@ export function resolveCommand(
     }
   }
 
-  if (command !== 'limit') me.limit = Math.min(LIMIT_MAX, me.limit + MANA_GAIN[command]);
+  if (command === 'attack' || command === 'flurry' || command === 'guard') me.limit = Math.min(LIMIT_MAX, me.limit + MANA_GAIN[command]);
   state.ready = null;
   state.turn += 1;
-  const knockedOut = command !== 'guard' && fighter(state, target).vigor <= 0;
+  const knockedOut = command !== 'guard' && command !== 'item' && fighter(state, target).vigor <= 0;
   const maxTurns = MAX_TURNS + EXTRA_TURNS_PER_FOE * (state.foeCount - 1);
   let finishing = false;
   if (state.player.vigor <= 0) {
@@ -335,7 +378,7 @@ export function resolveCommand(
     else state.winner = null;
     finishing = true;
   }
-  return { actor, target, command, name: COMMAND_LABELS[command], hits, blocked, knockedOut, finishing };
+  return { actor, target, command, name: COMMAND_LABELS[command], hits, blocked, knockedOut, finishing, ...(healing ? { healing } : {}) };
 }
 
 export function forfeitBattle(state: BattleState): void {

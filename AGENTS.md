@@ -2,7 +2,7 @@
 
 > **Leia este arquivo primeiro.** Ele resume o que o jogo é, o que já existe no código, o que foi decidido pelo autor e o que falta fazer. Foi escrito para que qualquer IA (ChatGPT/Codex, Claude, Gemini, Cursor, Copilot, Google AI Studio etc.) entenda o projeto sem depender de conversas anteriores.
 >
-> Última atualização: 2026-11-14. Estado do código descrito: `main` após o modo batalha 1x1 (ver `git log`).
+> Última atualização: 2026-11-15. Estado do código descrito: base da batalha ATB/cinematográfica e contratos iniciais de diálogo em branch de trabalho.
 > Quando mudar algo relevante, **atualize a seção 4 (estado atual) e a seção 5 (roteiro)** no mesmo commit.
 
 ## 1. Resumo do projeto
@@ -14,6 +14,7 @@
 - **Publicação:** GitHub Pages, https://shaksperio.github.io/Tomas-Cat/ (base `/Tomas-Cat/` em `vite.config.ts`). Deploy automático a cada push na `main`, pelo workflow `.github/workflows/deploy-pages.yml`.
 - **Origem:** criado no Google AI Studio; versionado aqui. Mantenha a configuração do Vite e o workflow ao sincronizar.
 - **Idioma:** textos de interface e comunicação com o autor em **português do Brasil**.
+- **CI de pull requests:** o workflow `deploy-pages.yml` valida testes, TypeScript e build em PRs; publicação no Pages ocorre apenas em `push` para `main` ou execução manual.
 
 ## 2. Regras para qualquer IA que mexer no projeto
 
@@ -49,7 +50,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - `worldBuilder.ts`: cidade pré-construída (limite do mundo `WORLD_BOUNDS = 220`), 4 distritos, 6 abrigos, prédios ocos acessíveis (`addAccessibleBuilding`), colisores, gates de fase, terminais de lore.
 - `catModel.ts`, `enemyModels.ts`, `textures.ts`, `audio.ts`: modelos, texturas e áudio procedurais (sem arquivos de asset).
 - `GameHUD.tsx`, `TitleScreen.tsx`, `App.tsx`: interface em React.
-- **Progressão:** níveis 1–99, 4 estágios de evolução do gato, 5 chances, checkpoints após cada chefe.
+- **Progressão:** níveis 1–99, 4 estágios de evolução do gato, 5 chances, checkpoints após cada chefe. A barra existente (`starProgress`, XP até a próxima estrela) continua sendo a fonte única de XP; `src/game/progression/unlocks.ts` define técnicas liberadas automaticamente por nível. Os IDs liberados são persistidos opcionalmente em `SavedGameState.unlockedMoves`; saves v4 antigos são migrados em memória usando o nível atual. A HUD mostra as técnicas aprendidas sem substituir o painel de evolução.
 - **Fases e chefes:** 1 Subúrbio (Rei Rato Gigante), 2 Telhados (Gato Cicatriz), 3 Hospital (Cão Alfa Cibernético), 4 Estádio (Leão Apex).
 - **Sobrevivência:** vida, fome, sede, calor, energia/resistência e oxigênio real (consome com a cabeça submersa, recupera na superfície, afogamento a 0; ver `src/game/survival/water.ts`). Fome, sede e exaustão reduzem mobilidade e a desidratação/fome extremas reduzem a recuperação de resistência. Interações: comida, presas, pesca renovável, água, abrigo, sucata, terminais.
 - **Ciclo do dia:** 7 períodos (Madrugada 0–5h, Alvorecer 5–7, Manhã 7–11, Dia 11–16, Tarde 16–18, Anoitecer 18–20, Noite 20–24), definidos em `src/game/dayCycle.ts` (puro, testado) e usados pela HUD e pelo motor. Cada período tem cor de céu/névoa própria (keyframes `SKY_KEYFRAMES`) e o sol esquenta de cor perto do horizonte.
@@ -63,7 +64,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - **Direção de arte (2026-11-15):** aventura 3D clássica low-poly (inspiração de ESTILO: aventuras 3D de 32/64 bits; combate em turnos com barra ATB). Relva estilizada no chão, estradas de terra, fachadas de reboco com vigas de madeira, skyline pastel facetado, céu saturado por período (`SKY_KEYFRAMES`), resolução levemente suave. `src/game/style/artDirection.ts` (paleta, RNG determinístico, posicionamento testado) e `vegetation.ts` (árvores, arbustos, flores, pedras e 4 santuários de pedra, tudo instanciado). **REGRA DE ORIGINALIDADE:** nunca copiar mapas, personagens, nomes, texturas, modelos, músicas ou cenários de outros jogos; só linguagem visual geral. Verificado por capturas headless (dia e tarde).
 - **Iluminação (ajuste de 2026-11-14):** o escuro vinha das texturas de asfalto e fachadas, quase pretas; foram clareadas, junto com as estradas e o piso ambiente noturno (hemisfério 1,55+). Verificado renderizando o GameEngine headless (manhã, meio-dia, noite).
 
-- **Modo batalha 1x1 (cinematográfico, estilo RPG por turnos com barra ATB):** regras de aposta em `src/game/battle/duel.ts`; combate por turnos em `src/game/battle/atb.ts` (puro, determinístico, testado); cena 3D em `src/game/battle/BattleStage.ts` (só apresentação). **B** (ou botão "Desafiar") convida o habitante mais próximo (até 7 m); os dois apostam o MESMO valor: **moedas** (padrão 30), **item** (sucata), **energia vital** ou **oxigênio**. Ao aceitar, o mundo "congela" e entra a cena: transição em espiral, barras de cinema, câmera com cortes (plano aberto, sobre o ombro, impacto, órbita), investidas, recuo, riscos de garra, faíscas, números de dano, "hit stop", tremor de tela. Durante a batalha a HUD normal some: ficam só duelistas, comandos e o botão "Abandonar batalha" (tecla 5). Comandos (teclas 1–4 ou menu; J/C = Arranhar): **Arranhar**, **Garra Furiosa** (3 golpes), **Defender** (metade do dano), **Especial: Garra Meteoro** (barra de MANÁ cheia: salto, cinemática escura e sequência de golpes que ignora a defesa; o maná sobe a cada comando executado — Arranhar +14, Garra Furiosa +24, Defender +6 — e a cada golpe recebido; a força vem do nível, `specialProfile` em `atb.ts`: nível 1 ≈ 3 golpes/18 de vigor, nível 99 ≈ 6 golpes/72). O ATB só avança quando ninguém está agindo (modo espera); apanhar também enche o maná. Vence quem zerar o vigor do outro (luta estilizada, sem ferimentos; no máx. 60 turnos). Regras públicas de segurança: vida/oxigênio apostados no máximo 50% do atual e ninguém cai abaixo de 25% do máximo; sem saldo suficiente a aposta é recusada; o habitante pode recusar (descansando, moral < 25, cansado demais para apostar energia). Empate não transfere nada. O jogador tem **moedas** (começa com 60, +metade da sucata de cada predador abatido; salvas no jogo); habitantes começam com 40 (`INITIAL_WALLET`). Resolução vem de `settleDuel` — o servidor futuro (fase 6+) deve ser o único a chamá-la. O modo em tempo real antigo (`createDuelCombat`/`tickDuel` em `duel.ts`) ficou sem uso no jogo.
+- **Modo batalha 1x1 (cinematográfico, estilo RPG por turnos com barra ATB):** regras de aposta em `src/game/battle/duel.ts`; combate por turnos em `src/game/battle/atb.ts` (puro, determinístico, testado); cena 3D em `src/game/battle/BattleStage.ts` (só apresentação). **B** (ou botão "Desafiar") convida o habitante mais próximo (até 7 m); os dois apostam o mesmo valor: moedas, sucata, energia vital ou oxigênio. Ao aceitar, o mundo congela e entra a cena cinematográfica já descrita. Comandos: **Arranhar**, **Garra Furiosa**, **Defender**, **Especial: Garra Meteoro**, **Ração energética** (I), **Rasante Duplo** (nível 25, tecla 6, 35 MP) e **Tempestade de Garras** (nível 55, tecla 7, 70 MP). Cada coleta de comida, peixe ou presa concede uma ração gratuita; uma ração recupera até 28 pontos de vigor, limitada a 100, consome um turno ATB e não enche maná. Inventário e consumo são persistidos. Os combos `combo_a`/Rasante Duplo e `combo_b`/Tempestade de Garras estão implementados e desbloqueiam nos níveis 25 e 55; custam 35 e 70 MP, respectivamente, consomem o turno e usam sequências cinematográficas próprias. O ATB só avança quando ninguém está agindo (modo espera). Regras de aposta, limites de segurança e resolução permanecem em `duel.ts`.
 
 ### 4.2 Sociedade artificial (`src/game/society/`) — simulação local
 - `contracts.ts`: tipos `SocietyAgent`, `AgentTask`, `ConstructionProject`, `WorldEvent` (com chave de idempotência), 8 profissões (`engineer`, `worker`, `agent`, `farmer`, `lumberjack`, `miner`, `carpenter`, `merchant`), validações.
@@ -80,6 +81,9 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - `SocietyActors.ts`: personagens 3D, placas de nome, indicadores de estado, balões de conversa, plantação 3D (3 fileiras de 12 plantas) e armazém comunitário com estoque visual.
 - Testes: `contracts.test.ts` e `simulation.test.ts`.
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
+
+- **Diálogos locais (branch `codex/dialogue-phase0`, PR #3):** `src/game/dialogue/` contém contratos, dados escritos e runner puro para os nove habitantes, com nove nós por habitante (saudação, clima, pedido de ajuda, moral baixa e ramificações contextuais). A interação por proximidade abre uma janela clássica na HUD (inclusive durante a pausa do motor); opções condicionais verificam ferimento do jogador, noite, território conquistado, chuva ácida e flags de encontros anteriores. As nove falas contextuais por habitante têm testes de coerência textual. Afinidade, confiança, flags e IDs de pedidos aceitos são salvos em campos opcionais retrocompatíveis. A condição `night` usa o relógio normalizado do motor (0–1). **Tarefas dos diálogos (incremento atual):** `src/game/tasks/playerTasks.ts` define nove pedidos concretos, um por habitante, com objetivos ligados a eventos reais do jogo (coleta de comida/água/sucata, derrotar inimigos e melhorar abrigos). `GameEngine` aceita pedidos uma única vez, avança progresso pelos eventos, conclui automaticamente e concede XP pela barra de progressão existente + sucata como recompensa. O estado ativo/concluído é salvo em `SavedGameState.playerTasks`, opcional para compatibilidade retroativa; a HUD mostra progresso e conclusão. Testes puros cobrem catálogo, aceitação idempotente, avanço por evento, conclusão única e entradas inválidas. **Limitações restantes:** não há objetivos em múltiplas etapas, marcadores/rotas para tarefas, nem testes dedicados de integração do motor/HUD. A conversa ativa não é retomada após recarregar o save.
+- `src/game/battle/commands.ts` descreve metadados cinematográficos da ração e dos dois combos; `atb.ts` executa item, Rasante Duplo e Tempestade de Garras com custos de turno/maná e desbloqueio por nível. Campos opcionais de diálogo, comandos e inventário mantêm compatibilidade com saves antigos.
 
 ### 4.3 O que NÃO existe ainda
 Backend e persistência remota; a sociedade não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
@@ -116,6 +120,15 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 | 9 | Multiplayer e conflitos entre jogadores humanos e animais de IA | Pendente |
 
 ### 5.3 Diretrizes de design (a implementar)
+
+**Expansão de jogabilidade solicitada pelo autor (incremental, sem substituir sistemas existentes)**
+- Progressão: preservar níveis/estrelas e a barra `starProgress`; evoluir a partir dela, sem criar XP paralelo. Técnicas são liberadas por nível e persistidas retrocompativelmente.
+- Economia: catálogo único de itens, inventário e equipamentos; lojas e pickups devem compartilhar os mesmos IDs e efeitos. Todo item de loja deve ter ao menos uma fonte gratuita no mundo ou em tarefas.
+- Tarefas: geração em ciclos de 600 segundos de jogo ativo, com estado persistente, painel aceito minimizado, rota navegável e recompensa física coletável. Nunca repetir tarefas concluídas.
+- Posturas: alternância quadrúpede/bípede com animações, modificadores e compatibilidade com natação/escalada; preservar a locomoção atual como postura padrão.
+- Territórios: expandir os rivais existentes em gangues e líderes regionais; preservar IDs, chefes principais e progresso de conquista.
+
+
 
 **Sociedade animal complexa, como uma cidade real**
 - Profissões e cargos: construção e engenharia; agricultura e produção; saúde; segurança e justiça; comércio e economia; educação e cultura. Cada uma com especializações, níveis, horários, ferramentas, locais de trabalho e hierarquia.
@@ -165,7 +178,16 @@ Backend e persistência remota; a sociedade não entra no salvamento; mundo que 
 - Cowila coordena agentes especializados (Cosmológico, Civilizacional, Ecológico, Climático, Econômico, Histórico, Segurança, Exploração). Eles propõem; regras determinísticas validam.
 - "Infinito" na prática: mundos procedurais, simulação por regiões, arquivo histórico comprimido, estados resumidos, instâncias criadas e encerradas, IDs permanentes, relógio lógico independente dos jogadores, recuperação automática.
 
-### 5.4 Sequência recomendada (a partir de agora)
+### 5.4 Roteiro de diálogos e batalha cinematográfica (decisão do autor)
+1. Fase 0 — **feito**: contratos tipados, dados iniciais, runner puro, testes e campos opcionais retrocompatíveis.
+2. Fase 1 — **parcial, ampliada**: interação por proximidade, janela de diálogo, opções condicionais, relações/flags persistentes e nove tarefas com objetivos reais, progresso por eventos, conclusão, recompensas e HUD. Faltam tarefas em múltiplas etapas, rotas/waypoints e testes dedicados de integração do motor/HUD.
+3. Fase 2 — **parcial**: ração energética integrada ao inventário persistente, obtida gratuitamente por coleta, utilizável na batalha para recuperar até 28 pontos de vigor, com custo de turno, HUD/tecla I, animação e testes determinísticos. Faltam mais itens e expansão das apresentações cinematográficas; os dois primeiros combos desbloqueáveis já estão integrados.
+4. Fase 3 — diálogos de provocação e resultado conectados às batalhas e às flags de história.
+5. Fase 4 — conteúdo, acessibilidade, desempenho móvel e regressão.
+
+A batalha existente em `atb.ts` e `BattleStage.ts` é a base a evoluir, não a ser substituída. O ATB executa `attack`, `flurry`, `guard`, `limit` e `item` (ração energética, adquirida ao recolher comida/peixe/presa). `combo_a` e `combo_b` são os IDs internos dos combos jogáveis Rasante Duplo e Tempestade de Garras.
+
+### 5.5 Sequência recomendada (a partir de agora)
 1. Sistema de sobrevivência do gato (fome, sede, oxigênio, energia vital, resistência). **Oxigênio, natação e mergulho: feitos (ver 4.1).**
 2. Recursos naturais, coleta, pesca, caça e construção de abrigos.
 3. IA de predadores, presas e ecossistemas.

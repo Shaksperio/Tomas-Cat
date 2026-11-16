@@ -23,6 +23,7 @@ const INITIAL_HUD: HudSnapshot = {
   stars: 0,
   starProgress: 0,
   starNext: 57,
+  unlockedMoves: ['basic-claw'],
   isAlphaLeader: false,
   rankTitle: 'Sobrevivente Errante',
   attackPower: EVOLUTION_STAGES[0].attackDamage,
@@ -196,6 +197,8 @@ export default function App() {
           onPauseToggle={handlePauseToggle}
           onContinueAfterVictory={handleContinueAfterVictory}
           onInteract={() => engineRef.current?.triggerInteract()}
+          onDialogueOption={(optionId) => engineRef.current?.chooseDialogueOption(optionId)}
+          onDialogueClose={() => engineRef.current?.closeDialogue()}
           onUpgradeShelter={() => engineRef.current?.triggerShelterUpgrade()}
           onClawAttack={() => engineRef.current?.triggerClawAttack()}
           onChallenge={() => engineRef.current?.challengeNearest()}

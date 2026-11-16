@@ -1,3 +1,6 @@
+import type { DialogueOption, DialogueState } from '../game/dialogue/types';
+import type { BattleInventoryItem } from '../game/battle/commands';
+
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
 
 export type WeatherState =
@@ -16,7 +19,8 @@ export type InteractionKind =
   | 'water'
   | 'shelter'
   | 'scrap'
-  | 'terminal';
+  | 'terminal'
+  | 'resident';
 
 export type EnemyKind = 'rat' | 'feral_cat' | 'hound' | 'lion';
 
@@ -248,6 +252,8 @@ export interface DuelHud {
   playerAtb: number;
   opponentAtb: number;
   playerLimit: number;
+  /** Nível atual, usado para mostrar técnicas desbloqueadas. */
+  playerLevel: number;
   /** Aguardando o comando do jogador. */
   awaitingCommand: boolean;
   intro: boolean;
@@ -262,6 +268,8 @@ export interface DuelHud {
   targetSide: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4' | null;
   /** Maná guardado de batalhas vencidas (0–100). */
   storedMana: number;
+  /** Raçoes consumíveis restantes para esta batalha. */
+  playerItems: number;
   /** Quantos habitantes por perto podem entrar num duelo em grupo (0–4). */
   groupAvailable: number;
   /** Limites que o jogador pode apostar agora (já aplicando as regras de segurança). */
@@ -288,6 +296,13 @@ export interface HudSnapshot {
   stars: number;
   starProgress: number;
   starNext: number;
+  unlockedMoves: string[];
+  /** Campos opcionais para ativação gradual dos diálogos e itens de batalha. */
+  activeDialogue?: DialogueState | null;
+  activeDialogueOptions?: DialogueOption[];
+  playerTasks?: Array<{ id: string; title: string; description: string; progress: number; target: number; status: 'active' | 'completed' }>;
+  unlockedCommands?: string[];
+  battleInventory?: BattleInventoryItem[];
   isAlphaLeader: boolean;
   rankTitle: string;
   attackPower: number;
@@ -332,6 +347,7 @@ export interface BossCheckpointData {
   level: number;
   stars: number;
   starProgress: number;
+  unlockedMoves?: string[];
   scrap: number;
   day: number;
   timeOfDay: number;
@@ -357,6 +373,16 @@ export interface SavedGameState {
   scrap: number;
   coins?: number;
   battleMana?: number;
+  /** Técnicas liberadas por nível; opcional para compatibilidade com saves v4 antigos. */
+  unlockedMoves?: string[];
+  /** Estado conversacional opcional; saves antigos continuam válidos. */
+  activeDialogue?: DialogueState | null;
+  unlockedCommands?: string[];
+  battleInventory?: BattleInventoryItem[];
+  dialogueRelations?: Record<string, { affinity: number; trust: number }>;
+  dialogueFlags?: Record<string, boolean>;
+  acceptedDialogueTasks?: string[];
+  playerTasks?: Array<{ id: string; progress: number; status: 'active' | 'completed' }>;
   day: number;
   timeOfDay: number;
   currentPhase: number;

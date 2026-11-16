@@ -42,6 +42,8 @@ import {
 import { getDayPeriod } from '../game/dayCycle';
 import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
+import { MOVE_UNLOCKS } from '../game/progression/unlocks';
+import { DIALOGUE_DATA } from '../game/dialogue/dialogueData';
 
 interface GameHUDProps {
   phase: GamePhase;
@@ -54,13 +56,15 @@ interface GameHUDProps {
   onPauseToggle: () => void;
   onContinueAfterVictory: () => void;
   onInteract: () => void;
+  onDialogueOption: (optionId: string) => void;
+  onDialogueClose: () => void;
   onUpgradeShelter: () => void;
   onClawAttack: () => void;
   onChallenge: () => void;
   onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
-  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
   onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
   onSonar: () => void;
@@ -98,11 +102,14 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit'; label: string; key: string }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
   { id: 'limit', label: 'Especial', key: '4' },
+  { id: 'item', label: 'Ração energética', key: 'I' },
+  { id: 'combo_a', label: 'Rasante Duplo', key: '6', requiredLevel: 25, manaCost: 35 },
+  { id: 'combo_b', label: 'Tempestade de Garras', key: '7', requiredLevel: 55, manaCost: 70 },
 ];
 
 function BattleOverlay({
@@ -112,7 +119,7 @@ function BattleOverlay({
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b' | 'combo_a' | 'combo_b') => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
@@ -195,8 +202,8 @@ function BattleOverlay({
       {!duel.intro && (
         <div className="absolute inset-x-2 bottom-[12vh] flex items-end gap-2 sm:gap-3 pointer-events-auto">
           <div className="w-40 sm:w-52 p-2" style={windowStyle}>
-            {BATTLE_COMMANDS.map((c) => {
-              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady);
+            {BATTLE_COMMANDS.filter((c) => !c.requiredLevel || duel.playerLevel >= c.requiredLevel).map((c) => {
+              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady) || (c.id === 'item' && duel.playerItems <= 0) || (c.id === 'item' && duel.playerVigor >= 100) || (c.manaCost !== undefined && duel.playerLimit < c.manaCost);
               return (
                 <button
                   key={c.id}
@@ -208,7 +215,7 @@ function BattleOverlay({
                   } ${c.id === 'limit' && limitReady ? 'battle-limit-ready' : ''}`}
                 >
                   <span className="w-3 text-amber-300">{duel.awaitingCommand && !disabled ? '▶' : ''}</span>
-                  <span className="flex-1 truncate">{c.label}</span>
+                  <span className="flex-1 truncate">{c.label}{c.id === 'item' ? ` (${duel.playerItems})` : c.manaCost ? ` (${c.manaCost} MP)` : ''}</span>
                   <span className="text-[10px] font-mono-tabular opacity-60">[{c.key}]</span>
                 </button>
               );
@@ -262,7 +269,7 @@ function DuelPanel({
   onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onCancel: () => void;
   onForfeit: () => void;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'combo_a' | 'combo_b') => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
   const [kind, setKind] = useState<'coins' | 'item' | 'vitality' | 'oxygen'>('coins');
@@ -523,6 +530,8 @@ export function GameHUD({
   onPauseToggle,
   onContinueAfterVictory,
   onInteract,
+  onDialogueOption,
+  onDialogueClose,
   onUpgradeShelter,
   onClawAttack,
   onChallenge,
@@ -582,6 +591,9 @@ export function GameHUD({
 
   const stage = EVOLUTION_STAGES[hud.stageIndex];
   const chapter = CHAPTER_PHASES[Math.min(hud.currentPhase - 1, CHAPTER_PHASES.length - 1)];
+  const dialogueNode = hud.activeDialogue
+    ? DIALOGUE_DATA.find((node) => node.id === hud.activeDialogue?.nodeId)
+    : undefined;
   const starPct =
     hud.level >= MAX_CAT_LEVEL
       ? 100
@@ -597,6 +609,28 @@ export function GameHUD({
 
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-2.5 sm:p-4">
+      {phase === 'playing' && (hud.playerTasks?.length ?? 0) > 0 && (
+        <div className="pointer-events-auto fixed right-3 top-24 z-20 w-56 max-w-[48vw] rounded-lg border border-cyan-300/25 bg-[#0B1421]/90 p-2.5 shadow-lg backdrop-blur-sm">
+          <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-200">
+            <span>Pedidos dos habitantes</span>
+            <span>{hud.playerTasks?.filter((task) => task.status === 'completed').length}/{hud.playerTasks?.length}</span>
+          </div>
+          <div className="max-h-44 space-y-2 overflow-y-auto">
+            {hud.playerTasks?.map((task) => (
+              <div key={task.id} className="text-[10px]">
+                <div className="flex items-center justify-between gap-1">
+                  <span className={task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}>{task.title}</span>
+                  <span className="shrink-0 text-slate-400">{task.status === 'completed' ? '✓' : `${task.progress}/${task.target}`}</span>
+                </div>
+                <div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10">
+                  <div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, task.progress / Math.max(1, task.target) * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* TOP AREA */}
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
@@ -746,6 +780,15 @@ export function GameHUD({
                       className="h-full bg-amber-400 transition-all duration-200"
                       style={{ width: `${starPct}%` }}
                     />
+                  </div>
+                  <div className="mt-2 text-[10px] text-slate-400">
+                    Técnicas aprendidas ({hud.unlockedMoves.length}):{' '}
+                    <span className="text-cyan-200">
+                      {MOVE_UNLOCKS.filter((move) => hud.unlockedMoves.includes(move.id))
+                        .slice(-3)
+                        .map((move) => move.name)
+                        .join(' · ')}
+                    </span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-[11px] text-slate-300">
                     <span>Telhados Dominados</span>
@@ -1005,9 +1048,38 @@ export function GameHUD({
         </div>
       )}
 
+      {hud.activeDialogue && dialogueNode && (phase === 'playing' || phase === 'paused') && (
+        <div className="pointer-events-auto fixed bottom-24 left-1/2 z-30 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300/40 bg-[#101827]/96 p-4 shadow-2xl backdrop-blur-sm">
+          <div className="mb-2 flex items-center justify-between gap-3 border-b border-white/10 pb-2">
+            <div className="flex items-center gap-2 text-sm font-bold text-amber-200">
+              <MessageCircle className="h-4 w-4" />
+              <span>{dialogueNode.speaker}</span>
+            </div>
+            <button type="button" onClick={onDialogueClose} aria-label="Fechar conversa" className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mb-3 text-sm leading-relaxed text-slate-100">{dialogueNode.text}</p>
+          {!hud.activeDialogue.ended && (hud.activeDialogueOptions?.length ?? 0) > 0 ? (
+            <div className="grid gap-1.5">
+              {hud.activeDialogueOptions?.map((option, index) => (
+                <button key={option.id} type="button" onClick={() => onDialogueOption(option.id)} className="rounded-lg border border-cyan-300/20 bg-[#172438] px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-[#20334e]">
+                  <span className="mr-2 text-amber-300">{index + 1}.</span>{option.text}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
+              <span>Conversa concluída.</span>
+              <button type="button" onClick={onDialogueClose} className="rounded-lg bg-amber-400 px-3 py-1.5 font-bold text-slate-950 hover:bg-amber-300">Fechar</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* BOTTOM ACTION BAR */}
       <div className="flex flex-col items-center gap-2.5">
-        {hud.prompt && phase === 'playing' && (
+        {hud.prompt && phase === 'playing' && !hud.activeDialogue && (
           <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-xl border border-cyan-400/35 bg-[#0E1523]/95 px-4 py-2.5 shadow-xl">
             <div>
               <div className="font-display text-sm font-bold text-white">{hud.prompt.label}</div>
@@ -1037,7 +1109,7 @@ export function GameHUD({
           <DuelPanel duel={hud.duel} onOffer={onDuelOffer} onCancel={onDuelCancel} onForfeit={onDuelForfeit} onCommand={onBattleCommand} onTarget={onBattleTarget} />
         )}
 
-        {isTouchDevice && phase === 'playing' && (
+        {isTouchDevice && phase === 'playing' && !hud.activeDialogue && (
           <div className="pointer-events-auto w-full flex items-end justify-between px-1 pb-1">
             <VirtualJoystick sprint={touchSprint} onMove={onVirtualInput} />
 
