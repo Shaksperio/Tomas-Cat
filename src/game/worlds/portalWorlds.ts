@@ -54,6 +54,8 @@ export interface PortalTransition {
   returnAnchor: WorldReturnAnchor;
 }
 
+export const LEGACY_WORLD_ID: WorldId = 'quarantine-city';
+
 const DEFAULT_WORLD_ID = 'quarantine-city';
 
 function validPoint(value: unknown): value is WorldPoint {
@@ -80,6 +82,25 @@ export function createInitialWorldTravelState(worldId: WorldId = DEFAULT_WORLD_I
   return {
     activeWorldId: worldId,
     worlds: { [worldId]: { visited: true, playerPosition: { x: 0, z: 8 }, unlockedPortalIds: [] } },
+  };
+}
+
+/** Atualiza somente a posição do mundo ativo, preservando os demais mundos e âncora. */
+export function updateActiveWorldPosition(
+  state: WorldTravelSaveState,
+  position: WorldPoint,
+): WorldTravelSaveState {
+  if (!validPoint(position) || !state.activeWorldId || !state.worlds[state.activeWorldId]) return state;
+  return {
+    ...state,
+    worlds: {
+      ...state.worlds,
+      [state.activeWorldId]: {
+        ...state.worlds[state.activeWorldId],
+        visited: true,
+        playerPosition: { x: position.x, z: position.z },
+      },
+    },
   };
 }
 
