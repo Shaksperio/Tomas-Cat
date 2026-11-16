@@ -266,6 +266,8 @@ export interface DuelHud {
   targetSide: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4' | null;
   /** Maná guardado de batalhas vencidas (0–100). */
   storedMana: number;
+  /** Raçoes consumíveis restantes para esta batalha. */
+  playerItems: number;
   /** Quantos habitantes por perto podem entrar num duelo em grupo (0–4). */
   groupAvailable: number;
   /** Limites que o jogador pode apostar agora (já aplicando as regras de segurança). */
