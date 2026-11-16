@@ -286,3 +286,11 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - **Aves:** bandos procedurais são ocultados durante duelos/batalhas cinematográficas, evitando sobreposição visual e reforçando a reação do ambiente ao combate; voltam a aparecer quando a batalha termina e as condições de clima/horário permitem.
 - **Nuvens e lua:** as camadas existentes continuam limitadas a 14 meshes reutilizados; a fase e a iluminação lunar permanecem determinísticas em `skyAtmosphere.ts`.
 - **Limite desta entrega:** variações artísticas específicas por distrito/mundo e cintilação individual das estrelas ainda são pendências; não declarar o céu vivo concluído até cobrir esses pontos e validar visualmente as sete fases do dia.
+
+
+## HUD de tarefas e navegação GPS
+
+- O painel do sistema de tarefas fica na coluna superior esquerda, imediatamente abaixo do cartão compacto de energia, oxigênio e vida; não deve ocupar a coluna da mochila/inventário.
+- Quando um alvo GPS de missão passa a existir, abrir automaticamente o radar e recolher a lista de tarefas para um resumo compacto com destino e distância. O jogador pode expandir/recolher manualmente sem perder o acompanhamento.
+- O radar apresenta o rumo até o destino em azul, com marcador terminal. A rota navegável calculada no mundo 3D usa linha azul de alto contraste e continua sendo atualizada conforme o jogador se desloca.
+- Preservar o roteamento por obstáculos (A*) existente; o indicador 2D do radar é uma representação de rumo, não deve substituir nem falsificar a rota calculada no mundo.
