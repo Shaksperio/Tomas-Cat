@@ -1410,6 +1410,7 @@ export class GameEngine {
     pred.hp = 0;
     pred.group.visible = false;
     this.enemiesDefeated++;
+    this.recordPlayerTaskEvent('enemy_defeated');
     this.scrap += pred.scrapReward;
     this.coins += Math.max(1, Math.round(pred.scrapReward / 2));
 
@@ -3093,6 +3094,7 @@ export class GameEngine {
       unlockedMoves: Array.from(this.unlockedMoves),
       activeDialogue: this.activeDialogue,
       activeDialogueOptions: dialogueOptions,
+      playerTasks: this.playerTasks.map((task) => { const definition = getPlayerTaskDefinition(task.id)!; return { ...task, title: definition.title, description: definition.description, target: definition.target }; }),
       isAlphaLeader: this.level >= MAX_CAT_LEVEL,
       rankTitle: this.getRankTitle(),
       attackPower: this.getCurrentAttackDamage(),
