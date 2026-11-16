@@ -28,7 +28,7 @@ import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from '.
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
 import type { TaskCycleState } from './tasks/taskCycles';
-import { selectTaskGpsTarget } from './tasks/taskNavigation';
+import { selectFirstAvailableTaskGpsTarget } from './tasks/taskNavigation';
 import type { TaskGpsCandidate, TaskGpsTarget } from './tasks/taskNavigation';
 import { addInventoryItem, consumeInventoryItem, createInventoryState, inventoryCount, normalizeInventory } from './items/inventory';
 import type { InventoryState } from './items/inventory';
@@ -2382,23 +2382,39 @@ export class GameEngine {
   }
 
   private getTaskGpsTarget(): TaskGpsTarget | null {
-    const task = this.taskCycle.tasks.find((candidate) => candidate.status === 'active');
-    const stage = task?.stages[task.stageIndex];
-    if (!task || !stage) return null;
+    const objectives: Array<{ event: PlayerTaskEvent; objective: string; taskTitle: string }> = [];
+    for (const task of this.playerTasks) {
+      if (task.status !== 'active') continue;
+      const definition = getPlayerTaskDefinition(task.id);
+      if (definition) objectives.push({ event: definition.event, objective: definition.description, taskTitle: definition.title });
+    }
+    const cycleTask = this.taskCycle.tasks.find((candidate) => candidate.status === 'active');
+    const cycleStage = cycleTask?.stages[cycleTask.stageIndex];
+    if (cycleTask && cycleStage) {
+      objectives.push({ event: cycleStage.event, objective: cycleStage.label, taskTitle: cycleTask.title });
+    }
+    if (objectives.length === 0) return null;
+
     const candidates: TaskGpsCandidate[] = [];
     for (const item of this.world.interactables) {
       if (!item.active || item.taskRewardId) continue;
       const event = item.kind === 'food' || item.kind === 'prey' || item.kind === 'fish'
         ? 'food_collected'
-        : item.kind === 'water' ? 'water_drunk' : item.kind === 'scrap' ? 'scrap_collected' : null;
-      if (event === stage.event) candidates.push({ id: item.id, label: item.name, event, x: item.position.x, y: item.position.y, z: item.position.z });
+        : item.kind === 'water' ? 'water_drunk'
+          : item.kind === 'scrap' ? 'scrap_collected'
+            : item.kind === 'shelter' ? 'shelter_upgraded' : null;
+      if (event) candidates.push({ id: item.id, label: item.name, event, x: item.position.x, y: item.position.y, z: item.position.z });
     }
-    if (stage.event === 'enemy_defeated') {
+    if (objectives.some((objective) => objective.event === 'enemy_defeated')) {
       for (const predator of this.world.predators) {
         if (predator.alive && !predator.isFriendly) candidates.push({ id: predator.id, label: predator.name, event: 'enemy_defeated', x: predator.group.position.x, y: predator.group.position.y, z: predator.group.position.z });
       }
     }
-    return selectTaskGpsTarget(stage.event, { x: this.catPos.x, z: this.catPos.z }, candidates, stage.label, task.title);
+    return selectFirstAvailableTaskGpsTarget(
+      objectives,
+      { x: this.catPos.x, z: this.catPos.z },
+      candidates,
+    );
   }
 
   private updateTaskGpsRoute(): void {
