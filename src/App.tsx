@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithRedirect, signOut, type User } from 'firebase/auth';
+import { browserLocalPersistence, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, setPersistence, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { GameHUD } from './components/GameHUD';
 import { LoginScreen } from './components/LoginScreen';
@@ -15,7 +15,7 @@ const INITIAL_HUD: HudSnapshot = {
   hunger: 92, maxHunger: EVOLUTION_STAGES[0].maxHunger,
   thirst: 90, maxThirst: EVOLUTION_STAGES[0].maxThirst,
   warmth: 96, maxWarmth: EVOLUTION_STAGES[0].maxWarmth,
-  stamina: EVOLUTION_STAGES[0].maxStamina, maxStamina: EVOLUTION_STAGES[0].maxStamina,
+  stamina: 100, maxStamina: EVOLUTION_STAGES[0].maxStamina,
   oxygen: 100, maxOxygen: 100, level: 1, stars: 0, starProgress: 0, starNext: 57,
   unlockedMoves: ['basic-claw'], isAlphaLeader: false, rankTitle: 'Sobrevivente Errante',
   attackPower: EVOLUTION_STAGES[0].attackDamage, stageIndex: 0, scrap: 0, coins: 60,
@@ -56,23 +56,45 @@ export default function App() {
     toastTimerRef.current = window.setTimeout(() => setToast(null), 3400);
   }, []);
 
+  // Wait for Firebase's persisted browser session and redirect result before
+  // exposing the login screen. This prevents an initial null auth snapshot
+  // from racing the mobile OAuth callback.
   useEffect(() => {
     if (!firebaseAuth) {
       setAuthReady(true);
       return;
     }
-    void getRedirectResult(firebaseAuth).catch((error) => {
-      setAuthError(errorMessage(error));
-    });
-    return onAuthStateChanged(firebaseAuth, (user) => {
-      setAuthUser(user);
-      setAuthError(null);
-      setAuthReady(true);
-      setAccountReady(false);
-    }, (error) => {
-      setAuthError(errorMessage(error));
-      setAuthReady(true);
-    });
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+    void (async () => {
+      try {
+        await setPersistence(firebaseAuth, browserLocalPersistence);
+        const redirectResult = await getRedirectResult(firebaseAuth);
+        if (!active) return;
+        if (redirectResult?.user) setAuthUser(redirectResult.user);
+        else setAuthUser(firebaseAuth.currentUser);
+        unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+          if (!active) return;
+          setAuthUser(user);
+          setAuthError(null);
+          setAuthReady(true);
+          setAccountReady(false);
+        }, (error) => {
+          if (!active) return;
+          setAuthError(errorMessage(error));
+          setAuthReady(true);
+        });
+      } catch (error) {
+        if (!active) return;
+        setAuthError(errorMessage(error));
+        setAuthUser(firebaseAuth.currentUser);
+        setAuthReady(true);
+      }
+    })();
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
   }, []);
 
   const refreshAccount = useCallback(async () => {
@@ -119,9 +141,23 @@ export default function App() {
     setAuthBusy(true);
     setAuthError(null);
     try {
+      await setPersistence(firebaseAuth, browserLocalPersistence);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithRedirect(firebaseAuth, provider);
+      try {
+        // Popup avoids the mobile full-page redirect race and returns the
+        // credential directly to this tab after Google authentication.
+        const result = await signInWithPopup(firebaseAuth, provider);
+        setAuthUser(result.user);
+        setAuthReady(true);
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+          await signInWithRedirect(firebaseAuth, provider);
+          return;
+        }
+        throw error;
+      }
     } catch (error) {
       setAuthError(errorMessage(error));
       setAuthBusy(false);
@@ -181,7 +217,6 @@ export default function App() {
 
   const handleNewGame = useCallback(() => {
     if (!authUser) return;
-    // O save legado é reivindicado por uma única conta durante a migração.
     GameEngine.clearLegacySavedGame();
     engineRef.current?.startNewGame();
     setPhase('playing');
