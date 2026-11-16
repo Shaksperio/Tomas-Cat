@@ -122,11 +122,14 @@ export interface EngineCallbacks {
   onGameOver: (cause: string, snapshot: HudSnapshot) => void;
   onVictory: (snapshot: HudSnapshot) => void;
   onEvolutionUnlocked: (newStageIndex: number) => void;
+  onSaveGame?: (payload: SavedGameState) => void;
 }
 
 export class GameEngine {
   private readonly container: HTMLElement;
   private readonly callbacks: EngineCallbacks;
+  private readonly ownerId: string;
+  private readonly saveKey: string;
   private readonly isSoftwareGl: boolean;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene: THREE.Scene;
@@ -282,9 +285,11 @@ export class GameEngine {
   /** Estado persistente de viagem; o motor atual ainda carrega apenas o mundo legado. */
   private worldTravel: WorldTravelSaveState = createInitialWorldTravelState(LEGACY_WORLD_ID);
 
-  constructor(container: HTMLElement, callbacks: EngineCallbacks) {
+  constructor(container: HTMLElement, callbacks: EngineCallbacks, ownerId: string) {
     this.container = container;
     this.callbacks = callbacks;
+    this.ownerId = ownerId;
+    this.saveKey = `${SAVE_KEY}_${ownerId}`;
 
     this.isSoftwareGl = (() => {
       try {
@@ -510,20 +515,47 @@ export class GameEngine {
     this.scheduleNextFrame();
   }
 
-  public static hasSavedGame(): boolean {
+  public static hasSavedGame(ownerId: string): boolean {
     try {
-      return Boolean(localStorage.getItem(SAVE_KEY));
+      return Boolean(localStorage.getItem(`${SAVE_KEY}_${ownerId}`) || localStorage.getItem(SAVE_KEY));
     } catch {
       return false;
     }
   }
 
-  public static clearSavedGame(): void {
+  public static getSavedGame(ownerId: string): SavedGameState | null {
     try {
-      localStorage.removeItem(SAVE_KEY);
+      const raw = localStorage.getItem(`${SAVE_KEY}_${ownerId}`);
+      return raw ? JSON.parse(raw) as SavedGameState : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Save legado sem proprietário: só pode ser reivindicado durante a primeira migração autenticada. */
+  public static getLegacySavedGame(): SavedGameState | null {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      return raw ? JSON.parse(raw) as SavedGameState : null;
+    } catch {
+      return null;
+    }
+  }
+
+  public static clearLegacySavedGame(): void {
+    try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+  }
+
+  public static clearSavedGame(ownerId: string): void {
+    try {
+      localStorage.removeItem(`${SAVE_KEY}_${ownerId}`);
     } catch {
       // ignore
     }
+  }
+
+  public persistNow(): void {
+    this.saveGame();
   }
 
   private getStarNext(): number {
@@ -556,7 +588,7 @@ export class GameEngine {
 
   public startNewGame(): void {
     gameAudio.init();
-    GameEngine.clearSavedGame();
+    GameEngine.clearSavedGame(this.ownerId);
     this.stageIndex = 0;
     this.level = 1;
     this.stars = 0;
@@ -802,10 +834,10 @@ export class GameEngine {
     };
   }
 
-  public continueSavedGame(): void {
+  public continueSavedGame(savedOverride?: SavedGameState | null): void {
     gameAudio.init();
     try {
-      const raw = localStorage.getItem(SAVE_KEY);
+      const raw = savedOverride ? JSON.stringify(savedOverride) : (localStorage.getItem(this.saveKey) || localStorage.getItem(SAVE_KEY));
       if (!raw) {
         this.startNewGame();
         return;
@@ -925,6 +957,7 @@ export class GameEngine {
       this.cat.applyEvolutionStage(this.stageIndex, true, this.level >= MAX_CAT_LEVEL);
       this.phase = 'playing';
       this.syncHud();
+      this.saveGame();
       this.callbacks.onToast(
         `Progresso carregado — Nível ${this.level} · ${this.chances}/${MAX_CHANCES} chances`,
         'info',
@@ -2186,7 +2219,8 @@ export class GameEngine {
         enemiesDefeated: this.enemiesDefeated,
         bossCheckpoint: this.bossCheckpoint,
       };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+      localStorage.setItem(this.saveKey, JSON.stringify(payload));
+      this.callbacks.onSaveGame?.(payload);
     } catch {
       // ignore
     }
