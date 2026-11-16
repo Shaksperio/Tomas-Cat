@@ -2246,11 +2246,15 @@ export class GameEngine {
           obstacles,
           { bounds: WORLD_BOUNDS, cellSize: 4, clearance: 0.9, maxExpanded: 18000 },
         );
-        this.gpsRoutePath = route.length >= 2 ? route : [{ x: this.catPos.x, z: this.catPos.z }, { x: target.x, z: target.z }];
+        this.gpsRoutePath = route.length >= 2 ? route : []; 
       }
       this.gpsRouteTargetId = target.id;
       this.gpsRouteStartCell = startCell;
       this.gpsRouteTargetPosition = { x: target.x, z: target.z };
+    }
+    if (this.gpsRoutePath.length < 2) {
+      this.gpsRoute.visible = false;
+      return;
     }
     const pointCount = Math.min(this.gpsRoutePath.length, this.gpsRoutePositions.length / 3);
     for (let i = 0; i < pointCount; i++) {
