@@ -314,3 +314,12 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - Combo Breaker manual: durante a carga de um especial inimigo, uma janela entre 0,72 s e 1,62 s permite interromper a sequência antes do primeiro impacto, por meio da tecla 9 ou botão na HUD.
 - O contra-ataque causa dano determinístico, interrompe o especial, restaura o vigor que o especial ainda não chegou a exibir, lança o oponente para longe e o derruba com faíscas, clarão, tremor e câmera aberta.
 - Testes de regras cobrem ativação defensiva, ausência de ativação sem defesa/contra sequência e finalização de alvo.
+
+
+## Atualização de engenharia — persistência de viagem entre mundos (2026-11-16)
+
+- `GameEngine` agora inclui `worldTravel` no save principal e atualiza a posição do jogador no mundo ativo durante o salvamento.
+- Saves antigos sem `worldTravel` são normalizados para `quarantine-city` sem alterar `currentPhase`, inventário, tarefas ou progresso de campanha.
+- A atualização de posição é imutável e preserva os registros e âncoras de retorno dos outros mundos; coordenadas inválidas são ignoradas.
+- O motor permanece limitado ao mundo legado nesta etapa. O catálogo/loader de cenas, portais físicos, troca de mundo e retorno jogável ainda não estão conectados; não anunciar essas funções como concluídas.
+- Testes cobrem preservação de posição por mundo, âncora de retorno, dados legados e rejeição de coordenadas inválidas.

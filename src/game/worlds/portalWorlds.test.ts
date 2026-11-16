@@ -6,6 +6,7 @@ import {
   normalizeWorldTravelState,
   resolvePortalTransition,
   resolveReturnTransition,
+  updateActiveWorldPosition,
   type PortalDefinition,
   type PortalProgressContext,
 } from './portalWorlds';
@@ -69,4 +70,26 @@ test('normalização ignora mundos desconhecidos e elimina IDs duplicados/malfor
   assert.deepEqual(state.worlds['quarantine-city'].unlockedPortalIds, ['a']);
   assert.equal('unknown-world' in state.worlds, false);
   assert.equal(state.returnAnchor, undefined);
+});
+
+
+test('salvar posição ativa preserva progresso e âncora dos demais mundos', () => {
+  const initial = normalizeWorldTravelState({
+    activeWorldId: 'crystal-archipelago',
+    worlds: {
+      'quarantine-city': { visited: true, playerPosition: { x: 1, z: 2 }, unlockedPortalIds: ['gate-crystal'] },
+      'crystal-archipelago': { visited: true, playerPosition: { x: 3, z: 4 }, unlockedPortalIds: ['gate-return'] },
+    },
+    returnAnchor: { worldId: 'quarantine-city', position: { x: 14, z: -8 }, portalId: 'gate-crystal' },
+  }, known);
+  const next = updateActiveWorldPosition(initial, { x: 9, z: 12 });
+  assert.deepEqual(next.worlds['crystal-archipelago'].playerPosition, { x: 9, z: 12 });
+  assert.deepEqual(next.worlds['quarantine-city'].playerPosition, { x: 1, z: 2 });
+  assert.deepEqual(next.worlds['quarantine-city'].unlockedPortalIds, ['gate-crystal']);
+  assert.deepEqual(next.returnAnchor, initial.returnAnchor);
+});
+
+test('posição inválida não corrompe o estado de viagem', () => {
+  const initial = createInitialWorldTravelState();
+  assert.equal(updateActiveWorldPosition(initial, { x: Number.NaN, z: 4 }), initial);
 });

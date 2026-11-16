@@ -25,6 +25,13 @@ import { SocietySimulation } from './society/simulation';
 import { SocietyActors } from './society/SocietyActors';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
 import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
+import {
+  createInitialWorldTravelState,
+  LEGACY_WORLD_ID,
+  normalizeWorldTravelState,
+  updateActiveWorldPosition,
+  type WorldTravelSaveState,
+} from './worlds/portalWorlds';
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
 import type { TaskCycleState } from './tasks/taskCycles';
@@ -268,6 +275,8 @@ export class GameEngine {
   private playerTasks: PlayerTaskState[] = [];
   private taskCycle: TaskCycleState = createTaskCycleState();
   private taskRewardDrops: TaskRewardDrop[] = [];
+  /** Estado persistente de viagem; o motor atual ainda carrega apenas o mundo legado. */
+  private worldTravel: WorldTravelSaveState = createInitialWorldTravelState(LEGACY_WORLD_ID);
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -544,6 +553,7 @@ export class GameEngine {
     this.spawnGraceTimer = 0;
     this.bossCheckpoint = null;
     this.currentPhase = 1;
+    this.worldTravel = createInitialWorldTravelState(LEGACY_WORLD_ID);
     this.defeatedBosses.clear();
     this.conqueredTerritories.clear();
     this.battleMana = 0;
@@ -788,6 +798,8 @@ export class GameEngine {
         return;
       }
       const saved: SavedGameState = JSON.parse(raw);
+      // Saves v4 sem worldTravel migram de forma segura para o mundo original.
+      this.worldTravel = normalizeWorldTravelState(saved.worldTravel, [LEGACY_WORLD_ID], LEGACY_WORLD_ID);
       this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, saved.level || 1));
       this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, saved.unlockedMoves ?? []));
       this.stars = saved.stars || 0;
@@ -2115,6 +2127,7 @@ export class GameEngine {
       this.world.interactables.forEach((item) => {
         if (item.kind === 'shelter') shelterLevels[item.id] = item.shelterLevel || 1;
       });
+      this.worldTravel = updateActiveWorldPosition(this.worldTravel, { x: this.catPos.x, z: this.catPos.z });
       const payload: SavedGameState = {
         stageIndex: this.stageIndex,
         level: this.level,
@@ -2134,6 +2147,7 @@ export class GameEngine {
         acceptedDialogueTasks: Array.from(this.acceptedDialogueTasks),
         playerTasks: this.playerTasks,
         taskCycle: this.taskCycle,
+        worldTravel: this.worldTravel,
         day: this.day,
         timeOfDay: this.timeOfDay,
         currentPhase: this.currentPhase,
