@@ -85,6 +85,29 @@ export function createInitialWorldTravelState(worldId: WorldId = DEFAULT_WORLD_I
   };
 }
 
+/**
+ * Mantém todo o progresso conhecido, mas impede carregar como ativo um mundo
+ * cujo construtor de cena ainda não está disponível nesta versão.
+ */
+export function selectPlayableActiveWorld(
+  state: WorldTravelSaveState,
+  playableWorldIds: readonly WorldId[],
+  fallbackWorldId: WorldId = DEFAULT_WORLD_ID,
+): WorldTravelSaveState {
+  const playable = new Set(playableWorldIds);
+  if (playable.has(state.activeWorldId) && state.worlds[state.activeWorldId]) return state;
+  const fallback = state.worlds[fallbackWorldId]
+    ? state.worlds[fallbackWorldId]
+    : createInitialWorldTravelState(fallbackWorldId).worlds[fallbackWorldId];
+  return {
+    ...state,
+    activeWorldId: fallbackWorldId,
+    worlds: state.worlds[fallbackWorldId]
+      ? state.worlds
+      : { ...state.worlds, [fallbackWorldId]: fallback },
+  };
+}
+
 /** Atualiza somente a posição do mundo ativo, preservando os demais mundos e âncora. */
 export function updateActiveWorldPosition(
   state: WorldTravelSaveState,
