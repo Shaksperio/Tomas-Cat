@@ -73,6 +73,7 @@ import {
   resolveCommand,
   seedFromText,
   tickAtb,
+  tickPlayerDecisionTimer,
 } from './battle/atb';
 import { BattleStage } from './battle/BattleStage';
 import {
@@ -1187,7 +1188,7 @@ export class GameEngine {
       else if (command === 'item') this.callbacks.onToast('O vigor já está cheio.', 'info');
       else if (command === 'combo_a' && this.level < 25) this.callbacks.onToast('Rasante Duplo desbloqueia no nível 25.', 'info');
       else if (command === 'combo_b' && this.level < 55) this.callbacks.onToast('Tempestade de Garras desbloqueia no nível 55.', 'info');
-      else if (command === 'combo_a' || command === 'combo_b') this.callbacks.onToast('Maná insuficiente para esta técnica.', 'info');
+      else if (command === 'magic' || command === 'combo_a' || command === 'combo_b') this.callbacks.onToast('Maná insuficiente para esta técnica.', 'info');
       return;
     }
     this.runBattleCommand('player', command);
@@ -1236,6 +1237,13 @@ export class GameEngine {
     if (!battle || this.battleStage.busy || this.battleEnding) return;
     if (battle.finished) {
       this.beginBattleEnding();
+      return;
+    }
+    if (battle.ready === 'player') {
+      if (tickPlayerDecisionTimer(battle, dt)) {
+        this.callbacks.onToast('Tempo esgotado! Tomas assumiu a defesa automaticamente.', 'info');
+        this.runBattleCommand('player', 'guard');
+      }
       return;
     }
     const ready = tickAtb(battle, dt);
@@ -1362,6 +1370,7 @@ export class GameEngine {
       awaitingCommand: Boolean(
         battle && battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !battle.finished,
       ),
+      playerTurnTimeLeft: battle?.playerTurnTimeLeft ?? 0,
       intro: this.battleStage.introActive,
       banner: this.battleStage.banner,
       darkness: this.battleStage.darkness,
@@ -2156,7 +2165,7 @@ export class GameEngine {
       } else if (code === 'KeyJ' || code === 'KeyC') {
         this.triggerClawAttack();
       } else if (this.duelPhase === 'fighting' && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].includes(code)) {
-        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit', Digit6: 'combo_a', Digit7: 'combo_b' };
+        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit', Digit6: 'combo_a', Digit7: 'combo_b', Digit8: 'magic' };
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);
