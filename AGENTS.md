@@ -278,3 +278,11 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - **Fase 2:** o Canal Elevado dos Telhados é visual, com bordas metálicas e sem volume de natação ao nível da rua; as cisternas/lago continuam como água navegável. Não se deve ativar física de água para esse canal suspenso sem implementar suporte vertical/colisão de plataformas.
 - **Correnteza:** aplicada ao deslocamento horizontal do jogador somente dentro dos rios navegáveis, proporcional a `dt`, respeitando colisões e limites do mundo.
 - **Validação:** os testes de catálogo verificam a presença de lago e rio/canal em cada fase, a exclusão de natação no canal suspenso e o corpo navegável/correnteza. CI ainda precisa confirmar integração completa.
+
+
+## Atualização de engenharia — acabamento do céu vivo (2026-11-16)
+
+- **Sol:** o módulo `src/game/sky/skyVisuals.ts` adiciona uma corona procedural sutil, sem textura ou asset externo, sincronizada à posição e visibilidade do disco solar.
+- **Aves:** bandos procedurais são ocultados durante duelos/batalhas cinematográficas, evitando sobreposição visual e reforçando a reação do ambiente ao combate; voltam a aparecer quando a batalha termina e as condições de clima/horário permitem.
+- **Nuvens e lua:** as camadas existentes continuam limitadas a 14 meshes reutilizados; a fase e a iluminação lunar permanecem determinísticas em `skyAtmosphere.ts`.
+- **Limite desta entrega:** variações artísticas específicas por distrito/mundo e cintilação individual das estrelas ainda são pendências; não declarar o céu vivo concluído até cobrir esses pontos e validar visualmente as sete fases do dia.
