@@ -1916,6 +1916,8 @@ export class GameEngine {
     if (!itemId) return;
     this.inventory = addInventoryItem(this.inventory, itemId, 1);
     this.equipment = { ...this.equipment, [slot]: null };
+    this.health = Math.min(this.health, this.getEffectiveMaxHealth());
+    this.stamina = Math.min(this.stamina, this.getEffectiveMaxStamina());
     this.callbacks.onToast(`${ITEM_CATALOG[itemId].name} removido e devolvido à mochila.`, 'info');
     this.saveGame();
     this.syncHud();
