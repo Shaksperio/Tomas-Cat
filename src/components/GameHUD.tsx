@@ -1,3 +1,4 @@
+import { DraggablePanel } from './DraggablePanel';
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   AlertTriangle,
@@ -612,7 +613,7 @@ export function GameHUD({
   const [statusOpen, setStatusOpen] = useState(false);
   const [radarOpen, setRadarOpen] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(false);
-  const [taskPanelOpen, setTaskPanelOpen] = useState(true);
+  const [taskPanelOpen, setTaskPanelOpen] = useState(false);
   const [dockCollapsed, setDockCollapsed] = useState(false);
   const [showEvolutionTree, setShowEvolutionTree] = useState(false);
   const [showLoreArchive, setShowLoreArchive] = useState(false);
@@ -738,22 +739,25 @@ export function GameHUD({
             </div>
 
             {phase === 'playing' && ((hud.playerTasks?.length ?? 0) > 0 || (hud.cycleTasks?.length ?? 0) > 0 || (hud.pendingTaskRewards ?? 0) > 0) && (
-              <div className="pointer-events-auto w-[min(92vw,30rem)] max-w-[30rem] rounded-xl border border-cyan-300/30 bg-[#091321]/95 p-3 shadow-[0_12px_34px_rgba(0,0,0,0.42)] backdrop-blur-md">
+              <DraggablePanel id="tasks" className="pointer-events-auto w-[min(56vw,15rem)]">
+              <div className="rounded-xl border border-cyan-300/30 bg-[#091321]/95 p-2.5 shadow-[0_12px_34px_rgba(0,0,0,0.42)] backdrop-blur-md">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan-200"><Compass className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{hud.gpsTarget ? 'GPS ativo · Missão' : 'Sistema de tarefas'}</span></div>
+                  <div className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan-200"><Compass className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{hud.gpsTarget ? 'GPS ativo · Missão' : `Tarefas${(hud.cycleTasks ?? []).filter((t) => t.status === 'active').length ? ` (${(hud.cycleTasks ?? []).filter((t) => t.status === 'active').length})` : ''}`}</span></div>
                   <button type="button" onClick={() => setTaskPanelOpen((open) => !open)} aria-label={taskPanelOpen ? 'Minimizar tarefas' : 'Expandir tarefas'} className="shrink-0 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] text-slate-200 hover:bg-white/10">{taskPanelOpen ? 'Minimizar' : 'Expandir'}</button>
                 </div>
                 {hud.gpsTarget && <div className="mt-1.5 flex items-center gap-2 rounded-md border border-blue-400/30 bg-blue-500/10 px-2 py-1.5"><Compass className="h-5 w-5 shrink-0 text-blue-300" style={{ transform: `rotate(${Math.atan2(hud.gpsTarget.dx, hud.gpsTarget.dz) * 180 / Math.PI - hud.catYaw * 180 / Math.PI}deg)` }} /><div className="min-w-0 flex-1"><div className="text-[9px] font-bold uppercase tracking-wider text-blue-200">{Math.round(hud.gpsTarget.distance)} m até o destino</div><div className="truncate text-[10px] font-semibold text-white">{hud.gpsTarget.label}</div><div className="truncate text-[9px] text-slate-400">{hud.gpsTarget.objective}</div></div></div>}
-                {taskPanelOpen && <>
+                {taskPanelOpen && <div className="max-h-[42vh] overflow-y-auto pr-0.5">
                   {hud.cycleTasks && hud.cycleTasks.length > 0 && <div className="mt-2 border-b border-cyan-300/15 pb-2"><div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-200"><span>Tarefas do sistema</span><span>Próx. em {(() => { const remaining = Math.max(0, Math.floor(hud.secondsToNextTask ?? 0)); return `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`; })()}</span></div>{Boolean(hud.pendingTaskRewards) && <div className="mb-2 rounded-md border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[9px] text-amber-100">{hud.pendingTaskRewards} recompensa(s) física(s) aguardando coleta no mundo.</div>}{hud.cycleTasks.map((task) => <div key={task.id} className="mb-1.5 rounded-md bg-white/[0.035] px-2 py-1.5 text-[10px]"><div className="flex items-center justify-between gap-2"><div className={`min-w-0 truncate font-semibold ${task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}`}>{task.title}</div>{task.status === 'completed' && <span className="shrink-0 font-bold text-emerald-300">✓ Concluída</span>}</div><div className="text-slate-400">{task.status === 'completed' ? 'Objetivo concluído' : `Etapa ${task.stageIndex + 1}/${task.stages.length}: ${task.currentStage.label} · ${task.progress}/${task.currentStage.target}`}</div><div className="mt-1 h-1 overflow-hidden rounded bg-white/10"><div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-amber-400'}`} style={{ width: `${task.status === 'completed' ? 100 : Math.min(100, task.progress / Math.max(1, task.currentStage.target) * 100)}%` }} /></div></div>)}</div>}
                   {(hud.playerTasks?.length ?? 0) > 0 && <div className="mb-1.5 mt-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-200"><span>Pedidos dos habitantes</span><span>{hud.playerTasks?.filter((task) => task.status === 'completed').length}/{hud.playerTasks?.length}</span></div>}
-                  <div className="max-h-[min(34vh,19rem)] space-y-2 overflow-y-auto pr-1">{hud.playerTasks?.map((task) => <div key={task.id} className="text-[10px]"><div className="flex items-center justify-between gap-1"><span className={task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}>{task.title}</span><span className="shrink-0 text-slate-400">{task.status === 'completed' ? '✓' : `${task.progress}/${task.target}`}</span></div><div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10"><div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, task.progress / Math.max(1, task.target) * 100)}%` }} /></div></div>)}</div>
-                </>}
+                  <div className="space-y-2">{hud.playerTasks?.map((task) => <div key={task.id} className="text-[10px]"><div className="flex items-center justify-between gap-1"><span className={task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}>{task.title}</span><span className="shrink-0 text-slate-400">{task.status === 'completed' ? '✓' : `${task.progress}/${task.target}`}</span></div><div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10"><div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, task.progress / Math.max(1, task.target) * 100)}%` }} /></div></div>)}</div>
+                </div>}
               </div>
+              </DraggablePanel>
             )}
             {/* Hidden-by-default Expanded Status & Evolution Drawer */}
             {statusOpen && (
-              <div className="w-64 sm:w-72 rounded-xl border border-white/15 bg-[#0B0F17]/95 p-3.5 shadow-2xl">
+              <DraggablePanel id="status" className="w-64 sm:w-72">
+              <div className="rounded-xl border border-white/15 bg-[#0B0F17]/95 p-3.5 shadow-2xl">
                 <div className="flex items-start justify-between gap-2 pb-2 border-b border-white/10">
                   <div className="min-w-0">
                     <div className="font-display text-sm font-bold text-white truncate">
@@ -858,6 +862,7 @@ export function GameHUD({
                   </p>
                 </div>
               </div>
+              </DraggablePanel>
             )}
           </div>
 
@@ -997,6 +1002,7 @@ export function GameHUD({
 
           {/* Optional Radar (toggled via Compass button or M) */}
           {radarOpen && (
+            <DraggablePanel id="radar" className="flex flex-col items-center" handleClassName="right-1">
             <div className="flex flex-col items-center rounded-xl border border-white/10 bg-[#0B0F17]/92 p-2.5 shadow-lg">
               <div className="relative w-28 h-28 rounded-full border border-cyan-500/30 bg-[#0F1726] overflow-hidden">
                 <div className="absolute inset-4 rounded-full border border-white/10" />
@@ -1046,9 +1052,10 @@ export function GameHUD({
                 <span className="text-red-400">Chefe</span>
               </div>
             </div>
+            </DraggablePanel>
           )}
               {phase === 'playing' && (
-                <div className="pointer-events-auto flex w-full flex-col items-end gap-2">
+                <DraggablePanel id="backpack" className="pointer-events-auto flex w-full flex-col items-end gap-2" handleClassName="right-1">
                   <button
                     type="button"
                     onClick={() => setInventoryOpen((open) => !open)}
@@ -1107,7 +1114,7 @@ export function GameHUD({
                       <div className="mt-2 text-[9px] text-slate-500">A ração energética continua no inventário separado de batalha (tecla I durante duelos).</div>
                     </div>
                   )}
-                </div>
+                </DraggablePanel>
               )}
         </div>
         </div>
