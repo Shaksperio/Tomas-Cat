@@ -38,6 +38,17 @@ describe('WorldConstructionRuntime', () => {
       z: -4,
       rotationY: 0.5,
     }]);
+    expect(runtime.getReadyPlacements()).toEqual([{
+      projectId: 'district-hall-01',
+      placementIndex: 0,
+      assetId: 'community-hall',
+      sectorId: 'suburb-01',
+      x: 12,
+      z: -4,
+      rotationY: 0.5,
+    }]);
+    expect(runtime.markProjectPublished('district-hall-01')).toBe(true);
+    expect(runtime.markProjectPublished('district-hall-01')).toBe(false);
     expect(runtime.getReadyPlacements()).toEqual([]);
   });
 
