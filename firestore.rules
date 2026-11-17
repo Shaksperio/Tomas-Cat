@@ -10,6 +10,14 @@ service cloud.firestore {
         && request.resource.data.payload is map;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Read-only mirror written by the trusted backend (Admin SDK bypasses rules).
+    // Clients can inspect only their own mirrored records and cannot mutate them.
+    match /serverMirror/{userId}/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
