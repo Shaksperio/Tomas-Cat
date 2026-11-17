@@ -36,8 +36,17 @@ export class WorldConstructionRuntime {
     if (project.status !== 'validated' && project.status !== 'active') {
       return { valid: false, reason: 'Only validated or active projects can enter construction.' };
     }
-    if (project.taskIds.length === 0 || new Set(project.taskIds).size !== project.taskIds.length) {
-      return { valid: false, reason: 'A project must contain unique construction task IDs.' };
+    if (
+      project.taskIds.length === 0
+      || project.taskIds.some((taskId) => !/^[a-z0-9][a-z0-9:_-]{0,95}$/i.test(taskId))
+      || new Set(project.taskIds).size !== project.taskIds.length
+    ) {
+      return { valid: false, reason: 'A project must contain unique, valid construction task IDs.' };
+    }
+    if ([...this.projects.values()].some((tracked) =>
+      tracked.project.taskIds.some((taskId) => project.taskIds.includes(taskId))
+    )) {
+      return { valid: false, reason: 'Construction task IDs must be unique across registered projects.' };
     }
     if (project.modules.some((module) => !this.approvedAssetIds.has(module.assetId))) {
       return { valid: false, reason: 'Project contains an asset outside the approved catalog.' };
@@ -61,15 +70,13 @@ export class WorldConstructionRuntime {
     return { valid: true };
   }
 
-  completeTask(taskId: string): boolean {
-    if (!taskId.trim()) return false;
-    for (const tracked of this.projects.values()) {
-      if (!tracked.project.taskIds.includes(taskId)) continue;
-      if (tracked.completedTaskIds.has(taskId)) return false;
-      tracked.completedTaskIds.add(taskId);
-      return true;
-    }
-    return false;
+  completeTask(projectId: string, taskId: string): boolean {
+    if (!projectId.trim() || !taskId.trim()) return false;
+    const tracked = this.projects.get(projectId);
+    if (!tracked || !tracked.project.taskIds.includes(taskId)) return false;
+    if (tracked.completedTaskIds.has(taskId)) return false;
+    tracked.completedTaskIds.add(taskId);
+    return true;
   }
 
   getReadyPlacements(): ReadyConstructionPlacement[] {
