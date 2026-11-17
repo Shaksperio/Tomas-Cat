@@ -27,9 +27,9 @@ test('WorldConstructionRuntime', async (t) => {
   await t.test('releases approved placements only after every project task completes', () => {
     const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
     assert.deepEqual(runtime.registerProject(project()), { valid: true });
-    assert.equal(runtime.completeTask('site-prepare-01'), true);
+    assert.equal(runtime.completeTask('district-hall-01', 'site-prepare-01'), true);
     assert.deepEqual(runtime.getReadyPlacements(), []);
-    assert.equal(runtime.completeTask('module-build-01'), true);
+    assert.equal(runtime.completeTask('district-hall-01', 'module-build-01'), true);
     assert.deepEqual(runtime.getReadyPlacements(), [{
       projectId: 'district-hall-01',
       placementIndex: 0,
@@ -67,8 +67,8 @@ test('WorldConstructionRuntime', async (t) => {
     const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
     assert.equal(runtime.registerProject(project()).valid, true);
     assert.equal(runtime.registerProject(project()).valid, false);
-    assert.equal(runtime.completeTask('site-prepare-01'), true);
-    assert.equal(runtime.completeTask('site-prepare-01'), false);
+    assert.equal(runtime.completeTask('district-hall-01', 'site-prepare-01'), true);
+    assert.equal(runtime.completeTask('district-hall-01', 'site-prepare-01'), false);
     assert.deepEqual(runtime.getProjectProgress('district-hall-01'), {
       completedTasks: 1,
       totalTasks: 2,
