@@ -75,6 +75,12 @@ test('WorldConstructionRuntime', async (t) => {
     });
   });
 
+  await t.test('rejects task IDs reused by another registered project', () => {
+    const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
+    assert.equal(runtime.registerProject(project()).valid, true);
+    assert.equal(runtime.registerProject(project({ id: 'district-market-01' })).valid, false);
+  });
+
   await t.test('rejects projects with ambiguous task identities', () => {
     const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
     assert.equal(runtime.registerProject(project({ taskIds: ['same-task', 'same-task'] })).valid, false);
