@@ -312,6 +312,8 @@ export interface HudSnapshot {
   /** Campos opcionais para ativação gradual dos diálogos e itens de batalha. */
   activeDialogue?: DialogueState | null;
   activeDialogueOptions?: DialogueOption[];
+  /** Posição normalizada (0–1) acima da cabeça do falante, para o balão de conversa. */
+  dialogueAnchor?: { x: number; y: number } | null;
   playerTasks?: Array<{ id: string; title: string; description: string; progress: number; target: number; status: 'active' | 'completed' }>;
   cycleTasks?: Array<CycleTaskInstance & { currentStage: CycleTaskStage }>;
   secondsToNextTask?: number;

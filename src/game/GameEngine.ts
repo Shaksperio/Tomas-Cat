@@ -1701,14 +1701,6 @@ export class GameEngine {
     this.syncHud();
   }
 
-  private getNearbyDialogueAgent(maxDistance = 4.5) {
-    return this.society.snapshot().agents
-      .filter((agent) => agent.status !== 'disabled' && DIALOGUE_DATA.some((node) => node.agentId === agent.id))
-      .map((agent) => ({ agent, distance: Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z) }))
-      .filter((entry) => entry.distance <= maxDistance)
-      .sort((a, b) => a.distance - b.distance || a.agent.id.localeCompare(b.agent.id))[0]?.agent ?? null;
-  }
-
   private buildDialogueContext(agentId: string): DialogueContext | null {
     const agent = this.society.snapshot().agents.find((candidate) => candidate.id === agentId);
     if (!agent) return null;
@@ -1727,10 +1719,43 @@ export class GameEngine {
     };
   }
 
-  private startNearbyDialogue(): boolean {
+  /** Alcance máximo (m) para conversar com um habitante tocado/clicado. */
+  private static readonly DIALOGUE_TAP_RANGE = 9;
+
+  /** Habitante sob o toque/clique, por distância em tela (tolerante a dedos). */
+  private pickResidentAt(clientX: number, clientY: number): string | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    const tmp = new THREE.Vector3();
+    let bestId: string | null = null;
+    let bestDist = 56; // px
+    for (const agent of this.society.snapshot().agents) {
+      if (agent.status === 'disabled' || !DIALOGUE_DATA.some((node) => node.agentId === agent.id)) continue;
+      const root = this.societyActors.getActorRoot(agent.id);
+      if (!root || !root.visible) continue;
+      for (const h of [0.5, 1.3]) {
+        tmp.set(root.position.x, root.position.y + h, root.position.z).project(this.camera);
+        if (tmp.z > 1) continue;
+        const sx = (tmp.x * 0.5 + 0.5) * rect.width;
+        const sy = (-tmp.y * 0.5 + 0.5) * rect.height;
+        const d = Math.hypot(sx - px, sy - py);
+        if (d < bestDist) { bestDist = d; bestId = agent.id; }
+      }
+    }
+    return bestId;
+  }
+
+  private startDialogueWith(agentId: string): boolean {
     if (this.activeDialogue) return false;
-    const agent = this.getNearbyDialogueAgent();
+    const agent = this.society.snapshot().agents.find((a) => a.id === agentId);
     if (!agent) return false;
+    const dist = Math.hypot(agent.position.x - this.catPos.x, agent.position.z - this.catPos.z);
+    if (dist > GameEngine.DIALOGUE_TAP_RANGE) {
+      this.callbacks.onToast(`Aproxime-se de ${agent.displayName} para conversar.`, 'info');
+      return true; // o toque foi consumido (não vira ataque)
+    }
     const context = this.buildDialogueContext(agent.id);
     if (!context) return false;
     const state = startDialogue(agent.id, context, DIALOGUE_DATA);
@@ -1739,6 +1764,16 @@ export class GameEngine {
     this.phase = 'paused';
     this.syncHud();
     return true;
+  }
+
+  /** Posição na tela (0–1) acima da cabeça de quem está falando. */
+  private getDialogueAnchor(): { x: number; y: number } | null {
+    if (!this.activeDialogue) return null;
+    const root = this.societyActors.getActorRoot(this.activeDialogue.agentId);
+    if (!root) return null;
+    const v = new THREE.Vector3(root.position.x, root.position.y + 2.5, root.position.z).project(this.camera);
+    if (v.z > 1) return null;
+    return { x: v.x * 0.5 + 0.5, y: -v.y * 0.5 + 0.5 };
   }
 
   private applyDialogueEffect(agentId: string, effect: DialogueEffect): void {
@@ -1880,7 +1915,6 @@ export class GameEngine {
 
   public triggerInteract(): void {
     if (this.phase !== 'playing') return;
-    if (this.startNearbyDialogue()) return;
     if (!this.activeInteractableId) return;
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return;
@@ -2401,12 +2435,26 @@ export class GameEngine {
       this.phase === 'playing' &&
       this.pointerMovedDist < 6
     ) {
+      if (this.duelPhase === 'idle' && this.pickAndTalk(e.clientX, e.clientY)) return;
       this.triggerClawAttack();
+    } else if (
+      hadSingle &&
+      this.pointerDownType !== 'mouse' &&
+      this.phase === 'playing' &&
+      this.duelPhase === 'idle' &&
+      this.pointerMovedDist < 8
+    ) {
+      this.pickAndTalk(e.clientX, e.clientY);
     }
     if (this.activePointers.size === 0) {
       this.isDraggingCamera = false;
     }
   };
+
+  private pickAndTalk(clientX: number, clientY: number): boolean {
+    const id = this.pickResidentAt(clientX, clientY);
+    return id ? this.startDialogueWith(id) : false;
+  }
 
   private onWheel = (e: WheelEvent): void => {
     this.adjustZoom(e.deltaY * 0.009);
@@ -2445,7 +2493,8 @@ export class GameEngine {
       }
       this.societyActors.update(dt, this.snapshotForActors(), true);
     } else {
-      this.societyActors.update(dt, this.society.snapshot(), false);
+      // Durante a conversa o habitante permanece visível para ancorar o balão.
+      this.societyActors.update(dt, this.society.snapshot(), this.activeDialogue !== null);
     }
 
     this.renderer.render(this.scene, this.camera);
@@ -3471,18 +3520,6 @@ export class GameEngine {
   }
 
   private buildPrompt(): PromptInfo | null {
-    if (!this.activeDialogue) {
-      const resident = this.getNearbyDialogueAgent();
-      if (resident) {
-        return {
-          id: resident.id,
-          kind: 'resident',
-          label: resident.displayName,
-          detail: 'Habitante da comunidade · Relação social',
-          actionText: 'Conversar',
-        };
-      }
-    }
     if (!this.activeInteractableId) return null;
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return null;
@@ -3640,6 +3677,7 @@ export class GameEngine {
       unlockedMoves: Array.from(this.unlockedMoves),
       activeDialogue: this.activeDialogue,
       activeDialogueOptions: dialogueOptions,
+      dialogueAnchor: this.getDialogueAnchor(),
       playerTasks: this.playerTasks.map((task) => { const definition = getPlayerTaskDefinition(task.id)!; return { ...task, title: definition.title, description: definition.description, target: definition.target }; }),
       cycleTasks: [
         ...this.taskCycle.tasks.filter((task) => task.status === 'active').slice(0, 3),

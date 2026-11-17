@@ -403,7 +403,8 @@ export class SocietyActors {
       for (const agentId of [payload.fromAgentId, payload.toAgentId]) {
         if (typeof agentId !== 'string') continue;
         const actor = this.actors.get(agentId);
-        if (actor) actor.socialBubbleTimer = 2.4;
+        // Balões automáticos desativados: conversas só aparecem quando o jogador toca no habitante.
+        void actor;
       }
     }
     if (this.processedSocialEventIds.size > 512) {

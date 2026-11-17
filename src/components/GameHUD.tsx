@@ -1175,34 +1175,41 @@ export function GameHUD({
         </div>
       )}
 
-      {hud.activeDialogue && dialogueNode && (phase === 'playing' || phase === 'paused') && (
-        <div className="pointer-events-auto absolute bottom-24 left-1/2 z-30 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-amber-300/40 bg-[#101827]/96 p-4 shadow-2xl backdrop-blur-sm">
-          <div className="mb-2 flex items-center justify-between gap-3 border-b border-white/10 pb-2">
-            <div className="flex items-center gap-2 text-sm font-bold text-amber-200">
-              <MessageCircle className="h-4 w-4" />
-              <span>{dialogueNode.speaker}</span>
-            </div>
-            <button type="button" onClick={onDialogueClose} aria-label="Fechar conversa" className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <p className="mb-3 text-sm leading-relaxed text-slate-100">{dialogueNode.text}</p>
-          {!hud.activeDialogue.ended && (hud.activeDialogueOptions?.length ?? 0) > 0 ? (
-            <div className="grid gap-1.5">
-              {hud.activeDialogueOptions?.map((option, index) => (
-                <button key={option.id} type="button" onClick={() => onDialogueOption(option.id)} className="rounded-lg border border-cyan-300/20 bg-[#172438] px-3 py-2 text-left text-xs font-semibold text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-[#20334e]">
-                  <span className="mr-2 text-amber-300">{index + 1}.</span>{option.text}
+      {hud.activeDialogue && dialogueNode && (phase === 'playing' || phase === 'paused') && (() => {
+        const anchor = hud.dialogueAnchor;
+        const ax = Math.min(0.8, Math.max(0.2, anchor?.x ?? 0.5));
+        const ay = Math.min(0.92, Math.max(0.32, anchor?.y ?? 0.45));
+        return (
+          <div
+            className="pointer-events-auto absolute z-30 w-[min(78vw,16rem)] -translate-x-1/2 -translate-y-full"
+            style={{ left: `${ax * 100}%`, top: `${ay * 100}%` }}
+          >
+            <div className="relative rounded-xl border border-amber-300/40 bg-[#101827]/95 px-2.5 py-2 shadow-xl backdrop-blur-sm">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="truncate text-[11px] font-bold text-amber-200">{dialogueNode.speaker}</span>
+                <button type="button" onClick={onDialogueClose} aria-label="Fechar conversa" className="rounded p-0.5 text-slate-400 hover:bg-white/10 hover:text-white">
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              ))}
+              </div>
+              <p className="mb-1.5 max-h-28 overflow-y-auto text-[12px] leading-snug text-slate-100">{dialogueNode.text}</p>
+              {!hud.activeDialogue.ended && (hud.activeDialogueOptions?.length ?? 0) > 0 ? (
+                <div className="grid gap-1">
+                  {hud.activeDialogueOptions?.map((option, index) => (
+                    <button key={option.id} type="button" onClick={() => onDialogueOption(option.id)} className="rounded-md border border-cyan-300/20 bg-[#172438] px-2 py-1 text-left text-[11px] font-semibold leading-tight text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-[#20334e]">
+                      <span className="mr-1 text-amber-300">{index + 1}.</span>{option.text}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex justify-end">
+                  <button type="button" onClick={onDialogueClose} className="rounded-md bg-amber-400 px-2.5 py-1 text-[11px] font-bold text-slate-950 hover:bg-amber-300">Fechar</button>
+                </div>
+              )}
+              <div className="absolute left-1/2 top-full h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-amber-300/40 bg-[#101827]" />
             </div>
-          ) : (
-            <div className="flex items-center justify-between gap-3 text-xs text-slate-300">
-              <span>Conversa concluída.</span>
-              <button type="button" onClick={onDialogueClose} className="rounded-lg bg-amber-400 px-3 py-1.5 font-bold text-slate-950 hover:bg-amber-300">Fechar</button>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* BOTTOM ACTION BAR */}
       <div className="flex flex-col items-center gap-2.5">
