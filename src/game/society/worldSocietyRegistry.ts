@@ -30,6 +30,21 @@ export class WorldSocietyRegistry {
     return this.worlds.has(worldId);
   }
 
+  /** Returns the authoritative in-memory simulation owned by one world. */
+  simulationFor(worldId: string): SocietySimulation {
+    const simulation = this.worlds.get(worldId);
+    if (!simulation) throw new Error(`Unknown world: ${worldId}`);
+    return simulation;
+  }
+
+  /** Recreates only the selected world's society, leaving every other world untouched. */
+  reset(worldId: string): SocietySimulationSnapshot {
+    if (!this.worlds.has(worldId)) throw new Error(`Unknown world: ${worldId}`);
+    const simulation = new SocietySimulation();
+    this.worlds.set(worldId, simulation);
+    return simulation.snapshot();
+  }
+
   snapshot(worldId: string): SocietySimulationSnapshot {
     const simulation = this.worlds.get(worldId);
     if (!simulation) throw new Error(`Unknown world: ${worldId}`);
