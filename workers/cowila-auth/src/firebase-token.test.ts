@@ -1,14 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { verifyFirebaseGoogleIdToken, FirebaseTokenError } from "./firebase-token";
 
 const PROJECT_ID = "tomas-vagabundo-test";
 const NOW = 1_800_000_000;
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
   modulusLength: 2048,
-  publicKeyEncoding: { type: "spki", format: "pem" },
-  privateKeyEncoding: { type: "pkcs8", format: "pem" },
 });
 const jwk = publicKey.export({ format: "jwk" });
 const signingJwk = { ...jwk, kid: "test-key", alg: "RS256", use: "sig" };
