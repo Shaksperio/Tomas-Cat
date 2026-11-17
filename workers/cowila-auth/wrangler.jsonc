@@ -12,5 +12,13 @@
       "enabled": true,
       "head_sampling_rate": 0.05
     }
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tomas-vagabundo-world",
+      "database_id": "3af4bbc4-579e-4b20-8f15-4f8c352803c0",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
