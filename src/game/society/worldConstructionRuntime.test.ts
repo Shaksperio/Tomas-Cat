@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert/strict';
+import test from 'node:test';
 import type { ConstructionProject } from './contracts';
 import { WorldConstructionRuntime } from './worldConstructionRuntime';
 
@@ -22,14 +23,14 @@ function project(overrides: Partial<ConstructionProject> = {}): ConstructionProj
   };
 }
 
-describe('WorldConstructionRuntime', () => {
-  it('releases approved placements only after every project task completes', () => {
+test('WorldConstructionRuntime', async (t) => {
+  await t.test('releases approved placements only after every project task completes', () => {
     const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
-    expect(runtime.registerProject(project())).toEqual({ valid: true });
-    expect(runtime.completeTask('site-prepare-01')).toBe(true);
-    expect(runtime.getReadyPlacements()).toEqual([]);
-    expect(runtime.completeTask('module-build-01')).toBe(true);
-    expect(runtime.getReadyPlacements()).toEqual([{
+    assert.deepEqual(runtime.registerProject(project()), { valid: true });
+    assert.equal(runtime.completeTask('site-prepare-01'), true);
+    assert.deepEqual(runtime.getReadyPlacements(), []);
+    assert.equal(runtime.completeTask('module-build-01'), true);
+    assert.deepEqual(runtime.getReadyPlacements(), [{
       projectId: 'district-hall-01',
       placementIndex: 0,
       assetId: 'community-hall',
@@ -38,7 +39,7 @@ describe('WorldConstructionRuntime', () => {
       z: -4,
       rotationY: 0.5,
     }]);
-    expect(runtime.getReadyPlacements()).toEqual([{
+    assert.deepEqual(runtime.getReadyPlacements(), [{
       projectId: 'district-hall-01',
       placementIndex: 0,
       assetId: 'community-hall',
@@ -47,35 +48,35 @@ describe('WorldConstructionRuntime', () => {
       z: -4,
       rotationY: 0.5,
     }]);
-    expect(runtime.markProjectPublished('district-hall-01')).toBe(true);
-    expect(runtime.markProjectPublished('district-hall-01')).toBe(false);
-    expect(runtime.getReadyPlacements()).toEqual([]);
+    assert.equal(runtime.markProjectPublished('district-hall-01'), true);
+    assert.equal(runtime.markProjectPublished('district-hall-01'), false);
+    assert.deepEqual(runtime.getReadyPlacements(), []);
   });
 
-  it('rejects unapproved assets and projects that have not been validated', () => {
+  await t.test('rejects unapproved assets and projects that have not been validated', () => {
     const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
-    expect(runtime.registerProject(project({ modules: [{
+    assert.equal(runtime.registerProject(project({ modules: [{
       assetId: 'unlisted-asset',
       position: { x: 0, z: 0, sectorId: 'suburb-01' },
       rotationY: 0,
-    }] })).valid).toBe(false);
-    expect(runtime.registerProject(project({ status: 'proposed' })).valid).toBe(false);
+    }] })).valid, false);
+    assert.equal(runtime.registerProject(project({ status: 'proposed' })).valid, false);
   });
 
-  it('rejects duplicate project registration and duplicate task completion', () => {
+  await t.test('rejects duplicate project registration and duplicate task completion', () => {
     const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
-    expect(runtime.registerProject(project()).valid).toBe(true);
-    expect(runtime.registerProject(project()).valid).toBe(false);
-    expect(runtime.completeTask('site-prepare-01')).toBe(true);
-    expect(runtime.completeTask('site-prepare-01')).toBe(false);
-    expect(runtime.getProjectProgress('district-hall-01')).toEqual({
+    assert.equal(runtime.registerProject(project()).valid, true);
+    assert.equal(runtime.registerProject(project()).valid, false);
+    assert.equal(runtime.completeTask('site-prepare-01'), true);
+    assert.equal(runtime.completeTask('site-prepare-01'), false);
+    assert.deepEqual(runtime.getProjectProgress('district-hall-01'), {
       completedTasks: 1,
       totalTasks: 2,
     });
   });
 
-  it('rejects projects with ambiguous task identities', () => {
+  await t.test('rejects projects with ambiguous task identities', () => {
     const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
-    expect(runtime.registerProject(project({ taskIds: ['same-task', 'same-task'] })).valid).toBe(false);
+    assert.equal(runtime.registerProject(project({ taskIds: ['same-task', 'same-task'] })).valid, false);
   });
 });
