@@ -1,0 +1,4 @@
+# Copy to .dev.vars locally; never commit real credentials or tokens.
+FIREBASE_PROJECT_ID=your-firebase-project-id
+ALLOWED_GOOGLE_EMAILS=antonyopintor@gmail.com,acpconsultorias@gmail.com,ilovedeuza@gmail.com
+ALLOWED_ORIGINS=https://your-game-domain.example
