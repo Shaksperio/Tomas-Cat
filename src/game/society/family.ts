@@ -1,5 +1,7 @@
 /**
- * Núcleo determinístico de uniões e descendência da sociedade.
+ * Núcleo determinístico de uniões e descendência da sociedade de NPCs.
+ * Jogadores/avatares são deliberadamente excluídos: a lista de identidades
+ * recebida aqui deve vir exclusivamente do registro de SimulatedAgent.
  *
  * Um ano simulado corresponde a 1.200 ticks (12 meses de 100 ticks).
  * Uniões exigem aceitação explícita de ambas as identidades. Um nascimento
@@ -59,6 +61,7 @@ export class SocietyFamilySystem {
   private readonly offspringConsent = new Map<string, Set<string>>();
   private readonly knownAgentIds: ReadonlySet<string>;
 
+  /** Recebe exclusivamente IDs de SimulatedAgent; nunca IDs de jogadores. */
   constructor(knownAgentIds: readonly string[]) {
     this.knownAgentIds = new Set(knownAgentIds);
   }
