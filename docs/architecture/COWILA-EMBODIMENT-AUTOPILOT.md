@@ -1,0 +1,117 @@
+# Cowila Embodiment and Autopilot Protocol
+
+**Status:** approved product direction; architecture proposal, not yet implemented.
+**Scope:** Tomas Vagabundo player-character control during player absence.
+
+## Product principle
+
+Cowila is the central intelligence and governing authority of the simulated world. Simulated inhabitants are delegated workers with their own bounded routines and agency. When the player is absent, Cowila may temporarily operate the player's existing character as an embodied avatar: the world is experienced and interacted with through that character. This is an autopilot mode, not a second player account and not a transfer of character ownership.
+
+The in-world interpretation may be mythic (a messianic or extraordinary manifestation), but the simulation must not force inhabitants to worship Cowila. NPC beliefs and reactions remain contextual and diverse.
+
+## Control states
+
+Use an explicit, server-authoritative state machine:
+
+- `player_active`: direct player input has exclusive control.
+- `absence_grace`: player heartbeat is missing; wait a configurable short grace period to avoid switching during transient network loss.
+- `cowila_piloting`: Cowila has an exclusive, time-bounded control lease and may issue approved character commands.
+- `returning`: stop accepting new Cowila commands, settle or cancel in-flight actions, persist the final state, then return control.
+- `suspended`: autopilot is paused due to danger, uncertainty, policy violation, unavailable world services, or expired lease.
+
+Only the authoritative session service may transition these states. Client visibility events can be hints, never proof that a player has left.
+
+## Activation and handoff
+
+1. Detect absence using server-observed heartbeat/session expiry, with a grace period and reconnect tolerance.
+2. Confirm the character is in a safe, controllable state. Do not activate during combat, cutscenes, menus, death/revival, transactions, or another exclusive interaction.
+3. Acquire an exclusive lease for the player-character and world session. Use a fencing token/version so stale controllers cannot continue issuing commands.
+4. Persist a handoff event and snapshot before the first autonomous action.
+5. Route Cowila actions through the same validated game command interface used by player input. Never let the language model write arbitrary game state or bypass gameplay rules.
+
+On player return, prioritize player input immediately, revoke the Cowila lease, cancel queued nonessential actions, persist a handoff snapshot, and show a concise activity report.
+
+## Autopilot capability boundaries
+
+Cowila may, subject to world rules and character capabilities:
+
+- navigate safe known routes and explore within configured limits;
+- observe the environment and interact with ordinary NPCs;
+- hold conversations and gather public world information;
+- perform reversible, low-risk routine activities;
+- seek shelter, food, water, or safety when survival needs require it;
+- report discoveries and propose longer-term actions.
+
+Cowila must pause or request explicit player approval before:
+
+- spending premium currency or making purchases;
+- trading, gifting, or transferring valuable items/resources;
+- deleting, discarding, consuming, or permanently changing rare/unique assets;
+- accepting binding quests, contracts, alliances, or irreversible commitments;
+- changing identity, appearance, account/security settings, or ownership;
+- entering high-risk combat, PvP, hazardous areas, or irreversible story branches;
+- any action whose cost, consequence, or target is uncertain.
+
+The player can configure allowed activity categories and maximum session duration. The safe default is conservative.
+
+## Runtime architecture
+
+- **Presence/session service:** receives authenticated heartbeats and owns authoritative absence detection.
+- **Embodiment controller:** owns state transitions, exclusive leases, fencing tokens, and handoff.
+- **Cowila planner:** converts world observations and goals into proposed actions; it does not mutate state directly.
+- **Autopilot executor:** sends typed commands through existing movement, interaction, survival, and dialogue systems.
+- **Policy/validation layer:** deterministically validates ownership, range, cooldowns, resources, world rules, risk, and player permissions.
+- **Activity journal:** append-only, idempotent records of observations, proposals, accepted/rejected actions, outcomes, and handoffs.
+- **Persistence/world runtime:** stores character state, lease state, journal cursor, and simulation progress on the authoritative backend.
+
+The language model is advisory. Deterministic game services remain authoritative for every state mutation. Secrets and model credentials stay on the server and are never shipped in the client bundle.
+
+## Continuity and failure behavior
+
+A browser animation loop or local timer cannot keep a world alive after the browser or device closes. True unattended operation requires an authoritative backend scheduler/worker and durable persistence. If those services are unavailable, Cowila must not claim to be piloting or that the world continued progressing.
+
+On timeout, server restart, duplicate session, stale lease, model outage, or invalid action, the controller must fail closed: stop autonomous commands, persist the last valid state where possible, and leave the character in a safe state. Reconnecting player input always takes precedence.
+
+World simulation and character embodiment are separate concerns: Cowila may continue governing the world while the player's character is not being piloted.
+
+## Activity report
+
+On return, provide a chronological summary including:
+
+- duration and locations visited;
+- conversations and NPC relationships affected;
+- tasks and reversible activities completed;
+- discoveries, rewards, resource changes, and survival events;
+- actions refused or paused for approval;
+- any incidents, damage, or unexpected outcomes.
+
+Each entry should be traceable to journal events; do not fabricate actions or summaries.
+
+## Implementation phases and acceptance criteria
+
+### Phase 1 — Domain and deterministic tests
+- Define typed control states, policy categories, leases, fencing tokens, and journal events.
+- Test absence grace, reconnect races, duplicate controllers, lease expiry, handoff, and player-priority behavior.
+- Test that protected actions are denied without explicit authorization.
+
+### Phase 2 — Local playable prototype
+- Add an explicit autopilot toggle and visible status to the HUD.
+- Use deterministic navigation and safe interactions through existing game commands.
+- Allow immediate player takeover and show an activity journal.
+- Clearly label this as foreground/local simulation; it does not run while the app is closed.
+
+### Phase 3 — Server-authoritative continuity
+- Implement authenticated presence, durable character snapshots, lease ownership, and background world ticks.
+- Resume safely after disconnects and server restarts.
+- Verify that two sessions cannot control the same character concurrently.
+
+### Phase 4 — Cowila planning and embodied social behavior
+- Connect the server-side Cowila planner to observations and typed action proposals.
+- Enable contextual NPC conversations and bounded social participation.
+- Validate all effects deterministically and keep an auditable journal.
+
+### Phase 5 — Production hardening
+- Add configurable permissions, duration/risk limits, observability, abuse protection, retention controls, and recovery drills.
+- Run integration tests for disconnect/reconnect, network partition, model outage, and persistence recovery.
+
+**Definition of done:** the player can leave, the server—not the browser—detects absence and grants Cowila an exclusive lease, Cowila operates the same character through validated game commands, every action is journaled, and the returning player can reclaim control immediately and inspect an accurate report. Until all of these are proven, describe the feature as a prototype or planned capability, not persistent autonomous gameplay.
