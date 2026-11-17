@@ -115,3 +115,57 @@ Each entry should be traceable to journal events; do not fabricate actions or su
 - Run integration tests for disconnect/reconnect, network partition, model outage, and persistence recovery.
 
 **Definition of done:** the player can leave, the server—not the browser—detects absence and grants Cowila an exclusive lease, Cowila operates the same character through validated game commands, every action is journaled, and the returning player can reclaim control immediately and inspect an accurate report. Until all of these are proven, describe the feature as a prototype or planned capability, not persistent autonomous gameplay.
+
+## Player identity, Google sign-in, and Cowila authorization
+
+Cowila embodiment is restricted to players authenticated with Google through Firebase Authentication. Merely entering, claiming, or knowing an email address never grants access.
+
+### Authorized Google accounts
+
+The initial allowlist is:
+
+- `antonyopintor@gmail.com`
+- `acpconsultorias@gmail.com`
+- `ilovedeuza@gmail.com`
+
+Treat this list as a server-side authorization policy, not as a client-side check. Do not embed authorization decisions in the browser bundle or accept an email/UID supplied as an unverified request field.
+
+### Authentication requirements
+
+1. The player signs in through the Google provider (`google.com`) using Firebase Authentication.
+2. The client obtains a Firebase ID token from the authenticated session and sends it to the backend over HTTPS.
+3. The backend verifies the token using the Firebase Admin SDK (including signature, issuer, audience/project, expiry, and revocation checks).
+4. The backend requires the verified token's sign-in provider to be Google and requires `email_verified === true`.
+5. The backend compares the verified email against the normalized server-side allowlist. Email is an additional eligibility check, never the account's primary key.
+6. The backend uses the verified Firebase `uid` as the stable account identity and resolves character/world ownership from server-controlled records.
+
+A client-provided email, UID, character ID, world ID, provider name, or authorization flag is untrusted. Never authorize embodiment from those values without resolving them from the verified token and server-side ownership data.
+
+### Account-to-character ownership
+
+Use a server-owned mapping conceptually equivalent to:
+
+```ts
+interface PlayerCharacterOwnership {
+  firebaseUid: string;
+  characterId: string;
+  worldId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+The mapping must be queried by the verified Firebase UID. A UID may own multiple characters and/or worlds if the game supports that; each selected character must still be checked against the same UID before a lease is issued. Do not use email as a foreign key or as the ownership key. Email changes must not silently transfer character ownership.
+
+### Authorization at every control boundary
+
+- Verify authentication and ownership when creating or refreshing a player session.
+- Verify the UID-to-character/world mapping again before granting a Cowila embodiment lease.
+- Bind the lease, fencing token, journal events, and activity report to the verified UID, character ID, and world ID.
+- Reject revoked, expired, malformed, non-Google, unverified-email, non-allowlisted, or ownership-mismatched sessions.
+- Revoke or suspend active embodiment when the authenticated session is revoked or ownership/authorization can no longer be confirmed.
+- Do not let an allowlisted account control another account's character.
+
+The allowlist may later move to a managed server-side configuration or database policy with an audited administrative process. Any change must be authenticated, authorized, and journaled; clients and language models cannot edit it.
+
+**Security invariant:** Cowila may pilot a character only when the backend has independently verified a current Firebase Google-authenticated session, confirmed the verified email is allowlisted, and resolved that character's ownership to the token's Firebase UID. Email knowledge alone is never sufficient.
