@@ -327,3 +327,18 @@ test('repeated verified incitement permanently blocks the agent identity', () =>
   assert.equal(blocked.status, 'permanently_blocked');
   assert.equal(simulation.step(1).agents.find((agent) => agent.id === 'agent-01')?.activeTaskId, null);
 });
+
+
+test('family unions and descendants are exposed by the world simulation snapshot', () => {
+  const simulation = new SocietySimulation();
+  const proposal = simulation.proposeUnion('worker-01', 'worker-02');
+  assert.equal(proposal.accepted, true);
+  if (!proposal.accepted) return;
+  assert.equal(simulation.respondToUnion(proposal.value.id, 'worker-01', true).accepted, true);
+  assert.equal(simulation.respondToUnion(proposal.value.id, 'worker-02', true).accepted, true);
+  assert.equal(simulation.consentToOffspring(proposal.value.id, 'worker-01', true).value, null);
+  const birth = simulation.consentToOffspring(proposal.value.id, 'worker-02', true);
+  assert.equal(birth.accepted, true);
+  assert.equal(simulation.snapshot().family.offspring.length, 1);
+  assert.equal(simulation.snapshot().family.unions[0].status, 'active');
+});

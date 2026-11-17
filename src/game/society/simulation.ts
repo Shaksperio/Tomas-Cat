@@ -76,6 +76,7 @@ import {
   type AgentDisciplineRecord,
   type AgentViolation,
 } from './agents/governance';
+import { SocietyFamilySystem, type AgentUnion, type FamilyResult, type OffspringRecord, type SocietyFamilySnapshot } from './family';
 
 export interface AgentNeeds {
   hunger: number;
@@ -105,6 +106,7 @@ export interface SocietySimulationSnapshot {
   relationships: AgentRelationship[];
   events: WorldEvent[];
   resources: SocietyResources;
+  family: SocietyFamilySnapshot;
 }
 
 interface TaskRuntime {
@@ -198,6 +200,7 @@ export class SocietySimulation {
   /** Estado disciplinar autoritativo local; persistência entre sessões ainda depende do backend. */
   private readonly discipline = new Map<string, AgentDisciplineRecord>();
   private readonly resources: SocietyResources = { food: 12, wood: 0, stone: 0, planks: 0, coins: 0 };
+  private readonly family: SocietyFamilySystem;
 
   constructor() {
     this.addAgent(makeAgent('engineer-01', 'Íris', 'engineer', -4, 2));
@@ -209,6 +212,7 @@ export class SocietySimulation {
     this.addAgent(makeAgent('miner-01', 'Brita', 'miner', 8, -5));
     this.addAgent(makeAgent('carpenter-01', 'Serafim', 'carpenter', -6, -2));
     this.addAgent(makeAgent('merchant-01', 'Mercê', 'merchant', 3, 6));
+    this.family = new SocietyFamilySystem([...this.agents.keys()]);
 
     this.addRelationship('engineer-01', 'worker-01', 62, 48);
     this.addRelationship('engineer-01', 'worker-02', 58, 54);
@@ -727,6 +731,7 @@ export class SocietySimulation {
     const safeSteps = Math.max(0, Math.min(1000, Math.floor(steps)));
     for (let index = 0; index < safeSteps; index += 1) {
       this.tickCount += 1;
+      this.family.advanceToTick(this.tickCount);
       for (const [agentId, record] of this.discipline) {
         const updated = completeProbation(record, this.tickCount);
         if (updated !== record) this.discipline.set(agentId, updated);
@@ -741,6 +746,22 @@ export class SocietySimulation {
       this.pruneFinishedTasks();
     }
     return this.snapshot();
+  }
+
+  public proposeUnion(proposerId: string, partnerId: string): FamilyResult<AgentUnion> {
+    return this.family.proposeUnion(proposerId, partnerId, this.tickCount);
+  }
+
+  public respondToUnion(unionId: string, agentId: string, accept: boolean): FamilyResult<AgentUnion> {
+    return this.family.respondToUnion(unionId, agentId, accept);
+  }
+
+  public consentToOffspring(
+    unionId: string,
+    agentId: string,
+    consent: boolean,
+  ): FamilyResult<OffspringRecord | null> {
+    return this.family.consentToOffspring(unionId, agentId, consent, this.tickCount);
   }
 
   public snapshot(): SocietySimulationSnapshot {
@@ -760,6 +781,7 @@ export class SocietySimulation {
       relationships: [...this.relationships.values()].map((relationship) => ({ ...relationship })),
       events: this.events.map((event) => ({ ...event, payload: { ...event.payload } })),
       resources: { ...this.resources },
+      family: this.family.snapshot(),
     };
   }
 }
