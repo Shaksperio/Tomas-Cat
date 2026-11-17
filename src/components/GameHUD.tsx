@@ -46,7 +46,7 @@ import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
 import { MOVE_UNLOCKS } from '../game/progression/unlocks';
 import { DIALOGUE_DATA } from '../game/dialogue/dialogueData';
-import { ITEM_CATALOG, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from '../game/items/itemCatalog';
+import { ITEM_CATALOG, EQUIPMENT_SLOTS, EQUIPMENT_SLOT_LABELS, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from '../game/items/itemCatalog';
 
 interface GameHUDProps {
   phase: GamePhase;
@@ -62,6 +62,8 @@ interface GameHUDProps {
   onUseInventoryItem: (itemId: InventoryItemId) => void;
   onEquipInventoryItem: (itemId: EquipmentItemId) => void;
   onUnequipEquipment: (slot: EquipmentSlot) => void;
+  onBuyShopItem: (itemId: InventoryItemId) => void;
+  onCloseShop: () => void;
   onDialogueOption: (optionId: string) => void;
   onDialogueClose: () => void;
   onUpgradeShelter: () => void;
@@ -585,6 +587,8 @@ export function GameHUD({
   onUseInventoryItem,
   onEquipInventoryItem,
   onUnequipEquipment,
+  onBuyShopItem,
+  onCloseShop,
   onDialogueOption,
   onDialogueClose,
   onUpgradeShelter,
@@ -1028,6 +1032,8 @@ export function GameHUD({
                       ? 'bg-cyan-400'
                       : b.kind === 'food' || b.kind === 'prey'
                         ? 'bg-emerald-400'
+                        : b.kind === 'shop'
+                          ? 'bg-pink-400'
                         : b.kind === 'shelter'
                           ? 'bg-purple-400'
                           : b.kind === 'boss'
@@ -1074,12 +1080,12 @@ export function GameHUD({
                         <span className="text-[11px] font-bold uppercase tracking-wider text-violet-200">Inventário</span>
                         <button type="button" onClick={() => setInventoryOpen(false)} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Fechar inventário"><X className="h-3.5 w-3.5" /></button>
                       </div>
-                      <div className="mb-2 grid grid-cols-2 gap-2">
-                        {(['collar', 'harness'] as const).map((slot) => {
+                      <div className="mb-2 grid grid-cols-3 gap-1.5">
+                        {EQUIPMENT_SLOTS.map((slot) => {
                           const equippedId = hud.equipment?.[slot] ?? null;
                           return (
                             <div key={slot} className="rounded-lg border border-amber-300/20 bg-amber-400/[0.06] p-2">
-                              <div className="text-[9px] font-bold uppercase tracking-wider text-amber-200">{slot === 'collar' ? 'Coleira' : 'Arreio'}</div>
+                              <div className="text-[9px] font-bold uppercase tracking-wider text-amber-200">{EQUIPMENT_SLOT_LABELS[slot]}</div>
                               <div className="mt-1 truncate text-[10px] text-slate-100">{equippedId ? ITEM_CATALOG[equippedId].name : 'Vazio'}</div>
                               {equippedId && <button type="button" onClick={() => onUnequipEquipment(slot)} className="mt-1 text-[9px] text-amber-200 underline">Remover</button>}
                             </div>
@@ -1118,6 +1124,46 @@ export function GameHUD({
               )}
         </div>
         </div>
+
+        {hud.shop && phase === 'playing' && (
+          <div className="pointer-events-auto absolute inset-x-0 bottom-24 z-30 mx-auto w-[min(92vw,22rem)] rounded-2xl border border-pink-300/30 bg-[#0B0F17]/95 p-3 shadow-2xl backdrop-blur">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div>
+                <div className="text-sm font-bold text-pink-100">{hud.shop.name}</div>
+                <div className="text-[10px] text-slate-400">Aberta {hud.shop.hours} · {hud.shop.open ? 'aberta agora' : 'fechada agora'}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-md bg-amber-400/15 px-2 py-0.5 font-mono text-[11px] text-amber-200">{Math.floor(hud.coins)} moedas</span>
+                <button type="button" onClick={onCloseShop} className="rounded p-1 text-slate-400 hover:text-white" aria-label="Fechar loja"><X className="h-4 w-4" /></button>
+              </div>
+            </div>
+            <div className="max-h-[42vh] space-y-1.5 overflow-y-auto pr-1">
+              {hud.shop.stock.map((entry) => {
+                const definition = ITEM_CATALOG[entry.itemId];
+                const lockedByLevel = hud.level < entry.levelRequired;
+                const disabled = !hud.shop!.open || lockedByLevel || hud.coins < entry.price;
+                return (
+                  <div key={entry.itemId} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] font-semibold text-slate-100">{definition.name}</div>
+                      <div className="text-[9px] text-slate-400">{definition.description}</div>
+                      {lockedByLevel && <div className="text-[9px] text-red-300">Requer nível {entry.levelRequired}</div>}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => onBuyShopItem(entry.itemId)}
+                      className="rounded-md border border-pink-300/30 bg-pink-500/15 px-2 py-1.5 text-[10px] font-semibold text-pink-100 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      {entry.price} 🪙
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 text-[9px] text-slate-500">Todo item vendido aqui também pode ser encontrado de graça pelo mapa ou ganho em tarefas.</div>
+          </div>
+        )}
 
         {/* RESPONSIVE DUEL / BOSS HEALTH BAR (Mobile + Desktop) */}
         {hud.activeBoss && (

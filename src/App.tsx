@@ -357,6 +357,8 @@ export default function App() {
           onUseInventoryItem={(itemId) => engineRef.current?.useInventoryItem(itemId)}
           onEquipInventoryItem={(itemId) => engineRef.current?.equipInventoryItem(itemId)}
           onUnequipEquipment={(slot) => engineRef.current?.unequipEquipment(slot)}
+          onBuyShopItem={(itemId) => engineRef.current?.buyShopItem(itemId)}
+          onCloseShop={() => engineRef.current?.closeShop()}
           onDialogueOption={(optionId) => engineRef.current?.chooseDialogueOption(optionId)}
           onDialogueClose={() => engineRef.current?.closeDialogue()}
           onUpgradeShelter={() => engineRef.current?.triggerShelterUpgrade()}

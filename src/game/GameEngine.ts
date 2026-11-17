@@ -7,6 +7,7 @@ import {
   EVOLUTION_STAGES,
   GamePhase,
   HudSnapshot,
+  ShopHud,
   DuelHud,
   LoreLog,
   MAX_CAT_LEVEL,
@@ -44,7 +45,9 @@ import { selectFirstAvailableTaskGpsTarget } from './tasks/taskNavigation';
 import type { TaskGpsCandidate, TaskGpsTarget } from './tasks/taskNavigation';
 import { addInventoryItem, consumeInventoryItem, createInventoryState, inventoryCount, normalizeInventory } from './items/inventory';
 import type { InventoryState } from './items/inventory';
-import { ITEM_CATALOG, isInventoryItemId, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from './items/itemCatalog';
+import { ITEM_CATALOG, EQUIPMENT_SLOT_LABELS, isInventoryItemId, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from './items/itemCatalog';
+import { getShop, isShopOpen } from './shop/catalog';
+import { purchaseItem } from './shop/purchase';
 import { createEquipmentState, getEquipmentBonuses, normalizeEquipment } from './items/equipment';
 import type { EquipmentState } from './items/equipment';
 import { findGridRoute } from './tasks/gridRoute';
@@ -241,6 +244,7 @@ export class GameEngine {
   private battleTarget: FoeSide | null = null;
   /** Maná guardado de batalhas vencidas (0–100). */
   private battleMana = 0;
+  private openShopId: string | null = null;
   private battleInventory: BattleInventoryItem[] = [];
   private inventory: InventoryState = createInventoryState();
   private equipment: EquipmentState = createEquipmentState();
@@ -605,7 +609,12 @@ export class GameEngine {
       EVOLUTION_STAGES[this.stageIndex].attackDamage +
       (this.level - 1) * 1.4 +
       (this.level >= MAX_CAT_LEVEL ? 25 : 0);
-    return Math.round(baseDamage * (this.moonPowerActive ? 1.65 : 1));
+    const gear = 1 + getEquipmentBonuses(this.equipment).attackPercent / 100;
+    return Math.round(baseDamage * gear * (this.moonPowerActive ? 1.65 : 1));
+  }
+
+  private getSonarRadius(): number {
+    return EVOLUTION_STAGES[this.stageIndex].sonarRadius + getEquipmentBonuses(this.equipment).sonarRadius;
   }
 
   private getRankTitle(): string {
@@ -1983,6 +1992,9 @@ export class GameEngine {
       this.cat.triggerAction('pounce');
       this.callbacks.onToast(`+${added} · ${ITEM_CATALOG[itemId].name} guardado no inventário.`, 'success');
       this.saveGame();
+    } else if (item.kind === 'shop') {
+      this.openShopId = item.id.replace(/^shop-/, '');
+      gameAudio.playCollectScrap();
     } else if (item.kind === 'shelter') {
       const lvl = item.shelterLevel || 1;
       this.warmth = def.maxWarmth;
@@ -2042,6 +2054,10 @@ export class GameEngine {
       const before = this.stamina;
       this.stamina = Math.min(this.getEffectiveMaxStamina(), this.stamina + effect.amount);
       applied = this.stamina - before;
+    } else if (effect.kind === 'mana') {
+      const before = this.battleMana;
+      this.battleMana = Math.min(100, this.battleMana + effect.amount);
+      applied = this.battleMana - before;
     }
     if (applied <= 0) {
       this.callbacks.onToast('Esse atributo já está cheio; o item foi preservado.', 'info');
@@ -2057,9 +2073,53 @@ export class GameEngine {
       this.cat.triggerAction('eat');
       gameAudio.playEat();
     }
-    this.callbacks.onToast(`${ITEM_CATALOG[itemId].name}: +${Math.round(applied)} ${effect.kind === 'health' ? 'Saúde' : effect.kind === 'thirst' ? 'Sede' : effect.kind === 'stamina' ? 'Resistência' : 'Fome'}.`, 'success');
+    this.callbacks.onToast(`${ITEM_CATALOG[itemId].name}: +${Math.round(applied)} ${effect.kind === 'health' ? 'Saúde' : effect.kind === 'thirst' ? 'Sede' : effect.kind === 'stamina' ? 'Resistência' : effect.kind === 'mana' ? 'Mana' : 'Fome'}.`, 'success');
     this.saveGame();
     this.syncHud();
+  }
+
+  public closeShop(): void {
+    this.openShopId = null;
+    this.syncHud();
+  }
+
+  public buyShopItem(itemId: InventoryItemId): void {
+    if (this.phase !== 'playing' || this.duelPhase === 'fighting' || !this.openShopId) return;
+    const stall = this.world.interactables.find((i) => i.id === `shop-${this.openShopId}`);
+    if (!stall || this.catPos.distanceTo(stall.position) > 8) {
+      this.openShopId = null;
+      this.syncHud();
+      return;
+    }
+    const result = purchaseItem({
+      shopId: this.openShopId, itemId, coins: this.coins, level: this.level,
+      timeOfDay: this.timeOfDay, inventory: this.inventory, equipment: this.equipment,
+    });
+    if (!result.ok) {
+      this.callbacks.onToast(result.message, 'warn');
+      return;
+    }
+    this.coins = result.coins;
+    this.inventory = result.inventory;
+    gameAudio.playCollectScrap();
+    this.callbacks.onToast(`${ITEM_CATALOG[itemId].name} comprado por ${result.price} moedas.`, 'success');
+    this.saveGame();
+    this.syncHud();
+  }
+
+  private getShopHud(): ShopHud | null {
+    if (!this.openShopId) return null;
+    const shop = getShop(this.openShopId);
+    const stall = this.world.interactables.find((i) => i.id === `shop-${this.openShopId}`);
+    if (!shop || !stall || this.catPos.distanceTo(stall.position) > 9) {
+      this.openShopId = null;
+      return null;
+    }
+    const fmt = (h: number) => `${String(h).padStart(2, '0')}h`;
+    return {
+      id: shop.id, name: shop.name, open: isShopOpen(shop, this.timeOfDay), hours: `${fmt(shop.openHour)}–${fmt(shop.closeHour)}`,
+      stock: shop.stock.map((entry) => ({ itemId: entry.itemId, price: entry.price, levelRequired: entry.levelRequired ?? 0 })),
+    };
   }
 
   public equipInventoryItem(itemId: EquipmentItemId): void {
@@ -2081,7 +2141,7 @@ export class GameEngine {
     if (equipped) nextInventory = addInventoryItem(nextInventory, equipped, 1);
     this.inventory = nextInventory;
     this.equipment = { ...this.equipment, [slot]: itemId };
-    this.callbacks.onToast(`${definition.name} equipado. ${slot === 'collar' ? '+15 Saúde máxima' : '+20 Resistência máxima'}.`, 'success');
+    this.callbacks.onToast(`${definition.name} equipado (${EQUIPMENT_SLOT_LABELS[slot]}). ${definition.description.replace(/^[^:]+: /, '')}`, 'success');
     this.saveGame();
     this.syncHud();
   }
@@ -3087,7 +3147,7 @@ export class GameEngine {
 
     if (this.sonarWaveProgress >= 0) {
       this.sonarWaveProgress += dt * 1.4;
-      const maxR = def.sonarRadius;
+      const maxR = this.getSonarRadius();
       this.sonarRing.scale.setScalar(Math.max(1, this.sonarWaveProgress * maxR));
       (this.sonarRing.material as THREE.MeshBasicMaterial).opacity = Math.max(
         0,
@@ -3136,7 +3196,7 @@ export class GameEngine {
       }
 
       const ringMat = item.beaconRing.material as THREE.MeshBasicMaterial;
-      if (this.sonarRevealTimer > 0 && dist <= def.sonarRadius) {
+      if (this.sonarRevealTimer > 0 && dist <= this.getSonarRadius()) {
         ringMat.opacity = 0.55 + Math.sin(this.elapsed * 6) * 0.25;
         item.beaconRing.scale.setScalar(1 + Math.sin(this.elapsed * 4) * 0.15);
       } else {
@@ -3576,6 +3636,17 @@ export class GameEngine {
         secondaryLabel: lvl < 3 ? `Melhorar (${cost} Sucatas)` : 'Nível Máximo',
       };
     }
+    if (item.kind === 'shop') {
+      const shop = getShop(item.id.replace(/^shop-/, ''));
+      const open = shop ? isShopOpen(shop, this.timeOfDay) : false;
+      return {
+        id: item.id,
+        kind: item.kind,
+        label: item.name,
+        detail: open ? 'Compre poções, armas, armaduras e aparatos com moedas' : `Fechada agora · abre às ${shop ? String(shop.openHour).padStart(2, '0') : '--'}h`,
+        actionText: 'Ver mercadorias',
+      };
+    }
     if (item.kind === 'terminal') {
       const read = this.discoveredTerminals.has(item.id);
       return {
@@ -3591,7 +3662,7 @@ export class GameEngine {
 
   private buildSnapshot(causeOfDeath?: string): HudSnapshot {
     const def = EVOLUTION_STAGES[this.stageIndex];
-    const radarRange = this.sonarRevealTimer > 0 ? def.sonarRadius : 36;
+    const radarRange = this.sonarRevealTimer > 0 ? this.getSonarRadius() : 36;
     const blips: RadarBlip[] = [];
 
     for (const item of this.world.interactables) {
@@ -3678,6 +3749,7 @@ export class GameEngine {
       activeDialogue: this.activeDialogue,
       activeDialogueOptions: dialogueOptions,
       dialogueAnchor: this.getDialogueAnchor(),
+      shop: this.getShopHud(),
       playerTasks: this.playerTasks.map((task) => { const definition = getPlayerTaskDefinition(task.id)!; return { ...task, title: definition.title, description: definition.description, target: definition.target }; }),
       cycleTasks: [
         ...this.taskCycle.tasks.filter((task) => task.status === 'active').slice(0, 3),

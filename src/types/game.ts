@@ -4,6 +4,7 @@ import type { TaskCycleState, CycleTaskInstance, CycleTaskStage } from '../game/
 import type { TaskGpsTarget } from '../game/tasks/taskNavigation';
 import type { InventoryEntry } from '../game/items/inventory';
 import type { EquipmentState } from '../game/items/equipment';
+import type { InventoryItemId } from '../game/items/itemCatalog';
 import type { TaskRewardDrop } from '../game/tasks/taskRewards';
 import type { WorldTravelSaveState } from '../game/worlds/portalWorlds';
 
@@ -27,7 +28,8 @@ export type InteractionKind =
   | 'scrap'
   | 'pickup'
   | 'terminal'
-  | 'resident';
+  | 'resident'
+  | 'shop';
 
 export type EnemyKind = 'rat' | 'feral_cat' | 'hound' | 'lion';
 
@@ -291,6 +293,19 @@ export interface DuelHud {
   resultWon: boolean | null;
 }
 
+export interface ShopHudEntry {
+  itemId: InventoryItemId;
+  price: number;
+  levelRequired: number;
+}
+export interface ShopHud {
+  id: string;
+  name: string;
+  open: boolean;
+  hours: string;
+  stock: ShopHudEntry[];
+}
+
 export interface HudSnapshot {
   health: number;
   maxHealth: number;
@@ -314,6 +329,7 @@ export interface HudSnapshot {
   activeDialogueOptions?: DialogueOption[];
   /** Posição normalizada (0–1) acima da cabeça do falante, para o balão de conversa. */
   dialogueAnchor?: { x: number; y: number } | null;
+  shop?: ShopHud | null;
   playerTasks?: Array<{ id: string; title: string; description: string; progress: number; target: number; status: 'active' | 'completed' }>;
   cycleTasks?: Array<CycleTaskInstance & { currentStage: CycleTaskStage }>;
   secondsToNextTask?: number;

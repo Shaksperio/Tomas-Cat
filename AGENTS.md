@@ -144,6 +144,13 @@ Portais físicos e transição jogável entre mundos; carregamento de cenas inde
 - Bônus entram nas funções centrais de máximo de saúde/resistência; `SavedGameState.equipment` é opcional para compatibilidade com saves antigos.
 - Lojas, crafting, atributos defensivos e mais slots/tipos de equipamento continuam pendentes.
 
+### 4.9 Lojas e catálogo ampliado (2026-11-17)
+- `src/game/items/itemCatalog.ts` continua sendo o catálogo único: novos consumíveis (Poção de mana +40 mana de batalha, Poção de vitalidade +60 saúde) e seis slots de equipamento (coleira, arreio, arma, armadura, roupa, aparato) com bônus de saúde/resistência máxima, % de dano e alcance do sonar. `equipment.ts` migra saves antigos (só coleira/arreio).
+- `src/game/shop/catalog.ts` define 6 lojas espalhadas pelo mapa (preços em moedas, nível mínimo, horário; a Barraca da Meia-Noite abre 20h–5h). `purchase.ts` valida loja, horário, nível, moedas, equipamento repetido e pilha cheia antes de alterar o estado.
+- **Regra do autor cumprida por teste:** `src/game/items/worldSpawns.ts` é a fonte dos itens gratuitos no cenário; `shop.test.ts` falha se algum item vendido não tiver ponto gratuito. Pontos dentro de colisores são deslocados em `worldBuilder.ts`.
+- HUD: painel da loja (toque/E na barraca) e mochila com os seis slots. Não verificado em aparelho real nem renderizado.
+- **Pendente do pedido de lojas:** vender técnicas (especiais, sequências, combos secretos) — dependem de novos comandos no ATB; posturas bípede/quadrúpede; chefes regionais de gangue; desbloqueio por nível de novas sequências/combos secretos; itens de loja como recompensa direta de tarefas (hoje a fonte gratuita são os pickups).
+
 ## 5. Roteiro e decisões do autor
 
 ### 5.1 Decisões de arquitetura (definidas)

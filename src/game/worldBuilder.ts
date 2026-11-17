@@ -6,6 +6,8 @@ import { PHASE_LAKES, PHASE_RIVERS, riverCorners, type RiverSegment } from './su
 import { ProceduralTextureSet } from './textures';
 import { buildVegetation } from './style/vegetation';
 import { ITEM_CATALOG, type InventoryItemId } from './items/itemCatalog';
+import { ITEM_WORLD_SPAWNS } from './items/worldSpawns';
+import { SHOPS } from './shop/catalog';
 
 export interface ColliderBox {
   minX: number;
@@ -950,28 +952,32 @@ export function buildPostApocalypticWorld(
     herb: new THREE.MeshStandardMaterial({ color: 0x65a30d, emissive: 0x365314, emissiveIntensity: 0.5, roughness: 0.7 }),
     water: new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x075985, emissiveIntensity: 0.65, metalness: 0.25, roughness: 0.2 }),
     energy: new THREE.MeshStandardMaterial({ color: 0xc084fc, emissive: 0x7e22ce, emissiveIntensity: 0.75, roughness: 0.35 }),
+    mana: new THREE.MeshStandardMaterial({ color: 0x60a5fa, emissive: 0x1d4ed8, emissiveIntensity: 0.85, metalness: 0.2, roughness: 0.25 }),
+    vitality: new THREE.MeshStandardMaterial({ color: 0xf87171, emissive: 0xb91c1c, emissiveIntensity: 0.8, metalness: 0.2, roughness: 0.25 }),
     gear: new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xb45309, emissiveIntensity: 0.8, metalness: 0.82, roughness: 0.22 }),
   };
-  const pickupConfigs: Array<{ id: InventoryItemId; x: number; z: number }> = [
-    { id: 'medicinal_herb', x: -28, z: -10 },
-    { id: 'medicinal_herb', x: 82, z: -70 },
-    { id: 'medicinal_herb', x: -132, z: 70 },
-    { id: 'clean_water', x: 42, z: -102 },
-    { id: 'clean_water', x: 148, z: 62 },
-    { id: 'clean_water', x: 24, z: 150 },
-    { id: 'energy_berry', x: 36, z: -96 },
-    { id: 'energy_berry', x: -88, z: 132 },
-    { id: 'energy_berry', x: 176, z: 82 },
-    { id: 'reinforced_collar', x: 112, z: -38 },
-    { id: 'scavenger_harness', x: -168, z: 102 },
-  ];
+  // Afasta o ponto de colisores (prédios etc.) para que o item sempre seja alcançável.
+  const nudgeClear = (x: number, z: number): { x: number; z: number } => {
+    const blocked = (px: number, pz: number) => colliders.some((c) => !c.isBarrier && px > c.minX - 1.2 && px < c.maxX + 1.2 && pz > c.minZ - 1.2 && pz < c.maxZ + 1.2);
+    if (!blocked(x, z)) return { x, z };
+    for (let r = 2; r <= 40; r += 2) {
+      for (let k = 0; k < 12; k++) {
+        const ang = (k / 12) * Math.PI * 2;
+        const px = Math.max(-WORLD_BOUNDS + 4, Math.min(WORLD_BOUNDS - 4, x + Math.cos(ang) * r));
+        const pz = Math.max(-WORLD_BOUNDS + 4, Math.min(WORLD_BOUNDS - 4, z + Math.sin(ang) * r));
+        if (!blocked(px, pz)) return { x: px, z: pz };
+      }
+    }
+    return { x, z };
+  };
+  const pickupConfigs: Array<{ id: InventoryItemId; x: number; z: number }> = ITEM_WORLD_SPAWNS.map((spawn) => ({ id: spawn.itemId, ...nudgeClear(spawn.x, spawn.z) }));
   pickupConfigs.forEach(({ id, x, z }, index) => {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
-    const material = id === 'medicinal_herb' ? pickupMaterials.herb : id === 'clean_water' ? pickupMaterials.water : id === 'energy_berry' ? pickupMaterials.energy : pickupMaterials.gear;
+    const material = id === 'medicinal_herb' ? pickupMaterials.herb : id === 'clean_water' ? pickupMaterials.water : id === 'energy_berry' ? pickupMaterials.energy : id === 'mana_potion' ? pickupMaterials.mana : id === 'vitality_potion' ? pickupMaterials.vitality : pickupMaterials.gear;
     const shape = id === 'medicinal_herb'
       ? new THREE.DodecahedronGeometry(0.32, 0)
-      : id === 'clean_water'
+      : id === 'clean_water' || id === 'mana_potion' || id === 'vitality_potion'
         ? new THREE.OctahedronGeometry(0.34, 0)
         : id === 'reinforced_collar'
           ? new THREE.TorusGeometry(0.34, 0.09, 8, 16)
@@ -979,7 +985,7 @@ export function buildPostApocalypticWorld(
     const core = new THREE.Mesh(shape, material);
     core.position.y = 0.55;
     core.castShadow = true;
-    const beaconRing = createBeaconRing(id === 'medicinal_herb' ? 0x84cc16 : id === 'clean_water' ? 0x38bdf8 : id === 'energy_berry' ? 0xc084fc : 0xfbbf24);
+    const beaconRing = createBeaconRing(id === 'medicinal_herb' ? 0x84cc16 : id === 'clean_water' ? 0x38bdf8 : id === 'energy_berry' ? 0xc084fc : id === 'mana_potion' ? 0x60a5fa : id === 'vitality_potion' ? 0xf87171 : 0xfbbf24);
     group.add(core, beaconRing);
     scene.add(group);
     interactables.push({
@@ -992,11 +998,50 @@ export function buildPostApocalypticWorld(
       beaconRing,
       active: true,
       respawnTimer: 0,
-      maxRespawn: 150,
+      maxRespawn: ITEM_CATALOG[id].category === 'equipment' ? 600 : 150,
       amount: 1,
       xpGain: 8,
     });
   });
+
+  // LOJAS (barracas espalhadas; dados em shop/catalog.ts)
+  // =========================================================================
+  for (const shop of SHOPS) {
+    const spot = nudgeClear(shop.x, shop.z);
+    const group = new THREE.Group();
+    group.position.set(spot.x, 0, spot.z);
+    const wood = new THREE.MeshStandardMaterial({ color: 0x7c5a3a, roughness: 0.85 });
+    const awning = new THREE.MeshStandardMaterial({ color: shop.accent, emissive: shop.accent, emissiveIntensity: 0.25, roughness: 0.6 });
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.9, 1.1), wood);
+    counter.position.y = 0.45;
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.18, 1.8), awning);
+    roof.position.set(0, 2.3, -0.1);
+    roof.rotation.x = 0.18;
+    for (const dx of [-1.4, 1.4]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.3, 0.14), wood);
+      post.position.set(dx, 1.15, -0.7);
+      group.add(post);
+    }
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), new THREE.MeshBasicMaterial({ color: shop.accent }));
+    lamp.position.set(0, 2.05, 0.3);
+    const beaconRing = createBeaconRing(shop.accent);
+    group.add(counter, roof, lamp, beaconRing);
+    group.castShadow = true;
+    scene.add(group);
+    interactables.push({
+      id: `shop-${shop.id}`,
+      kind: 'shop',
+      name: shop.name,
+      position: new THREE.Vector3(spot.x, 0, spot.z),
+      mesh: group,
+      beaconRing,
+      active: true,
+      respawnTimer: 0,
+      maxRespawn: 0,
+      amount: 0,
+      xpGain: 0,
+    });
+  }
 
   // SHELTERS (6 safe refuges across the open city)
   // =========================================================================
