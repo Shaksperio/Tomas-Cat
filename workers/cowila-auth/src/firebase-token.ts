@@ -53,6 +53,12 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 function findSigningKey(keys: JsonWebKey[], kid: string): JsonWebKey | undefined {
   return keys.find((candidate) => {
     const metadata = candidate as JsonWebKey & { kid?: string; alg?: string; use?: string };
@@ -128,8 +134,8 @@ export async function verifyFirebaseGoogleIdToken(
   const signatureValid = await crypto.subtle.verify(
     "RSASSA-PKCS1-v1_5",
     cryptoKey,
-    signature,
-    signingInput,
+    toArrayBuffer(signature),
+    toArrayBuffer(signingInput),
   );
   if (!signatureValid) throw new FirebaseTokenError();
 
