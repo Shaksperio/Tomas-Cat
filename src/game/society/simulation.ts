@@ -68,6 +68,7 @@ import {
   type WorldEvent,
   canAgentAcceptTask,
 } from './contracts';
+import { runSpecialistCycle } from './agents/orchestrator';
 import {
   completeProbation,
   createDisciplineRecord,
@@ -722,6 +723,31 @@ export class SocietySimulation {
     return !['prepare_site', 'build_module', 'repair_structure'].includes(taskKind);
   }
 
+  /**
+   * Converte propostas especialistas em tarefas reais da fila local.
+   * A autorização é recalculada a cada tick; IDs determinísticos tornam a
+   * aplicação idempotente e o scheduler existente continua sendo a autoridade
+   * para atribuição, deslocamento, consumo de recursos e conclusão.
+   */
+  private scheduleSpecialistTasks(): void {
+    const report = runSpecialistCycle(this.snapshot());
+    for (const proposal of report.proposals) {
+      const taskId = `specialist-${proposal.proposalId}`;
+      if (this.tasks.has(taskId)) continue;
+      const agent = this.agents.get(proposal.agentId);
+      if (!agent || agent.profession !== this.tasksProfessionForProposal(proposal.agentId)) continue;
+      const task = makeTask(taskId, proposal.taskKind, agent.profession, this.tickCount);
+      task.sectorId = proposal.sectorId;
+      task.target = proposal.target ? { ...proposal.target } : null;
+      task.requiredResources = { ...proposal.requiredResources };
+      this.enqueueTask(task);
+    }
+  }
+
+  private tasksProfessionForProposal(agentId: string): AgentProfession | undefined {
+    return this.agents.get(agentId)?.profession;
+  }
+
   /** Avança exatamente um passo lógico da simulação. */
   public step(steps = 1): SocietySimulationSnapshot {
     const safeSteps = Math.max(0, Math.min(1000, Math.floor(steps)));
@@ -734,6 +760,7 @@ export class SocietySimulation {
       for (const agent of this.agents.values()) this.updateNeeds(agent);
       this.assignQueuedTasks();
       this.progressTasks();
+      this.scheduleSpecialistTasks();
       this.updateSocialRelationships();
       this.feedResidents();
       this.consumeCommunityNeeds();
