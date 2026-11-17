@@ -259,3 +259,71 @@ test('duel outcomes move coins and health of a resident within safe limits', () 
   assert.ok(agent.health >= 25, 'a duel never leaves a resident with less than 25 health');
   assert.equal(simulation.applyDuelOutcome('ninguem', { coins: 1, health: 1 }), false);
 });
+
+
+test('governance suspension is enforced by the authoritative task scheduler', () => {
+  const simulation = new SocietySimulation();
+  const record = simulation.reportAgentViolation({
+    id: 'violation-worker-01',
+    agentId: 'worker-01',
+    kind: 'unauthorized_action',
+    tick: 0,
+    evidenceId: 'evidence-worker-01',
+    verified: true,
+  });
+  assert.equal(record.status, 'suspended');
+  const snapshot = simulation.step(1);
+  assert.equal(snapshot.agents.find((agent) => agent.id === 'worker-01')?.activeTaskId, null);
+  assert.equal(snapshot.tasks.some((task) => task.assignedAgentId === 'worker-01'), false);
+  assert.equal(simulation.getAgentDiscipline('worker-01').status, 'suspended');
+});
+
+test('unverified reports do not punish agents and reintegration requires review', () => {
+  const simulation = new SocietySimulation();
+  const unverified = simulation.reportAgentViolation({
+    id: 'unverified-agent-01',
+    agentId: 'worker-01',
+    kind: 'policy_bypass',
+    tick: 0,
+    evidenceId: 'evidence-unverified',
+    verified: false,
+  });
+  assert.equal(unverified.status, 'active');
+
+  simulation.reportAgentViolation({
+    id: 'verified-agent-01',
+    agentId: 'worker-01',
+    kind: 'unauthorized_action',
+    tick: 0,
+    evidenceId: 'evidence-verified',
+    verified: true,
+  });
+  simulation.step(30);
+  assert.equal(simulation.reinstateAgent('worker-01', false, true).status, 'suspended');
+  assert.equal(simulation.reinstateAgent('worker-01', true, true).status, 'probation');
+  assert.equal(simulation.getAgentDiscipline('worker-01').status, 'probation');
+  simulation.step(60);
+  assert.equal(simulation.getAgentDiscipline('worker-01').status, 'active');
+});
+
+test('repeated verified incitement permanently blocks the agent identity', () => {
+  const simulation = new SocietySimulation();
+  simulation.reportAgentViolation({
+    id: 'incitement-one',
+    agentId: 'agent-01',
+    kind: 'verified_incitement',
+    tick: 0,
+    evidenceId: 'evidence-incitement-one',
+    verified: true,
+  });
+  const blocked = simulation.reportAgentViolation({
+    id: 'incitement-two',
+    agentId: 'agent-01',
+    kind: 'verified_incitement',
+    tick: 1,
+    evidenceId: 'evidence-incitement-two',
+    verified: true,
+  });
+  assert.equal(blocked.status, 'permanently_blocked');
+  assert.equal(simulation.step(1).agents.find((agent) => agent.id === 'agent-01')?.activeTaskId, null);
+});

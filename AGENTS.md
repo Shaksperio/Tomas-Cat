@@ -9,7 +9,7 @@
 
 - **Nome:** Tomas Vagabundo (nome interno antigo: FELIS-09). O gato jogável se chama **Tomas Vagabundo**.
 - **Repositório:** https://github.com/Shaksperio/Tomas-Cat — autor: Tom (Antonio), `Shaksperio`.
-- **O que é:** jogo 3D de mundo aberto e sobrevivência, em terceira pessoa, com um gato abandonado numa metrópole devastada. Roda no navegador.
+- **O que é:** jogo 3D de mundo aberto e sobrevivência, em terceira pessoa, com um gato abandonado numa metrópole devastada. Roda no navegador. **Diretriz de mundo (2026-11-17): Tomas Vagabundo será um mundo do tipo Matrix**: uma realidade simulada persistente, formada por ambientes e sociedades autônomas com regras consistentes. O termo descreve a ambição de simulação e autonomia; não autoriza copiar personagens, estética, narrativa, símbolos ou elementos protegidos da franquia Matrix.
 - **Stack:** React 19, TypeScript, Three.js, Vite, Tailwind CSS 4. Sem engine externa.
 - **Publicação:** GitHub Pages, https://shaksperio.github.io/Tomas-Cat/ (base `/Tomas-Cat/` em `vite.config.ts`). Deploy automático a cada push na `main`, pelo workflow `.github/workflows/deploy-pages.yml`.
 - **Origem:** criado no Google AI Studio; versionado aqui. Mantenha a configuração do Vite e o workflow ao sincronizar.
@@ -78,24 +78,24 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
   - Salários: a cada 100 ticks o cofre paga quem concluiu trabalho no período (engenheiro 6, agente 5, carpinteiro 5, mercadora 5, demais 4) para a carteira (`wallet`) do habitante; sem moedas, o salário não é pago e o moral cai. Evento `wage_paid`.
   - Tarefas concluídas são arquivadas após 200 ticks, para o estado não crescer sem limite.
   - Relações (confiança e afinidade, limite 100), interações sociais e eventos.
-- `SocietyActors.ts`: personagens 3D, placas de nome, indicadores de estado, balões de conversa, plantação 3D (3 fileiras de 12 plantas) e armazém comunitário com estoque visual.
+- `SocietyActors.ts`: personagens 3D, placas de nome, indicadores de estado, balões de conversa, plantação 3D (3 fileiras de 12 plantas) e armazém comunitário com estoque visual.\n- `worldSocietyRegistry.ts`: registro em memória que mantém uma `SocietySimulation` independente por `worldId`; avançar um mundo não altera os ticks, habitantes, tarefas ou recursos de outro. Ainda não persiste, não executa mundos em background e não está conectado ao `GameEngine` ou `WorldSceneManager`.
 - Testes: `contracts.test.ts` e `simulation.test.ts`.
 - Documento de arquitetura: `docs/architecture/AI-SOCIETY.md` (parte dele está desatualizada: diz "ainda não implantada").
 
 - **Diálogos locais (branch `codex/dialogue-phase0`, PR #3):** `src/game/dialogue/` contém contratos, dados escritos e runner puro para os nove habitantes, com nove nós por habitante (saudação, clima, pedido de ajuda, moral baixa e ramificações contextuais). A interação por proximidade abre uma janela clássica na HUD (inclusive durante a pausa do motor); opções condicionais verificam ferimento do jogador, noite, território conquistado, chuva ácida e flags de encontros anteriores. As nove falas contextuais por habitante têm testes de coerência textual. Afinidade, confiança, flags e IDs de pedidos aceitos são salvos em campos opcionais retrocompatíveis. A condição `night` usa o relógio normalizado do motor (0–1). **Tarefas dos diálogos (incremento atual):** `src/game/tasks/playerTasks.ts` define nove pedidos concretos, um por habitante, com objetivos ligados a eventos reais do jogo (coleta de comida/água/sucata, derrotar inimigos e melhorar abrigos). `GameEngine` aceita pedidos uma única vez, avança progresso pelos eventos, conclui automaticamente e concede XP pela barra de progressão existente + sucata como recompensa. O estado ativo/concluído é salvo em `SavedGameState.playerTasks`, opcional para compatibilidade retroativa; a HUD mostra progresso e conclusão. Testes puros cobrem catálogo, aceitação idempotente, avanço por evento, conclusão única e entradas inválidas. **Limitações restantes:** não há objetivos em múltiplas etapas, marcadores/rotas para tarefas, nem testes dedicados de integração do motor/HUD. A conversa ativa não é retomada após recarregar o save.
 - `src/game/battle/commands.ts` descreve metadados cinematográficos da ração e dos dois combos; `atb.ts` executa item, Rasante Duplo e Tempestade de Garras com custos de turno/maná e desbloqueio por nível. Campos opcionais de diálogo, comandos e inventário mantêm compatibilidade com saves antigos.
 
-### 4.3 O que NÃO existe ainda
+### 4.3 Diretriz Matrix — realidade simulada\n- O mundo deve comportar-se como uma realidade coerente, não como um cenário que só reage ao jogador. Habitantes e sistemas têm rotinas, necessidades, relações, economia, memória de eventos, governança e consequências verificáveis.\n- Camadas-alvo: mundo físico (regiões, clima, construções e recursos); sociedade (habitantes, profissões, relações e tarefas); economia (produção, estoque, comércio e salários); governança (regras, conflitos, proteção e justiça); memória (eventos e estado persistente); interface/percepção (o que o jogador observa, descobre e pode influenciar).\n- Cada mundo precisa de identidade, relógio lógico, estado e sociedade isolados. Portais conectam mundos sem misturar inventários, habitantes ou eventos por acidente.\n- O jogador participa da realidade; sua ausência não deve congelar o mundo quando a simulação de background for implantada. Para desempenho móvel, regiões distantes usam passos abstratos e determinísticos.\n- A IA Cowila poderá aconselhar, investigar e propor mudanças; apenas regras determinísticas e serviços autoritativos podem confirmar efeitos no mundo.\n- O `WorldSocietyRegistry` atual é somente uma base local em memória. Não representa ainda persistência, execução autônoma fora da sessão, multiplayer, consciência real dos agentes ou integração com a cena 3D.\n\n### 4.4 O que NÃO existe ainda
 Portais físicos e transição jogável entre mundos; carregamento de cenas independentes por worldId; snapshots completos por mundo; Galáxia visual. Backend autoritativo para validar transações e anti-cheat; a sociedade ainda não entra no salvamento; mundo que evolui sem jogador; Cowila integrada; multiplayer; preços dinâmicos; organizações, gangues, lei e justiça; catástrofes e alertas; colapso e Era Selvagem; caça, barracas e predadores por bioma; piloto automático; eras; brasões e distinções de jogadores; multiverso.
 
-### 4.4 Lacunas de jogabilidade conhecidas
+### 4.5 Lacunas de jogabilidade conhecidas
 - Sol (disco) e estrelas existem (estrelas à noite com tempo limpo), mas a lua ainda é uma esfera simples e não há nuvens nem fases lunares.
 - Duelos: só contra habitantes da sociedade local (sem multiplayer); habitantes não desafiam o jogador por conta própria; os modelos dos habitantes não têm esqueleto (golpes do oponente são investidas e recuos do corpo inteiro) e os sons da batalha reaproveitam sons existentes.
 - Natação/mergulho existem nas 8 bacias de água (profundidade 1,0–3,4 m), mas faltam predadores aquáticos, animação de nado própria no modelo do gato, bolhas/sons e água em escala de lago/rio.
 - Só os prédios protegem do clima; os abrigos ao ar livre não têm cobertura (marquises).
 - A pesca está funcional como coleta renovável, mas ainda não há animação de nado própria para o gato, bolhas/sons, predadores aquáticos nem água em escala de lago/rio.
 
-### 4.5 Tarefas cíclicas (incremento em desenvolvimento — branch `codex/task-cycles-600s`)
+### 4.6 Tarefas cíclicas (incremento em desenvolvimento — branch `codex/task-cycles-600s`)
 - `src/game/tasks/taskCycles.ts` implementa geração determinística em ciclos de 600 segundos de jogo ativo, objetivos em duas ou três etapas, progresso por eventos reais (comida, água, sucata e inimigos), histórico de modelos emitidos para impedir repetição e recompensas de XP/sucata.
 - O motor avança o relógio somente em `updateGameplay`, portanto pausa, tela de título e batalha não contam como tempo ativo. O estado é salvo em `SavedGameState.taskCycle`; saves antigos recebem estado inicial compatível.
 - A HUD exibe até três missões ativas e o tempo estimado até o próximo ciclo. Os pedidos dos nove habitantes permanecem separados e preservados. O sistema de recompensas físicas está em implementação na branch `codex/physical-task-rewards`: sucata da missão é criada como pickup próximo a Tomas e persiste em `SavedGameState.taskRewardDrops` até a coleta.
@@ -369,3 +369,26 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - A construção é determinística e isolada em uma raiz `THREE.Group`, compatível com `WorldSceneManager`.
 - Os testes validam composição da cena, setores e limites de colisão.
 - Esta etapa entrega o construtor da cena, mas ainda não a registra como jogável no motor. O mundo permanece `planned` até a integração de spawn/retorno, física de água, navegação e transição persistente.
+
+
+
+## Atualização de engenharia — agentes especialistas da sociedade (2026-11-16)
+
+- Criado `src/game/society/agents/catalog.ts` com perfis tipados para as oito profissões já existentes, incluindo missão, princípios operacionais, prioridade e allowlist de tarefas.
+- Criado `policies.ts` para validar propostas quanto a identidade, tick, prioridade, profissão, setor, alvo, recursos disponíveis, disponibilidade do habitante e duplicidade de trabalho.
+- Criado `orchestrator.ts` com ciclo determinístico de propostas e fallback local sem LLM, rede ou aleatoriedade.
+- Criados testes específicos em `agents/agents.test.ts`; o comando `npm test` agora os inclui.
+- A organização dos papéis foi inspirada em `msitarzewski/agency-agents` (licença MIT), mas os perfis são uma adaptação própria para as profissões e tarefas existentes no Tomas. Não foram copiados prompts de motores Unity/Godot.
+- **Limite desta fase:** o orquestrador produz propostas e não modifica a simulação. Uma proposta aceita ainda precisa ser aplicada por controlador autoritativo; não há integração com HUD/GameEngine, LLM/Cowila remoto, Worker, Durable Objects, D1 ou simulação offline compartilhada. Não anunciar habitantes autônomos integrados ao jogo até concluir essa ligação e testá-la no mundo 3D.
+- Documentação: `docs/architecture/SPECIALIST-AGENTS.md`.
+
+
+## Atualização de engenharia — Cowila, expansão territorial e governança (2026-11-16)
+
+- Engenheiros recebem mandato explícito para explorar territórios, desenhar bairros, propor cenários e planejar expansão urbana.
+- Operários recebem mandato explícito para executar obras, ampliar bairros, abrir caminhos e construir infraestrutura após aprovação.
+- `agents/expansion.ts` define propostas de expansão que precisam referenciar mundo jogável, template de cenário aprovado e módulos 3D autorizados pelo catálogo do motor.
+- `agents/governance.ts` implementa estado disciplinar determinístico: suspensão por violações verificadas, reintegração condicionada a aceite das regras e avaliação, período probatório e bloqueio permanente após incitação reiterada comprovada.
+- Discordância, crítica e propostas alternativas não são infrações. Evidência não verificada e eventos duplicados não geram punição.
+- O bloqueio global exige persistência compartilhada da identidade/blocklist; a integração com backend e execução real de projetos ainda não está concluída.
+- Documentação detalhada em `docs/architecture/COWILA-GOVERNANCE-AND-WORLD-EXPANSION.md`.

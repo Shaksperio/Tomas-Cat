@@ -23,6 +23,7 @@ import { PredatorActor } from './enemyModels';
 import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuilder';
 import { SocietySimulation } from './society/simulation';
+import { WorldSocietyRegistry } from './society/worldSocietyRegistry';
 import { SocietyActors } from './society/SocietyActors';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
 import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
@@ -140,7 +141,10 @@ export class GameEngine {
   private world: BuiltWorld;
   private readonly worldSceneManager: WorldSceneManager;
   private readonly cat: ArticulatedCat;
-  private society = new SocietySimulation();
+  private readonly societyRegistry = new WorldSocietyRegistry(PLAYABLE_WORLD_IDS);
+  private get society(): SocietySimulation {
+    return this.societyRegistry.simulationFor(this.worldSceneManager.activeWorldId);
+  }
   private readonly societyActors: SocietyActors;
   private societyTickTimer = 0;
   private readonly contactShadow: THREE.Mesh;
@@ -668,7 +672,7 @@ export class GameEngine {
     this.sheltersUpgraded = 0;
     this.enemiesDefeated = 0;
     this.lastThreatCause = '';
-    this.society = new SocietySimulation();
+    this.societyRegistry.reset(this.worldSceneManager.activeWorldId);
     this.societyTickTimer = 0;
 
     this.world.interactables.forEach((item) => {
