@@ -134,8 +134,8 @@ Treat this list as a server-side authorization policy, not as a client-side chec
 
 1. The player signs in through the Google provider (`google.com`) using Firebase Authentication.
 2. The client obtains a Firebase ID token from the authenticated session and sends it to the backend over HTTPS.
-3. The backend verifies the token using the Firebase Admin SDK (including signature, issuer, audience/project, expiry, and revocation checks).
-4. The backend requires the verified token's sign-in provider to be Google and requires `email_verified === true`.
+3. The backend verifies the token's signature, issuer, audience/project, expiry, and required claims. Firebase Admin SDK verification with revocation checking is the preferred complete path. The first Worker milestone currently uses Web Crypto RS256 verification against Firebase's published Secure Token JWK set; it does not yet detect revoked tokens.
+4. The backend requires the verified token's sign-in provider to be Google and requires `email_verified === true`. These checks are implemented in the initial Worker endpoint.
 5. The backend compares the verified email against the normalized server-side allowlist. Email is an additional eligibility check, never the account's primary key.
 6. The backend uses the verified Firebase `uid` as the stable account identity and resolves character/world ownership from server-controlled records.
 
@@ -203,3 +203,18 @@ The current game save is keyed by Firebase UID, but it is not a canonical charac
 - Do not expose service-account keys, Admin SDK credentials, or allowlist mutation controls in `VITE_*` variables or browser code.
 - Do not claim Cowila authorization is active until server integration and security tests pass.
 - The frontend hosting is GitHub Pages; the separate trusted backend runtime/provider for Firebase Admin verification and embodiment is not configured or selected. Choose and provision that backend before implementing privileged authorization. Do not put Admin credentials or privileged checks into GitHub Pages/Vite client code.
+
+## Initial Cloudflare Worker identity-verification milestone
+
+The branch now contains an isolated Worker at `workers/cowila-auth`.
+
+- `src/firebase-token.ts` verifies Firebase ID-token RS256 signatures with Google's published Secure Token JWKs, then validates issuer, audience, expiration, issued-at time, authentication time, UID, Google sign-in provider, verified email, and the server-side three-address allowlist.
+- `src/index.ts` exposes `POST /v1/auth/verify`, requires an exact configured Origin and a Firebase bearer token, returns only the verified identity, uses no-store response headers, and fails closed when configuration is missing.
+- `wrangler.jsonc` enables Worker logs and sampled traces.
+- `src/firebase-token.test.ts` covers valid tokens, normalized allowlist matching, non-allowlisted email, non-Google provider, unverified email, wrong audience, expiration, and tampered signatures.
+- `src/index.test.ts` covers health, origin rejection, CORS preflight, missing bearer token, and missing configuration.
+- Root `npm test` now includes the Worker tests, and the existing TypeScript check includes the Worker source.
+
+The Worker is not deployed and is not yet called by the game client. Its required runtime configuration is documented in `workers/cowila-auth/README.md`. The exact Firebase project ID and production game origin must be confirmed before configuration or deployment.
+
+**Security limitation:** this first milestone performs cryptographic Firebase ID-token verification but not Firebase token-revocation checks. It must not yet be used as the sole authorization boundary for long-running Cowila control. The next milestone must add revocation-aware session enforcement and a server-owned UID-to-character/world ownership registry before issuing any embodiment lease.
