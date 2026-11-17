@@ -169,3 +169,37 @@ The mapping must be queried by the verified Firebase UID. A UID may own multiple
 The allowlist may later move to a managed server-side configuration or database policy with an audited administrative process. Any change must be authenticated, authorized, and journaled; clients and language models cannot edit it.
 
 **Security invariant:** Cowila may pilot a character only when the backend has independently verified a current Firebase Google-authenticated session, confirmed the verified email is allowlisted, and resolved that character's ownership to the token's Firebase UID. Email knowledge alone is never sufficient.
+
+## Repository implementation audit (2026-11-16)
+
+The current repository was inspected before implementation planning. This section records observed code, not a claim that the backend authorization flow exists.
+
+### Existing client-side functionality
+
+- `src/firebase/client.ts` initializes the Firebase browser SDK, Firebase Authentication, and Firestore.
+- `src/App.tsx` signs in with `GoogleAuthProvider` using popup with redirect fallback, observes the Firebase auth session, and uses the authenticated user's `uid` when loading and saving game progress.
+- `src/firebase/gameSave.ts` stores the main save at `users/{uid}/gameSaves/main` and includes `ownerUid` in the document.
+- Root `firestore.rules` limits reads/deletes to the matching authenticated UID and requires matching `ownerUid`, schema version, and payload shape for writes. A catch-all rule denies other document access.
+- `firebase.json` currently configures Firestore rules only.
+
+### Missing server-side capability
+
+The inspected repository does not currently contain a deployed backend endpoint or Firebase Functions configuration for Cowila authorization, Firebase Admin SDK token verification, server-owned character/world ownership records, presence heartbeats, exclusive embodiment leases, or an append-only activity journal. The existing browser Firebase SDK and Firestore rules do not replace these server-side responsibilities.
+
+The current game save is keyed by Firebase UID, but it is not a canonical character-ownership registry. The game client still reads local/legacy/backup saves as recovery candidates; these mechanisms must not be treated as proof of server-authorized ownership for Cowila.
+
+### Required implementation sequence
+
+1. Decide and configure the authoritative server runtime for identity verification and embodiment. Do not place Admin credentials or privileged authorization logic in the Vite client.
+2. Add a server-side identity module that verifies Firebase ID tokens and revocation, requires Google as the sign-in provider and a verified email, and checks the three-account allowlist.
+3. Introduce server-owned UID-to-character/world ownership records and a safe migration/linking flow for existing saves. Never infer ownership from a client-supplied character ID or email.
+4. Add tests for valid/invalid tokens, provider mismatch, unverified email, allowlist normalization, revoked sessions, UID ownership mismatch, multiple characters, and account email changes.
+5. Only after identity and ownership are enforced server-side, implement authenticated presence, exclusive leases, fencing tokens, and the activity journal described above.
+
+### Deployment and compatibility guardrails
+
+- Do not change the existing Firestore save path or loosen the catch-all Firestore deny rule as a shortcut.
+- Do not break the current Google login or the existing save/load flow while introducing the backend.
+- Do not expose service-account keys, Admin SDK credentials, or allowlist mutation controls in `VITE_*` variables or browser code.
+- Do not claim Cowila authorization is active until server integration and security tests pass.
+- The server runtime/provider is not selected by this audit. Implementation must first align with the repository's actual hosting/deployment environment rather than introducing an unconfigured deployment target.
