@@ -37,6 +37,18 @@ test('rejects invalid and duplicate world identities', () => {
   assert.throws(() => new WorldSocietyRegistry(['same', 'same']), /Duplicate world ID/);
 });
 
+test('exposes and resets only the selected world simulation', () => {
+  const registry = new WorldSocietyRegistry(['quarantine-city', 'undergrid']);
+  registry.advance('quarantine-city', 5);
+  registry.advance('undergrid', 9);
+  const originalOtherWorld = registry.snapshot('undergrid');
+  const originalSimulation = registry.simulationFor('quarantine-city');
+  assert.equal(originalSimulation.snapshot().tick, 5);
+  assert.equal(registry.reset('quarantine-city').tick, 0);
+  assert.notEqual(registry.simulationFor('quarantine-city'), originalSimulation);
+  assert.deepEqual(registry.snapshot('undergrid'), originalOtherWorld);
+});
+
 test('rejects attempts to advance or inspect an unregistered world', () => {
   const registry = new WorldSocietyRegistry(['quarantine-city']);
   assert.throws(() => registry.snapshot('unknown'), /Unknown world/);
