@@ -184,7 +184,7 @@ The current repository was inspected before implementation planning. This sectio
 
 ### Missing server-side capability
 
-The inspected repository does not currently contain a deployed backend endpoint or Firebase Functions configuration for Cowila authorization, Firebase Admin SDK token verification, server-owned character/world ownership records, presence heartbeats, exclusive embodiment leases, or an append-only activity journal. The existing browser Firebase SDK and Firestore rules do not replace these server-side responsibilities.
+The inspected repository deploys the Vite frontend as a static site through GitHub Pages (`.github/workflows/deploy-pages.yml`). It does not currently contain a deployed backend endpoint or Firebase Functions configuration for Cowila authorization, Firebase Admin SDK token verification, server-owned character/world ownership records, presence heartbeats, exclusive embodiment leases, or an append-only activity journal. GitHub Pages can serve the client bundle but cannot host this trusted server-side control plane by itself. The existing browser Firebase SDK and Firestore rules do not replace these server-side responsibilities.
 
 The current game save is keyed by Firebase UID, but it is not a canonical character-ownership registry. The game client still reads local/legacy/backup saves as recovery candidates; these mechanisms must not be treated as proof of server-authorized ownership for Cowila.
 
@@ -202,4 +202,4 @@ The current game save is keyed by Firebase UID, but it is not a canonical charac
 - Do not break the current Google login or the existing save/load flow while introducing the backend.
 - Do not expose service-account keys, Admin SDK credentials, or allowlist mutation controls in `VITE_*` variables or browser code.
 - Do not claim Cowila authorization is active until server integration and security tests pass.
-- The server runtime/provider is not selected by this audit. Implementation must first align with the repository's actual hosting/deployment environment rather than introducing an unconfigured deployment target.
+- The frontend hosting is GitHub Pages; the separate trusted backend runtime/provider for Firebase Admin verification and embodiment is not configured or selected. Choose and provision that backend before implementing privileged authorization. Do not put Admin credentials or privileged checks into GitHub Pages/Vite client code.
