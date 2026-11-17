@@ -51,7 +51,11 @@ compartilhada.
 - `src/game/society/agents/orchestrator.ts`
 - `src/game/society/agents/agents.test.ts`
 
-Próxima integração: conectar as propostas ao ciclo de tarefas da sociedade por uma
-API transacional do simulador, preservando dependências, reservas e idempotência.
-Depois, adicionar memória resumida e adaptador Cowila com contexto mínimo e saídas
-estruturadas. Nenhuma chamada generativa deve ocorrer por frame.
+A integração local agora converte propostas aprovadas em tarefas da fila autoritativa
+por IDs determinísticos. O scheduler existente continua responsável por atribuição,
+dependências, deslocamento, consumo de recursos, conclusão e eventos. A execução é
+idempotente por identidade da proposta e continua sem LLM/rede.
+
+Próximas etapas: expor um relatório de ciclo para observabilidade/HUD; adicionar
+memória resumida e adaptador Cowila com contexto mínimo e saídas estruturadas; depois
+conectar persistência compartilhada. Nenhuma chamada generativa deve ocorrer por frame.
