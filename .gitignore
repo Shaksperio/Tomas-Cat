@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local Cloudflare Worker secrets (keep the documented example tracked).
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
