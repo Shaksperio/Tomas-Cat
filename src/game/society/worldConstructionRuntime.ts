@@ -88,9 +88,16 @@ export class WorldConstructionRuntime {
           rotationY: module.rotationY,
         });
       });
-      this.publishedProjectIds.add(projectId);
     }
     return placements;
+  }
+
+  markProjectPublished(projectId: string): boolean {
+    const tracked = this.projects.get(projectId);
+    if (!tracked || tracked.completedTaskIds.size !== tracked.project.taskIds.length) return false;
+    if (this.publishedProjectIds.has(projectId)) return false;
+    this.publishedProjectIds.add(projectId);
+    return true;
   }
 
   getProjectProgress(projectId: string): { completedTasks: number; totalTasks: number } | null {
