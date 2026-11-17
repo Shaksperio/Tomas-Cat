@@ -140,7 +140,7 @@ export class SocietyFamilySystem {
       lifeStage: 'infant',
     };
     this.offspring.set(id, record);
-    return { accepted: true, value: { ...record, parentAgentIds: [...record.parentAgentIds] } };
+    return { accepted: true, value: { ...record, parentAgentIds: [record.parentAgentIds[0], record.parentAgentIds[1]] } };
   }
 
   advanceToTick(tick: number): void {
@@ -162,7 +162,7 @@ export class SocietyFamilySystem {
       unions: [...this.unions.values()].map((union) => this.copyUnion(union)),
       offspring: [...this.offspring.values()].map((child) => ({
         ...child,
-        parentAgentIds: [...child.parentAgentIds],
+        parentAgentIds: [child.parentAgentIds[0], child.parentAgentIds[1]],
       })),
     };
   }
@@ -170,7 +170,7 @@ export class SocietyFamilySystem {
   private copyUnion(union: AgentUnion): AgentUnion {
     return {
       ...union,
-      memberAgentIds: [...union.memberAgentIds],
+      memberAgentIds: [union.memberAgentIds[0], union.memberAgentIds[1]],
       acceptedBy: [...union.acceptedBy],
       declinedBy: [...union.declinedBy],
     };
