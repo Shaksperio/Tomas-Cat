@@ -735,17 +735,13 @@ export class SocietySimulation {
       const taskId = `specialist-${proposal.proposalId}`;
       if (this.tasks.has(taskId)) continue;
       const agent = this.agents.get(proposal.agentId);
-      if (!agent || agent.profession !== this.tasksProfessionForProposal(proposal.agentId)) continue;
+      if (!agent) continue;
       const task = makeTask(taskId, proposal.taskKind, agent.profession, this.tickCount);
       task.sectorId = proposal.sectorId;
       task.target = proposal.target ? { ...proposal.target } : null;
       task.requiredResources = { ...proposal.requiredResources };
       this.enqueueTask(task);
     }
-  }
-
-  private tasksProfessionForProposal(agentId: string): AgentProfession | undefined {
-    return this.agents.get(agentId)?.profession;
   }
 
   /** Avança exatamente um passo lógico da simulação. */
