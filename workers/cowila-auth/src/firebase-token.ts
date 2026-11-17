@@ -79,7 +79,7 @@ async function loadSigningKey(kid: string, fetcher: typeof fetch): Promise<JsonW
 
   const keySet = await response.json() as FirebaseJwkSet;
   const keys = Array.isArray(keySet.keys) ? keySet.keys : [];
-  const maxAge = Number(/(?:^|,)\\s*max-age=(\\d+)/i.exec(response.headers.get("Cache-Control") ?? "")?.[1] ?? 300);
+  const maxAge = Number(/(?:^|,)\s*max-age=(\d+)/i.exec(response.headers.get("Cache-Control") ?? "")?.[1] ?? 300);
   const ttlSeconds = Math.min(3_600, Math.max(60, Number.isFinite(maxAge) ? maxAge : 300));
   cachedSigningKeys = { keys, expiresAt: now + ttlSeconds * 1_000 };
 
