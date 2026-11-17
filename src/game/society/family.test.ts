@@ -108,3 +108,11 @@ test('world family state is isolated by independent system instances', () => {
   assert.equal(first.snapshot().offspring.length, 1);
   assert.equal(second.snapshot().offspring.length, 0);
 });
+
+
+test('player identities are not members of the simulated-agent registry and cannot form families', () => {
+  const system = new SocietyFamilySystem(['agent-a', 'agent-b']);
+  assert.equal(system.proposeUnion('player-001', 'agent-a', 0).accepted, false);
+  assert.equal(system.proposeUnion('agent-a', 'player-001', 0).accepted, false);
+  assert.equal(system.snapshot().unions.length, 0);
+});
