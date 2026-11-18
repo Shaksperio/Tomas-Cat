@@ -38,24 +38,32 @@ test('projetos só ficam prontos após completeTask manual', () => {
   }
 });
 
-test('build_module na simulação pode avançar projeto registrado', () => {
-  const sim = new SocietySimulation();
+test('evento build_module sem vínculo explícito não conclui projeto de construção', () => {
+  const base = new SocietySimulation().snapshot();
+  const snapshot = {
+    ...base,
+    tick: 1,
+    resources: { food: 60, wood: 60, stone: 60, planks: 60, coins: 999 },
+    events: [{
+      id: 'unrelated-build-event',
+      kind: 'task_completed' as const,
+      regionId: 'local-suburb',
+      tick: 1,
+      idempotencyKey: 'unrelated-build-event',
+      schemaVersion: 1 as const,
+      payload: { taskId: 'task-from-another-project', kind: 'build_module' },
+    }],
+  };
+  const fakeSimulation = {
+    step: () => snapshot,
+  } as unknown as SocietySimulation;
   const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 1 });
-  let sawRegister = false;
-  let sawAdvance = false;
-  for (let i = 0; i < 400; i++) {
-    const frame = runtime.step(sim, 1);
-    if (frame.registeredProjectIds.length) sawRegister = true;
-    if (frame.advancedProjectIds.length) {
-      sawAdvance = true;
-      assert.ok(frame.readyPlacements.length >= 1);
-      break;
-    }
-  }
-  // Com recursos iniciais baixos, registro pode não ocorrer; o caminho manual cobre isso.
-  // Se registrou e houve build_module, placement deve aparecer.
-  if (sawRegister && sawAdvance) {
-    assert.ok(true);
+  const frame = runtime.step(fakeSimulation, 1);
+
+  assert.ok(frame.registeredProjectIds.length > 0, 'recursos suficientes devem permitir registrar blueprint');
+  assert.deepEqual(frame.advancedProjectIds, [], 'evento de outra tarefa não pode avançar este projeto');
+  for (const projectId of frame.registeredProjectIds) {
+    assert.equal(runtime.getConstructionRuntime().getProjectProgress(projectId)?.completedTasks, 0);
   }
 });
 
