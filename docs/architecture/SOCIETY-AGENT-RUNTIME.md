@@ -29,9 +29,10 @@ Ao resetar o mundo: `agentRuntimeRegistry.reset(activeWorldId)` junto com `socie
 1. `simulation.step` (especialistas se PR #37 mergeada)
 2. Memória ← eventos
 3. A cada N ticks: Cowila estratégica
-4. Blueprint acessível → `WorldConstructionRuntime.registerProject` (sem auto-completar)
-5. `notifyConstructionTaskComplete` quando a obra terminar no scheduler
-6. `readyPlacements` → `SocietyActors` (PR #38)
+4. Blueprint validado → `WorldConstructionRuntime.registerProject` + cadeia real na fila da simulação
+5. Scheduler executa coleta → carpintaria (quando necessária) → transporte → preparação → construção
+6. Cada tarefa emite evento com `projectId`, `assetId` e etapa; só a próxima tarefa vinculada avança o projeto
+7. Todos os módulos ficam prontos apenas quando todas as tarefas terminam; então `readyPlacements` → `SocietyActors` (integração visual da PR #38)
 
 ## Arquivos
 
@@ -47,6 +48,7 @@ Ao resetar o mundo: `agentRuntimeRegistry.reset(activeWorldId)` junto com `socie
 ## Segurança
 
 - Sem LLM
-- Sem gastar recursos no registro do blueprint
-- Sem marcar obra concluída sem `notifyConstructionTaskComplete`
+- Registrar blueprint não consome recursos; materiais são produzidos/consumidos pelas tarefas reais
+- IDs determinísticos e dependências impedem duplicação e avanço fora de ordem
+- A obra não fica pronta até todas as tarefas vinculadas concluírem no scheduler
 - Um runtime por mundo (sem vazar memória/Cowila entre mundos)
