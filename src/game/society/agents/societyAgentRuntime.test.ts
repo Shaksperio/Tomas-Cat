@@ -24,18 +24,78 @@ test('Cowila roda no intervalo e devolve diretiva', () => {
   assert.ok(last.directive);
 });
 
-test('projetos só ficam prontos após completeTask manual', () => {
-  const sim = new SocietySimulation();
+test('placements exigem a conclusão de todas as tarefas vinculadas ao projeto', () => {
+  const base = new SocietySimulation().snapshot();
+  const scheduled: string[][] = [];
+  const fakeSimulation = {
+    step: () => ({
+      ...base,
+      tick: 1,
+      resources: { food: 60, wood: 60, stone: 60, planks: 60, coins: 999 },
+    }),
+    scheduleConstructionProject: (project: { taskIds: string[] }) => {
+      scheduled.push([...project.taskIds]);
+      return [...project.taskIds];
+    },
+  } as unknown as SocietySimulation;
   const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 1 });
-  const frame = runtime.step(sim, 200);
+  const frame = runtime.step(fakeSimulation, 1);
+
+  assert.ok(frame.registeredProjectIds.length > 0);
+  assert.equal(scheduled.length, frame.registeredProjectIds.length);
   for (const projectId of frame.registeredProjectIds) {
+    const taskIds = scheduled[0]!;
     const progress = runtime.getConstructionRuntime().getProjectProgress(projectId);
     assert.ok(progress);
     assert.equal(progress!.completedTasks, 0);
-    const taskId = `build-${projectId}-0`;
-    assert.equal(runtime.notifyConstructionTaskComplete(projectId, taskId), true);
-    assert.ok(runtime.getConstructionRuntime().getReadyPlacements().length >= 1);
+    for (const taskId of taskIds) {
+      assert.equal(runtime.notifyConstructionTaskComplete(projectId, taskId), true);
+    }
+    assert.equal(runtime.getConstructionRuntime().getProjectProgress(projectId)?.completedTasks, taskIds.length);
+    assert.ok(runtime.getConstructionRuntime().getReadyPlacements().some((placement) => placement.projectId === projectId));
   }
+});
+
+test('simulação cria cadeia de coleta, carpintaria, transporte, preparação e construção', () => {
+  const sim = new SocietySimulation();
+  const projectId = 'pipeline-test';
+  const taskIds = [
+    `construction:${projectId}:gather`,
+    `construction:${projectId}:craft:0`,
+    `construction:${projectId}:transport`,
+    `construction:${projectId}:prepare`,
+    `construction:${projectId}:build:0`,
+  ];
+  const project = {
+    id: projectId,
+    name: 'Oficina comunitária',
+    status: 'validated' as const,
+    sectorId: 'suburb-01',
+    modules: [{
+      assetId: 'module_workshop',
+      position: { x: 8, z: -3, sectorId: 'suburb-01' },
+      rotationY: 0,
+    }],
+    requiredResources: { wood: 4, stone: 2, planks: 2 },
+    taskIds,
+    createdByAgentId: 'engineer-01',
+    createdAtTick: 0,
+    version: 1,
+  };
+
+  assert.deepEqual(sim.scheduleConstructionProject(project), taskIds);
+  const tasks = sim.snapshot().tasks.filter((task) => task.constructionProjectId === projectId);
+  assert.deepEqual(tasks.map((task) => task.kind), [
+    'gather_materials', 'craft_planks', 'transport_materials', 'prepare_site', 'build_module',
+  ]);
+  assert.deepEqual(tasks.map((task) => task.dependencies), [
+    [], [taskIds[0]], [taskIds[1]], [taskIds[2]], [taskIds[3]],
+  ]);
+  assert.equal(tasks[0]?.constructionAssetId, 'module_workshop');
+  assert.deepEqual(tasks[0]?.constructionMaterialYield, { wood: 7, stone: 2 });
+  assert.deepEqual(tasks[1]?.requiredResources, { wood: 3 });
+  assert.deepEqual(tasks[4]?.requiredResources, { wood: 4, stone: 2, planks: 2 });
+  assert.equal(sim.scheduleConstructionProject(project), null, 'não pode duplicar o mesmo projeto');
 });
 
 test('evento build_module sem vínculo explícito não conclui projeto de construção', () => {
