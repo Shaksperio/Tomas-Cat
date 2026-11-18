@@ -72,7 +72,7 @@ const decision = evaluateGate({
   baseRef: pr.base.ref, draft: pr.draft,
   files: files.map((f) => ({ filename: f.filename, additions: f.additions, deletions: f.deletions, status: f.status, previousFilename: f.previous_filename })),
   checks: checks.map((c) => ({ name: c.name, status: c.status, conclusion: c.conclusion })),
-  mergedToday: merged.total_count,
+  mergedToday,
 }, { ...DEFAULT_GATE_CONFIG, agentAuthors });
 
 console.log(JSON.stringify({ pr: Number(PR_NUMBER), headSha: pr.head.sha, mode: 'audit-only', ...decision }, null, 2));
