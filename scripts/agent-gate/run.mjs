@@ -5,9 +5,8 @@ import { DEFAULT_GATE_CONFIG, evaluateGate } from './policy.ts';
 const { GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER, HEAD_SHA, AGENT_GATE_AUTHORS } = process.env;
 // Lista de contas autorizadas vem de variável de repositório; vazia = falha fechada.
 const agentAuthors = (AGENT_GATE_AUTHORS ?? '').split(',').map((x) => x.trim()).filter(Boolean);
-if (!GITHUB_TOKEN || !GITHUB_REPOSITORY || !PR_NUMBER) {
-  console.log('Sem PR associada à execução; nada a fazer.');
-  process.exit(0);
+if (!GITHUB_TOKEN || !GITHUB_REPOSITORY || !PR_NUMBER || !HEAD_SHA) {
+  throw new Error('Contexto incompleto (GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER e HEAD_SHA são obrigatórios); avaliação falhou fechada.');
 }
 const api = async (path) => {
   const res = await fetch(`https://api.github.com${path}`, {
@@ -21,7 +20,7 @@ const api = async (path) => {
 const repo = `/repos/${GITHUB_REPOSITORY}`;
 const pr = await api(`${repo}/pulls/${PR_NUMBER}`);
 if (pr.state !== 'open') { console.log('PR não está aberta; avaliação encerrada.'); process.exit(0); }
-if (HEAD_SHA && pr.head.sha !== HEAD_SHA) { console.log('A PR recebeu novos commits depois deste CI; avaliação descartada, aguardando novo CI.'); process.exit(0); }
+if (pr.head.sha !== HEAD_SHA) { console.log('A PR recebeu novos commits depois deste CI; avaliação descartada, aguardando novo CI.'); process.exit(0); }
 if (!pr.head.repo?.full_name) throw new Error('Não foi possível confirmar o repositório de origem; avaliação falhou fechada.');
 
 const [files, runs, reviewList, merged, open] = await Promise.all([
@@ -34,7 +33,10 @@ const [files, runs, reviewList, merged, open] = await Promise.all([
 
 // A revisão mais recente de cada pessoa prevalece; APPROVED antigo não sobrevive a CHANGES_REQUESTED.
 const latestByUser = new Map();
-for (const review of reviewList) if (review.user) latestByUser.set(review.user.login, review);
+for (const review of reviewList.filter((item) => item.user).sort((a, b) =>
+  new Date(a.submitted_at ?? 0).getTime() - new Date(b.submitted_at ?? 0).getTime())) {
+  latestByUser.set(review.user.login, review);
+}
 
 const decision = evaluateGate({
   labels: pr.labels.map((l) => l.name), author: pr.user.login, headRef: pr.head.ref,
