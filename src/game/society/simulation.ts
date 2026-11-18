@@ -358,9 +358,9 @@ export class SocietySimulation {
       task.requiredResources = { ...spec.requiredResources };
       task.dependencies = previousTaskId ? [previousTaskId] : [];
       task.constructionProjectId = project.id;
-      task.constructionAssetId = spec.assetId;
+      if (spec.assetId) task.constructionAssetId = spec.assetId;
       task.constructionStage = spec.stage;
-      task.constructionMaterialYield = spec.materialYield ? { ...spec.materialYield } : undefined;
+      if (spec.materialYield) task.constructionMaterialYield = { ...spec.materialYield };
       task.constructionFinalTask = spec.final ?? false;
       this.enqueueTask(task);
       previousTaskId = task.id;
