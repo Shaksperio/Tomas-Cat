@@ -135,8 +135,8 @@ export class SocietyAgentRuntime {
   }
 
   /**
-   * Cada build_module concluído na simulação avança a próxima tarefa pendente
-   * do projeto registrado mais antigo ainda incompleto (FIFO determinístico).
+   * Só avança o projeto cuja tarefa vinculada aparece explicitamente no evento.
+   * Eventos genéricos de build_module não podem concluir projetos por FIFO.
    */
   private advanceConstructionFromBuildEvents(
     snapshot: SocietySimulationSnapshot,
@@ -146,18 +146,22 @@ export class SocietyAgentRuntime {
       .filter((e) => {
         if (e.kind !== 'task_completed') return false;
         if (this.processedBuildEventIds.has(e.id)) return false;
-        const kind = (e.payload as { kind?: unknown }).kind;
-        return kind === 'build_module';
+        const payload = e.payload as { kind?: unknown; taskId?: unknown };
+        return payload.kind === 'build_module' && typeof payload.taskId === 'string';
       })
       .sort((a, b) => a.id.localeCompare(b.id));
 
     for (const event of buildEvents) {
+      const payload = event.payload as { taskId: string };
+      // Só o evento da tarefa explicitamente vinculada ao projeto pode
+      // avançá-lo. Um build_module genérico não prova que este projeto foi
+      // construído e nunca deve concluir outro projeto por FIFO.
+      const projectEntry = [...this.projectTaskQueue.entries()]
+        .find(([, queue]) => queue[0] === payload.taskId);
+      if (!projectEntry) continue;
+      const [projectId, queue] = projectEntry;
       this.processedBuildEventIds.add(event.id);
-      const projectId = this.nextIncompleteProjectId();
-      if (!projectId) break;
-      const queue = this.projectTaskQueue.get(projectId);
-      if (!queue || queue.length === 0) continue;
-      const taskId = queue[0];
+      const taskId = payload.taskId;
       const progress = this.construction.getProjectProgress(projectId);
       if (!progress || progress.completedTasks >= progress.totalTasks) continue;
       if (!this.construction.completeTask(projectId, taskId)) continue;
