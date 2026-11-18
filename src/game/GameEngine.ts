@@ -157,6 +157,7 @@ export class GameEngine {
   }
   private readonly societyActors: SocietyActors;
   private societyTickTimer = 0;
+  private societySaveTimer = 0;
   private readonly contactShadow: THREE.Mesh;
   private readonly gpsRoutePositions = new Float32Array(768 * 3);
   private readonly gpsRoute: THREE.Line;
@@ -691,6 +692,7 @@ export class GameEngine {
     this.societyRegistry.reset(this.worldSceneManager.activeWorldId);
     this.agentRuntimeRegistry.reset(this.worldSceneManager.activeWorldId);
     this.societyTickTimer = 0;
+    this.societySaveTimer = 0;
 
     this.world.interactables.forEach((item) => {
       item.active = true;
@@ -897,6 +899,7 @@ export class GameEngine {
         PLAYABLE_WORLD_IDS,
         LEGACY_WORLD_ID,
       );
+      this.societySaveTimer = 0;
       if (saved.society?.schemaVersion === 1 && saved.society.worlds
         && typeof saved.society.worlds === 'object') {
         const worlds = saved.society.worlds;
@@ -2589,6 +2592,12 @@ export class GameEngine {
         }
         this.societyTickTimer -= 1;
       }
+      // Persiste a evolução autônoma mesmo quando o jogador não executa ações.
+      this.societySaveTimer += dt;
+      if (this.societySaveTimer >= 30) {
+        this.saveGame();
+        this.societySaveTimer = 0;
+      }
       this.societyActors.update(dt, this.snapshotForActors(), true);
     } else {
       // Durante a conversa o habitante permanece visível para ancorar o balão.
@@ -3843,6 +3852,7 @@ export class GameEngine {
   }
 
   public dispose(): void {
+    this.saveGame();
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
     clearTimeout(this.frameId);
