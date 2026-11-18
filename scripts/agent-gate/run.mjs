@@ -23,12 +23,38 @@ if (pr.state !== 'open') { console.log('PR não está aberta; avaliação encerr
 if (pr.head.sha !== HEAD_SHA) { console.log('A PR recebeu novos commits depois deste CI; avaliação descartada, aguardando novo CI.'); process.exit(0); }
 if (!pr.head.repo?.full_name) throw new Error('Não foi possível confirmar o repositório de origem; avaliação falhou fechada.');
 
-const [files, runs, reviewList, merged, open] = await Promise.all([
-  api(`${repo}/pulls/${PR_NUMBER}/files?per_page=100`),
-  api(`${repo}/commits/${pr.head.sha}/check-runs?per_page=100`),
-  api(`${repo}/pulls/${PR_NUMBER}/reviews?per_page=100`),
-  api(`/search/issues?q=${encodeURIComponent(`repo:${GITHUB_REPOSITORY} is:pr is:merged label:${DEFAULT_GATE_CONFIG.label} merged:>=${new Date().toISOString().slice(0, 10)}`)}`),
-  api(`/search/issues?q=${encodeURIComponent(`repo:${GITHUB_REPOSITORY} is:pr is:open label:${DEFAULT_GATE_CONFIG.label}`)}`),
+// Coleções da API são paginadas. Nunca avaliar uma lista truncada como se estivesse completa.
+const collection = async (path, key = null) => {
+  const all = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const separator = path.includes('?') ? '&' : '?';
+    const payload = await api(`${path}${separator}per_page=100&page=${page}`);
+    const items = key ? payload[key] : payload;
+    if (!Array.isArray(items)) throw new Error(`Resposta inválida ao paginar ${path}; avaliação falhou fechada.`);
+    all.push(...items);
+    if (items.length < 100) {
+      if (key && Number.isFinite(payload.total_count) && all.length < payload.total_count) {
+        throw new Error(`Coleção ${path} incompleta (${all.length}/${payload.total_count}); avaliação falhou fechada.`);
+      }
+      return all;
+    }
+  }
+  throw new Error(`Coleção ${path} excedeu o limite seguro de paginação; avaliação falhou fechada.`);
+};
+const searchCount = async (query) => {
+  const result = await api(`/search/issues?q=${encodeURIComponent(query)}&per_page=1`);
+  if (result.incomplete_results || !Number.isFinite(result.total_count) || result.total_count > 1000) {
+    throw new Error('Resultado de busca incompleto ou acima do limite da API; avaliação falhou fechada.');
+  }
+  return result.total_count;
+};
+
+const [files, checks, reviewList, mergedToday, openAgentPrs] = await Promise.all([
+  collection(`${repo}/pulls/${PR_NUMBER}/files`),
+  collection(`${repo}/commits/${pr.head.sha}/check-runs`, 'check_runs'),
+  collection(`${repo}/pulls/${PR_NUMBER}/reviews`),
+  searchCount(`repo:${GITHUB_REPOSITORY} is:pr is:merged label:${DEFAULT_GATE_CONFIG.label} merged:>=${new Date().toISOString().slice(0, 10)}`),
+  searchCount(`repo:${GITHUB_REPOSITORY} is:pr is:open label:${DEFAULT_GATE_CONFIG.label}`),
 ]);
 
 // A revisão mais recente de cada pessoa prevalece; APPROVED antigo não sobrevive a CHANGES_REQUESTED.
