@@ -86,3 +86,36 @@ test('WorldConstructionRuntime', async (t) => {
     assert.equal(runtime.registerProject(project({ taskIds: ['same-task', 'same-task'] })).valid, false);
   });
 });
+
+test('restores construction progress and published placements without duplication', () => {
+  const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
+  assert.equal(runtime.registerProject(project()).valid, true);
+  assert.equal(runtime.completeTask('district-hall-01', 'site-prepare-01'), true);
+  const state = runtime.exportState();
+
+  const restored = new WorldConstructionRuntime(new Set(['community-hall']));
+  assert.equal(restored.restoreState(state), true);
+  assert.deepEqual(restored.getProjectProgress('district-hall-01'), {
+    completedTasks: 1,
+    totalTasks: 2,
+  });
+  assert.deepEqual(restored.getReadyPlacements(), []);
+  assert.equal(restored.completeTask('district-hall-01', 'module-build-01'), true);
+  assert.equal(restored.getReadyPlacements().length, 1);
+  assert.equal(restored.markProjectPublished('district-hall-01'), true);
+
+  const reloaded = new WorldConstructionRuntime(new Set(['community-hall']));
+  assert.equal(reloaded.restoreState(restored.exportState()), true);
+  assert.deepEqual(reloaded.getReadyPlacements(), []);
+  assert.equal(reloaded.markProjectPublished('district-hall-01'), false);
+});
+
+test('rejects invalid construction runtime state without changing current projects', () => {
+  const runtime = new WorldConstructionRuntime(new Set(['community-hall']));
+  assert.equal(runtime.registerProject(project()).valid, true);
+  const before = runtime.exportState();
+  const invalid = { ...before, publishedProjectIds: ['missing-project'] };
+
+  assert.equal(runtime.restoreState(invalid), false);
+  assert.deepEqual(runtime.exportState(), before);
+});
