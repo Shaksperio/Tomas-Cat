@@ -901,16 +901,20 @@ export class GameEngine {
       );
       this.societySaveTimer = 0;
       if (saved.society?.schemaVersion === 1 && saved.society.worlds
-        && typeof saved.society.worlds === 'object') {
+        && typeof saved.society.worlds === 'object' && !Array.isArray(saved.society.worlds)) {
         const worlds = saved.society.worlds;
-        const simulationStates = Object.fromEntries(Object.entries(worlds).map(([worldId, state]) =>
-          [worldId, state.simulation] as const,
-        ));
-        const agentStates = Object.fromEntries(Object.entries(worlds).map(([worldId, state]) =>
-          [worldId, state.agents] as const,
-        ));
-        const simulationRestored = this.societyRegistry.restoreStates(simulationStates);
-        const agentsRestored = this.agentRuntimeRegistry.restoreStates(agentStates);
+        const entries = Object.entries(worlds);
+        const validWorldEntries = entries.every(([, state]) =>
+          Boolean(state && typeof state === 'object' && state.simulation && state.agents),
+        );
+        const simulationStates = validWorldEntries
+          ? Object.fromEntries(entries.map(([worldId, state]) => [worldId, state.simulation] as const))
+          : {};
+        const agentStates = validWorldEntries
+          ? Object.fromEntries(entries.map(([worldId, state]) => [worldId, state.agents] as const))
+          : {};
+        const simulationRestored = validWorldEntries && this.societyRegistry.restoreStates(simulationStates);
+        const agentsRestored = validWorldEntries && this.agentRuntimeRegistry.restoreStates(agentStates);
         if (!simulationRestored || !agentsRestored) {
           // Estado parcial/corrompido: descarta o bloco da sociedade por inteiro,
           // sem impedir o carregamento do progresso principal do jogador.
