@@ -1,4 +1,4 @@
-import { SocietySimulation, type SocietySimulationSnapshot } from './simulation';
+import { SocietySimulation, type SocietySimulationSnapshot, type SocietySimulationState } from './simulation';
 
 const WORLD_ID_PATTERN = /^[a-z0-9][a-z0-9:_-]{0,63}$/i;
 
@@ -43,6 +43,26 @@ export class WorldSocietyRegistry {
     const simulation = new SocietySimulation();
     this.worlds.set(worldId, simulation);
     return simulation.snapshot();
+  }
+
+  exportStates(): Record<string, SocietySimulationState> {
+    return Object.fromEntries([...this.worlds.entries()].map(([worldId, simulation]) =>
+      [worldId, simulation.exportState()],
+    ));
+  }
+
+  restoreStates(states: Record<string, SocietySimulationState>): boolean {
+    if (!states || typeof states !== 'object') return false;
+    const entries = Object.entries(states);
+    if (entries.some(([worldId]) => !this.worlds.has(worldId))) return false;
+    const candidates = new Map<string, SocietySimulation>();
+    for (const [worldId, state] of entries) {
+      const simulation = new SocietySimulation();
+      if (!simulation.restoreState(state)) return false;
+      candidates.set(worldId, simulation);
+    }
+    for (const [worldId, simulation] of candidates) this.worlds.set(worldId, simulation);
+    return true;
   }
 
   snapshot(worldId: string): SocietySimulationSnapshot {
