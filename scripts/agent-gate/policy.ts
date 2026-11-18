@@ -1,6 +1,6 @@
 /**
  * Porta de segurança para PRs de agentes de IA. Regras puras e determinísticas:
- * decidem se uma PR pode entrar na `main` sem revisão humana. Mudanças em áreas
+ * determinam elegibilidade para revisão humana; esta política não faz merge. Mudanças em áreas
  * sensíveis nunca passam por aqui; ficam esperando aprovação humana.
  */
 export interface GateFile {
