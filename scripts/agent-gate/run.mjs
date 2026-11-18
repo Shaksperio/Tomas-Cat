@@ -68,10 +68,10 @@ const decision = evaluateGate({
   labels: pr.labels.map((l) => l.name), author: pr.user.login, headRef: pr.head.ref,
   headRepo: pr.head.repo.full_name, baseRepo: pr.base.repo.full_name,
   reviews: [...latestByUser.values()].map((r) => ({ login: r.user.login, state: r.state, association: r.author_association })),
-  openAgentPrs: open.total_count,
+  openAgentPrs,
   baseRef: pr.base.ref, draft: pr.draft,
   files: files.map((f) => ({ filename: f.filename, additions: f.additions, deletions: f.deletions, status: f.status, previousFilename: f.previous_filename })),
-  checks: runs.check_runs.map((c) => ({ name: c.name, status: c.status, conclusion: c.conclusion })),
+  checks: checks.map((c) => ({ name: c.name, status: c.status, conclusion: c.conclusion })),
   mergedToday: merged.total_count,
 }, { ...DEFAULT_GATE_CONFIG, agentAuthors });
 
