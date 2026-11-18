@@ -64,6 +64,7 @@ const WORKPLACES: Record<AgentProfession, { x: number; z: number }> = {
 import {
   type AgentProfession,
   type AgentTask,
+  type ConstructionProject,
   type SocietyAgent,
   type WorldEvent,
   canAgentAcceptTask,
@@ -197,6 +198,7 @@ export class SocietySimulation {
   private readonly completedSincePayday = new Map<string, number>();
   /** Estado disciplinar autoritativo local; persistência entre sessões ainda depende do backend. */
   private readonly discipline = new Map<string, AgentDisciplineRecord>();
+  private readonly scheduledConstructionProjects = new Set<string>();
   private readonly resources: SocietyResources = { food: 12, wood: 0, stone: 0, planks: 0, coins: 0 };
 
   constructor() {
@@ -255,6 +257,118 @@ export class SocietySimulation {
     this.emit('task_created', task.id, { taskId: task.id, kind: task.kind });
   }
 
+  /**
+   * Enfileira uma cadeia real de trabalho para um projeto já validado.
+   * A sequência é determinística e cada etapa permanece vinculada ao projeto.
+   */
+  public scheduleConstructionProject(project: ConstructionProject): string[] | null {
+    if (this.scheduledConstructionProjects.has(project.id)) return null;
+    const engineer = this.agents.get(project.createdByAgentId);
+    if (!engineer || engineer.profession !== 'engineer' || engineer.status === 'disabled') return null;
+    if (project.status !== 'validated' && project.status !== 'active') return null;
+    if (project.modules.length === 0) return null;
+
+    const craftCount = Math.ceil((project.requiredResources.planks ?? 0) / 2);
+    const expectedIds = [
+      `construction:${project.id}:gather`,
+      ...Array.from({ length: craftCount }, (_, index) => `construction:${project.id}:craft:${index}`),
+      `construction:${project.id}:transport`,
+      `construction:${project.id}:prepare`,
+      ...project.modules.map((_, index) => `construction:${project.id}:build:${index}`),
+    ];
+    if (project.taskIds.length !== expectedIds.length
+      || expectedIds.some((id, index) => project.taskIds[index] !== id)
+      || new Set(expectedIds).size !== expectedIds.length
+      || expectedIds.some((id) => this.tasks.has(id))) return null;
+    if (Object.keys(project.requiredResources).some((key) => !['wood', 'stone', 'planks'].includes(key))) return null;
+
+    const primaryModule = project.modules[0]!;
+    const gatherYield: Record<string, number> = {
+      wood: (project.requiredResources.wood ?? 0) + craftCount * 3,
+      stone: project.requiredResources.stone ?? 0,
+    };
+    const specs: Array<{
+      id: string;
+      kind: AgentTask['kind'];
+      profession: AgentTask['requiredProfession'];
+      stage: NonNullable<AgentTask['constructionStage']>;
+      target: AgentTask['target'];
+      requiredResources: Record<string, number>;
+      materialYield?: Record<string, number>;
+      assetId?: string;
+      final?: boolean;
+    }> = [{
+      id: expectedIds[0]!,
+      kind: 'gather_materials',
+      profession: 'worker',
+      stage: 'gather',
+      target: null,
+      requiredResources: {},
+      materialYield: gatherYield,
+      assetId: primaryModule.assetId,
+    }];
+
+    for (let index = 0; index < craftCount; index += 1) {
+      specs.push({
+        id: `construction:${project.id}:craft:${index}`,
+        kind: 'craft_planks',
+        profession: 'carpenter',
+        stage: 'craft',
+        target: null,
+        requiredResources: { wood: 3 },
+        assetId: primaryModule.assetId,
+      });
+    }
+    specs.push({
+      id: `construction:${project.id}:transport`,
+      kind: 'transport_materials',
+      profession: 'worker',
+      stage: 'transport',
+      target: { ...primaryModule.position },
+      requiredResources: {},
+      assetId: primaryModule.assetId,
+    });
+    specs.push({
+      id: `construction:${project.id}:prepare`,
+      kind: 'prepare_site',
+      profession: 'worker',
+      stage: 'prepare',
+      target: { ...primaryModule.position },
+      requiredResources: {},
+      assetId: primaryModule.assetId,
+    });
+    project.modules.forEach((module, index) => {
+      specs.push({
+        id: `construction:${project.id}:build:${index}`,
+        kind: 'build_module',
+        profession: 'worker',
+        stage: 'build',
+        target: { ...module.position },
+        requiredResources: index === project.modules.length - 1 ? { ...project.requiredResources } : {},
+        assetId: module.assetId,
+        final: index === project.modules.length - 1,
+      });
+    });
+
+    let previousTaskId: string | null = null;
+    for (const spec of specs) {
+      const task = makeTask(spec.id, spec.kind, spec.profession, this.tickCount);
+      task.sectorId = project.sectorId;
+      task.target = spec.target ? { ...spec.target } : null;
+      task.requiredResources = { ...spec.requiredResources };
+      task.dependencies = previousTaskId ? [previousTaskId] : [];
+      task.constructionProjectId = project.id;
+      task.constructionAssetId = spec.assetId;
+      task.constructionStage = spec.stage;
+      task.constructionMaterialYield = spec.materialYield ? { ...spec.materialYield } : undefined;
+      task.constructionFinalTask = spec.final ?? false;
+      this.enqueueTask(task);
+      previousTaskId = task.id;
+    }
+    this.scheduledConstructionProjects.add(project.id);
+    return [...expectedIds];
+  }
+
   private emit(
     kind: WorldEvent['kind'],
     sourceId: string,
@@ -297,11 +411,13 @@ export class SocietySimulation {
       const angle = (seed % 360) * (Math.PI / 180);
       const radius = 2.5 + (seed % 4);
       const workplace = WORKPLACES[candidate.profession];
-      task.target = {
-        x: workplace.x + Math.cos(angle) * radius,
-        z: workplace.z + Math.sin(angle) * radius,
-        sectorId: task.sectorId,
-      };
+      if (!task.target) {
+        task.target = {
+          x: workplace.x + Math.cos(angle) * radius,
+          z: workplace.z + Math.sin(angle) * radius,
+          sectorId: task.sectorId,
+        };
+      }
       task.status = 'assigned';
       task.assignedAgentId = candidate.id;
       task.updatedAtTick = this.tickCount;
@@ -321,7 +437,18 @@ export class SocietySimulation {
 
   /** O carpinteiro só trabalha com a madeira que sobra depois da reserva de construção. */
   private reserveFor(task: AgentTask): Record<string, number> {
-    return task.kind === 'craft_planks' ? { wood: CONSTRUCTION_WOOD_RESERVE } : {};
+    const reserve: Record<string, number> = task.kind === 'craft_planks' && !task.constructionProjectId
+      ? { wood: CONSTRUCTION_WOOD_RESERVE }
+      : {};
+    for (const pending of this.tasks.values()) {
+      if (!pending.constructionProjectId || pending.kind !== 'build_module'
+        || pending.id === task.id
+        || !['queued', 'assigned', 'in_progress'].includes(pending.status)) continue;
+      for (const [resource, amount] of Object.entries(pending.requiredResources)) {
+        reserve[resource] = (reserve[resource] ?? 0) + amount;
+      }
+    }
+    return reserve;
   }
 
   private changeResource(resource: keyof SocietyResources, amount: number, reason: string, sourceId: string): void {
@@ -381,7 +508,8 @@ export class SocietySimulation {
   private pruneFinishedTasks(): void {
     if (this.tickCount % 100 !== 0) return;
     for (const [id, task] of this.tasks) {
-      if (task.status === 'completed' && this.tickCount - task.updatedAtTick > FINISHED_TASK_RETENTION_TICKS) {
+      if (task.status === 'completed' && !task.constructionProjectId
+        && this.tickCount - task.updatedAtTick > FINISHED_TASK_RETENTION_TICKS) {
         this.tasks.delete(id);
         this.taskRuntime.delete(id);
       }
@@ -524,8 +652,10 @@ export class SocietySimulation {
         this.changeResource('food', 10, 'crop_harvest', task.id);
       }
       if (task.kind === 'gather_materials') {
-        this.changeResource('wood', 8, 'material_gathering', task.id);
-        this.changeResource('stone', 4, 'material_gathering', task.id);
+        const yieldMap = task.constructionMaterialYield ?? { wood: 8, stone: 4 };
+        for (const [resource, amount] of Object.entries(yieldMap)) {
+          this.changeResource(resource as keyof SocietyResources, amount, 'material_gathering', task.id);
+        }
       }
       if (task.kind === 'chop_wood') {
         this.changeResource('wood', 6, 'lumber_production', task.id);
@@ -540,6 +670,11 @@ export class SocietySimulation {
         taskId: task.id,
         agentId: agent.id,
         kind: task.kind,
+        ...(task.constructionProjectId ? {
+          constructionProjectId: task.constructionProjectId,
+          constructionAssetId: task.constructionAssetId,
+          constructionStage: task.constructionStage,
+        } : {}),
       });
       if (task.kind === 'design_project') {
         this.emit('project_started', task.id, {
@@ -548,18 +683,30 @@ export class SocietySimulation {
           engineerId: agent.id,
         });
       } else if (task.kind === 'build_module') {
-        this.emit('project_completed', task.id, {
-          projectId: 'neighborhood-shelter-01',
-          assetId: 'community-shelter',
-          builderId: agent.id,
-          position: task.target ? { ...task.target } : null,
-        });
+        if (task.constructionProjectId) {
+          if (task.constructionFinalTask) {
+            this.emit('project_completed', task.id, {
+              projectId: task.constructionProjectId,
+              assetId: task.constructionAssetId,
+              builderId: agent.id,
+              position: task.target ? { ...task.target } : null,
+            });
+          }
+        } else {
+          this.emit('project_completed', task.id, {
+            projectId: 'neighborhood-shelter-01',
+            assetId: 'community-shelter',
+            builderId: agent.id,
+            position: task.target ? { ...task.target } : null,
+          });
+        }
       }
       this.createFollowUpTask(agent, task);
     }
   }
 
   private createFollowUpTask(agent: SimulatedAgent, completed: AgentTask): void {
+    if (completed.constructionProjectId) return;
     let nextKind: AgentTask['kind'] | undefined;
     if (agent.profession === 'engineer' && completed.kind === 'survey_site') {
       nextKind = 'design_project';
