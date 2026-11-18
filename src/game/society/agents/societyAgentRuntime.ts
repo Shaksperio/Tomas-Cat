@@ -49,11 +49,12 @@ function canAfford(
   required: Record<string, number>,
 ): boolean {
   const craftCount = Math.ceil((required.planks ?? 0) / 2);
+  const requiredWood = (required.wood ?? 0) + craftCount * 3;
+  if (snapshot.resources.wood < requiredWood) return false;
   return Object.entries(required).every(([key, amount]) => {
-    if (key === 'planks') return true;
+    if (key === 'planks' || key === 'wood') return true;
     const stock = snapshot.resources[key as keyof SocietySimulationSnapshot['resources']];
-    const needed = key === 'wood' ? amount + craftCount * 3 : amount;
-    return typeof stock === 'number' && stock >= needed;
+    return typeof stock === 'number' && stock >= amount;
   });
 }
 
