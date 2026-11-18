@@ -51,6 +51,7 @@ test('WorldConstructionRuntime', async (t) => {
     assert.equal(runtime.markProjectPublished('district-hall-01'), true);
     assert.equal(runtime.markProjectPublished('district-hall-01'), false);
     assert.deepEqual(runtime.getReadyPlacements(), []);
+    assert.equal(runtime.getPublishedPlacements().length, 1);
   });
 
   await t.test('rejects unapproved assets and projects that have not been validated', () => {
