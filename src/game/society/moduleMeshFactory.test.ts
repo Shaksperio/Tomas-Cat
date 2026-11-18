@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import { CONSTRUCTION_MODULE_CATALOG, isApprovedConstructionAsset } from './constructionCatalog.ts';
 import { createModuleMesh } from './moduleMeshFactory.ts';
 
@@ -9,10 +10,8 @@ test('fábrica cria mesh para cada assetId aprovado sem trocar o modelo', () => 
     assert.equal(group.userData.assetId, definition.assetId);
     assert.ok(group.children.length > 0, `${definition.assetId} deve conter geometria`);
     group.traverse((object) => {
-      if ('geometry' in object && object.geometry && typeof object.geometry.dispose === 'function') {
+      if (object instanceof THREE.Mesh) {
         object.geometry.dispose();
-      }
-      if ('material' in object && object.material) {
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         materials.forEach((material) => material.dispose());
       }
