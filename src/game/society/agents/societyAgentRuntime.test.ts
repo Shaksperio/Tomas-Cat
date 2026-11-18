@@ -128,6 +128,41 @@ test('evento build_module sem vínculo explícito não conclui projeto de constr
   }
 });
 
+test('evento de etapa vinculado avança somente o projeto correspondente', () => {
+  const base = new SocietySimulation().snapshot();
+  const projectId = 'cowila-bp-1-module_workshop';
+  const snapshot = {
+    ...base,
+    tick: 1,
+    resources: { food: 60, wood: 60, stone: 60, planks: 60, coins: 999 },
+    events: [{
+      id: 'linked-construction-event',
+      kind: 'task_completed' as const,
+      regionId: 'local-suburb',
+      tick: 1,
+      idempotencyKey: 'linked-construction-event',
+      schemaVersion: 1 as const,
+      payload: {
+        taskId: `construction:${projectId}:gather`,
+        constructionProjectId: projectId,
+        constructionAssetId: 'module_workshop',
+        constructionStage: 'gather',
+        kind: 'gather_materials',
+      },
+    }],
+  };
+  const fakeSimulation = {
+    step: () => snapshot,
+    scheduleConstructionProject: (project: { taskIds: string[] }) => [...project.taskIds],
+  } as unknown as SocietySimulation;
+  const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 1 });
+  const frame = runtime.step(fakeSimulation, 1);
+
+  assert.deepEqual(frame.registeredProjectIds, [projectId]);
+  assert.deepEqual(frame.advancedProjectIds, [projectId]);
+  assert.equal(runtime.getConstructionRuntime().getProjectProgress(projectId)?.completedTasks, 1);
+});
+
 test('step é determinístico para o mesmo caminho de ticks', () => {
   const run = () => {
     const sim = new SocietySimulation();
