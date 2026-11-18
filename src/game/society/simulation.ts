@@ -1017,8 +1017,8 @@ export class SocietySimulation {
       target: task.target ? { ...task.target } : null,
       dependencies: [...task.dependencies],
       requiredResources: { ...task.requiredResources },
-      constructionMaterialYield: task.constructionMaterialYield
-        ? { ...task.constructionMaterialYield } : undefined,
+      ...(task.constructionMaterialYield
+        ? { constructionMaterialYield: { ...task.constructionMaterialYield } } : {}),
     });
     this.taskRuntime.clear();
     for (const entry of state.taskRuntime) {
