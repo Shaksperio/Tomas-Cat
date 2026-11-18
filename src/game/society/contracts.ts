@@ -88,6 +88,12 @@ export interface AgentTask {
   createdAtTick: number;
   updatedAtTick: number;
   version: number;
+  /** Vínculo imutável entre a tarefa e o projeto de construção. */
+  constructionProjectId?: string;
+  constructionAssetId?: string;
+  constructionStage?: 'gather' | 'craft' | 'transport' | 'prepare' | 'build';
+  constructionMaterialYield?: Record<string, number>;
+  constructionFinalTask?: boolean;
 }
 
 export interface ConstructionModule {
