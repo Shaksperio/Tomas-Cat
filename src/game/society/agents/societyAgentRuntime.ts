@@ -117,7 +117,7 @@ export class SocietyAgentRuntime {
 
   restoreState(state: SocietyAgentRuntimeState): boolean {
     if (!state || state.schemaVersion !== 1
-      || !state.memory || typeof state.memory.byAgent !== 'object' || state.memory.byAgent === null
+      || !state.memory || typeof state.memory.byAgent !== 'object' || state.memory.byAgent === null || Array.isArray(state.memory.byAgent)
       || !Number.isSafeInteger(state.lastCowilaTick) || state.lastCowilaTick < -1
       || !Array.isArray(state.registeredBlueprintIds)
       || !Array.isArray(state.projectTaskQueue)
