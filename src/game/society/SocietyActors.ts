@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import type { SocietySimulationSnapshot, SimulatedAgent } from './simulation';
+import type { ReadyConstructionPlacement } from './worldConstructionRuntime';
+import { createModuleMesh } from './moduleMeshFactory';
+import { isApprovedConstructionAsset } from './constructionCatalog';
 
 interface SocietyActorView {
   root: THREE.Group;
@@ -346,6 +349,27 @@ export class SocietyActors {
     return this.actors.get(agentId)?.root ?? null;
   }
 
+  /**
+   * Publica somente placements liberados pelo runtime após a conclusão de
+   * todas as tarefas do projeto. A chave composta impede estruturas duplicadas.
+   */
+  public applyReadyPlacements(placements: readonly ReadyConstructionPlacement[]): number {
+    let spawned = 0;
+    for (const placement of placements) {
+      if (!isApprovedConstructionAsset(placement.assetId)) continue;
+      const key = `${placement.projectId}:${placement.placementIndex}`;
+      if (this.constructions.has(key)) continue;
+      const structure = createModuleMesh(placement.assetId);
+      structure.position.set(placement.x, 0, placement.z);
+      structure.rotation.y = placement.rotationY;
+      structure.visible = true;
+      this.scene.add(structure);
+      this.constructions.set(key, structure);
+      spawned += 1;
+    }
+    return spawned;
+  }
+
   /** Enquanto definido, a cena controla posição e rotação deste habitante. */
   public setSceneControl(agentIds: string | string[] | null): void {
     this.controlledAgentIds = new Set(agentIds === null ? [] : Array.isArray(agentIds) ? agentIds : [agentIds]);
@@ -423,50 +447,6 @@ export class SocietyActors {
 
     this.updateCommunityVisuals(snapshot, visible);
 
-    // Uma estrutura só aparece após a tarefa de construção ser concluída.
-    for (const task of snapshot.tasks) {
-      if (task.kind !== 'build_module' || task.status !== 'completed' || !task.target) continue;
-      if (this.constructions.has(task.id)) continue;
-
-      const structure = new THREE.Group();
-      const stone = new THREE.MeshStandardMaterial({ color: 0x87939d, roughness: 0.92 });
-      const timber = new THREE.MeshStandardMaterial({ color: 0x79543a, roughness: 0.88 });
-      const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x344b5b, roughness: 0.82 });
-
-      const foundation = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.22, 2.1), stone);
-      foundation.position.y = 0.11;
-      foundation.castShadow = true;
-      foundation.receiveShadow = true;
-      structure.add(foundation);
-
-      for (const x of [-0.92, 0.92]) {
-        for (const z of [-0.78, 0.78]) {
-          const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.55, 0.16), timber);
-          post.position.set(x, 0.98, z);
-          post.castShadow = true;
-          structure.add(post);
-        }
-      }
-
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(1.72, 0.82, 4), roofMaterial);
-      roof.position.y = 2.08;
-      roof.rotation.y = Math.PI / 4;
-      roof.scale.z = 0.82;
-      roof.castShadow = true;
-      structure.add(roof);
-
-      const sign = new THREE.Mesh(
-        new THREE.BoxGeometry(0.62, 0.3, 0.07),
-        new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x082f49, emissiveIntensity: 0.45 }),
-      );
-      sign.position.set(0, 1.05, 0.91);
-      structure.add(sign);
-
-      structure.position.set(task.target.x, 0, task.target.z);
-      structure.visible = visible;
-      this.scene.add(structure);
-      this.constructions.set(task.id, structure);
-    }
     for (const structure of this.constructions.values()) structure.visible = visible;
   }
 
