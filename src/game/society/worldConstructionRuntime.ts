@@ -28,7 +28,8 @@ interface TrackedProject {
 /**
  * Deterministic bridge between approved society projects and world rendering.
  * It emits only catalog-approved placements after every project task completes.
- * It does not create geometry, mutate a Three.js scene, or persist world state.
+ * It does not create geometry or mutate a Three.js scene; exportState/restoreState
+ * expose a validated snapshot for the owning save system, not external storage.
  */
 export class WorldConstructionRuntime {
   private readonly projects = new Map<string, TrackedProject>();
