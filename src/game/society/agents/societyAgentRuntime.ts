@@ -108,16 +108,28 @@ export class SocietyAgentRuntime {
 
         const project = blueprintToProposedProject(bp, engineer.id, snapshot.tick);
         project.status = 'validated';
-        const taskId = `build-${bp.projectId}-0`;
-        project.taskIds = [taskId];
+        const craftCount = Math.ceil((bp.requiredResources.planks ?? 0) / 2);
+        project.taskIds = [
+          `construction:${bp.projectId}:gather`,
+          ...Array.from({ length: craftCount }, (_, index) => `construction:${bp.projectId}:craft:${index}`),
+          `construction:${bp.projectId}:transport`,
+          `construction:${bp.projectId}:prepare`,
+          ...project.modules.map((_, index) => `construction:${bp.projectId}:build:${index}`),
+        ];
         const validation = validateConstructionProject(project);
         if (!validation.valid) continue;
 
         const registered = this.construction.registerProject(project);
         if (!registered.valid) continue;
 
+        const scheduledTaskIds = simulation.scheduleConstructionProject(project);
+        if (!scheduledTaskIds) {
+          this.construction.unregisterProject(project.id);
+          continue;
+        }
+
         this.registeredBlueprintIds.add(bp.projectId);
-        this.projectTaskQueue.set(project.id, [taskId]);
+        this.projectTaskQueue.set(project.id, scheduledTaskIds);
         registeredProjectIds.push(project.id);
       }
     }
@@ -146,18 +158,18 @@ export class SocietyAgentRuntime {
       .filter((e) => {
         if (e.kind !== 'task_completed') return false;
         if (this.processedBuildEventIds.has(e.id)) return false;
-        const payload = e.payload as { kind?: unknown; taskId?: unknown };
-        return payload.kind === 'build_module' && typeof payload.taskId === 'string';
+        const payload = e.payload as { constructionProjectId?: unknown; taskId?: unknown };
+        return typeof payload.constructionProjectId === 'string'
+          && typeof payload.taskId === 'string';
       })
       .sort((a, b) => a.id.localeCompare(b.id));
 
     for (const event of buildEvents) {
-      const payload = event.payload as { taskId: string };
-      // Só o evento da tarefa explicitamente vinculada ao projeto pode
-      // avançá-lo. Um build_module genérico não prova que este projeto foi
-      // construído e nunca deve concluir outro projeto por FIFO.
+      const payload = event.payload as { taskId: string; constructionProjectId: string };
+      // O evento precisa identificar o mesmo projeto e a próxima tarefa da
+      // cadeia. Eventos genéricos ou fora de ordem nunca avançam a obra.
       const projectEntry = [...this.projectTaskQueue.entries()]
-        .find(([, queue]) => queue[0] === payload.taskId);
+        .find(([projectId, queue]) => projectId === payload.constructionProjectId && queue[0] === payload.taskId);
       if (!projectEntry) continue;
       const [projectId, queue] = projectEntry;
       this.processedBuildEventIds.add(event.id);
@@ -176,16 +188,6 @@ export class SocietyAgentRuntime {
     }
 
     return advanced;
-  }
-
-  private nextIncompleteProjectId(): string | null {
-    const ids = [...this.projectTaskQueue.keys()].sort();
-    for (const projectId of ids) {
-      const progress = this.construction.getProjectProgress(projectId);
-      if (!progress) continue;
-      if (progress.completedTasks < progress.totalTasks) return projectId;
-    }
-    return null;
   }
 
   notifyConstructionTaskComplete(projectId: string, taskId: string): boolean {
