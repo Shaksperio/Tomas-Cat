@@ -897,6 +897,26 @@ export class GameEngine {
         PLAYABLE_WORLD_IDS,
         LEGACY_WORLD_ID,
       );
+      if (saved.society?.schemaVersion === 1 && saved.society.worlds
+        && typeof saved.society.worlds === 'object') {
+        const worlds = saved.society.worlds;
+        const simulationStates = Object.fromEntries(Object.entries(worlds).map(([worldId, state]) =>
+          [worldId, state.simulation],
+        ));
+        const agentStates = Object.fromEntries(Object.entries(worlds).map(([worldId, state]) =>
+          [worldId, state.agents],
+        ));
+        const simulationRestored = this.societyRegistry.restoreStates(simulationStates);
+        const agentsRestored = this.agentRuntimeRegistry.restoreStates(agentStates);
+        if (!simulationRestored || !agentsRestored) {
+          // Estado parcial/corrompido: descarta o bloco da sociedade por inteiro,
+          // sem impedir o carregamento do progresso principal do jogador.
+          for (const worldId of PLAYABLE_WORLD_IDS) {
+            this.societyRegistry.reset(worldId);
+            this.agentRuntimeRegistry.reset(worldId);
+          }
+        }
+      }
       this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, saved.level || 1));
       this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, saved.unlockedMoves ?? []));
       this.stars = saved.stars || 0;
@@ -2315,6 +2335,13 @@ export class GameEngine {
       });
       this.worldTravel = updateActiveWorldPosition(this.worldTravel, { x: this.catPos.x, z: this.catPos.z });
       const payload: SavedGameState = {
+        society: {
+          schemaVersion: 1,
+          worlds: Object.fromEntries(PLAYABLE_WORLD_IDS.map((worldId) => [worldId, {
+            simulation: this.societyRegistry.simulationFor(worldId).exportState(),
+            agents: this.agentRuntimeRegistry.runtimeFor(worldId).exportState(),
+          }])),
+        },
         stageIndex: this.stageIndex,
         level: this.level,
         stars: this.stars,
