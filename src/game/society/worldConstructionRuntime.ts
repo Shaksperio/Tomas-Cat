@@ -14,6 +14,12 @@ export interface ReadyConstructionPlacement {
   rotationY: number;
 }
 
+export interface WorldConstructionRuntimeState {
+  schemaVersion: 1;
+  projects: Array<{ project: ConstructionProject; completedTaskIds: string[] }>;
+  publishedProjectIds: string[];
+}
+
 interface TrackedProject {
   project: ConstructionProject;
   completedTaskIds: Set<string>;
@@ -81,6 +87,53 @@ export class WorldConstructionRuntime {
     if (!tracked || !tracked.project.taskIds.includes(taskId)) return false;
     if (tracked.completedTaskIds.has(taskId)) return false;
     tracked.completedTaskIds.add(taskId);
+    return true;
+  }
+
+  exportState(): WorldConstructionRuntimeState {
+    return {
+      schemaVersion: 1,
+      projects: [...this.projects.values()].map((tracked) => ({
+        project: {
+          ...tracked.project,
+          modules: tracked.project.modules.map((module) => ({
+            ...module, position: { ...module.position },
+          })),
+          requiredResources: { ...tracked.project.requiredResources },
+          taskIds: [...tracked.project.taskIds],
+        },
+        completedTaskIds: [...tracked.completedTaskIds],
+      })),
+      publishedProjectIds: [...this.publishedProjectIds],
+    };
+  }
+
+  restoreState(state: WorldConstructionRuntimeState): boolean {
+    if (!state || state.schemaVersion !== 1
+      || !Array.isArray(state.projects) || !Array.isArray(state.publishedProjectIds)) return false;
+    const projectIds = state.projects.map((entry) => entry.project?.id);
+    if (projectIds.some((id) => typeof id !== 'string')
+      || new Set(projectIds).size !== projectIds.length
+      || state.publishedProjectIds.some((id) => typeof id !== 'string')
+      || new Set(state.publishedProjectIds).size !== state.publishedProjectIds.length) return false;
+
+    const candidate = new WorldConstructionRuntime(this.approvedAssetIds);
+    for (const entry of state.projects) {
+      if (!Array.isArray(entry.completedTaskIds)
+        || new Set(entry.completedTaskIds).size !== entry.completedTaskIds.length
+        || !candidate.registerProject(entry.project).valid) return false;
+      for (const taskId of entry.completedTaskIds) {
+        if (!candidate.completeTask(entry.project.id, taskId)) return false;
+      }
+    }
+    for (const projectId of state.publishedProjectIds) {
+      if (!candidate.markProjectPublished(projectId)) return false;
+    }
+
+    this.projects.clear();
+    for (const [id, tracked] of candidate.projects) this.projects.set(id, tracked);
+    this.publishedProjectIds.clear();
+    for (const id of candidate.publishedProjectIds) this.publishedProjectIds.add(id);
     return true;
   }
 
