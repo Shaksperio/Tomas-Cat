@@ -962,32 +962,47 @@ export class SocietySimulation {
         Number.isFinite(state.resources[key as keyof SocietyResources])
         && state.resources[key as keyof SocietyResources] >= 0)) return false;
 
-    const unique = (values: string[]) => new Set(values).size === values.length;
+    const unique = (values: string[]) => values.every((value) => typeof value === 'string' && value.length > 0)
+      && new Set(values).size === values.length;
+    if (state.agents.some((agent) => !agent || typeof agent !== 'object')
+      || state.tasks.some((task) => !task || typeof task !== 'object')
+      || state.taskRuntime.some((entry) => !entry || typeof entry !== 'object')
+      || state.relationships.some((relationship) => !relationship || typeof relationship !== 'object')
+      || state.completedSincePayday.some((entry) => !entry || typeof entry !== 'object')
+      || state.discipline.some((record) => !record || typeof record !== 'object')
+      || state.events.some((event) => !event || typeof event !== 'object')
+      || !unique(state.scheduledConstructionProjects)) return false;
     if (!unique(state.agents.map((agent) => agent.id))
       || !unique(state.tasks.map((task) => task.id))
       || !unique(state.taskRuntime.map((entry) => entry.taskId))
-      || !unique(state.discipline.map((record) => record.agentId))
-      || !unique(state.scheduledConstructionProjects)) return false;
+      || !unique(state.discipline.map((record) => record.agentId))) return false;
 
     const agentIds = new Set(state.agents.map((agent) => agent.id));
     const taskIds = new Set(state.tasks.map((task) => task.id));
     if (state.agents.some((agent) => !agent.id || !agent.position
+      || typeof agent.position.sectorId !== 'string'
       || !Number.isFinite(agent.position.x) || !Number.isFinite(agent.position.z)
       || !Number.isFinite(agent.health) || !Number.isFinite(agent.energy)
       || !agent.needs || !['hunger', 'social', 'morale'].every((key) =>
         Number.isFinite(agent.needs[key as keyof AgentNeeds])))) return false;
     if (state.tasks.some((task) => !task.id || !Array.isArray(task.dependencies)
       || task.dependencies.some((id) => typeof id !== 'string')
+      || !task.requiredResources || typeof task.requiredResources !== 'object'
       || !Number.isSafeInteger(task.createdAtTick) || task.createdAtTick < 0
       || !Number.isSafeInteger(task.updatedAtTick) || task.updatedAtTick < 0
       || (task.assignedAgentId !== null && !agentIds.has(task.assignedAgentId)))) return false;
     if (state.taskRuntime.some((entry) => !taskIds.has(entry.taskId)
       || !Number.isFinite(entry.elapsedTicks) || entry.elapsedTicks < 0
       || !Number.isFinite(entry.durationTicks) || entry.durationTicks <= 0)) return false;
+    if (state.relationships.some((relationship) => !relationship.id
+      || !agentIds.has(relationship.fromAgentId) || !agentIds.has(relationship.toAgentId)
+      || !Number.isFinite(relationship.trust) || !Number.isFinite(relationship.affinity)
+      || !Number.isSafeInteger(relationship.interactionCount) || relationship.interactionCount < 0)) return false;
     if (state.completedSincePayday.some((entry) => !agentIds.has(entry.agentId)
       || !Number.isSafeInteger(entry.count) || entry.count < 0)) return false;
     if (state.discipline.some((record) => !agentIds.has(record.agentId)
-      || !Array.isArray(record.violations))) return false;
+      || !Array.isArray(record.violations)
+      || record.violations.some((violation) => !violation || typeof violation !== 'object'))) return false;
     if (state.events.some((event) => !event.id || !Number.isSafeInteger(event.tick)
       || event.tick < 0 || !event.payload || typeof event.payload !== 'object')) return false;
 
