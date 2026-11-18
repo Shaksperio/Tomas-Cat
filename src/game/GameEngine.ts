@@ -901,10 +901,10 @@ export class GameEngine {
         && typeof saved.society.worlds === 'object') {
         const worlds = saved.society.worlds;
         const simulationStates = Object.fromEntries(Object.entries(worlds).map(([worldId, state]) =>
-          [worldId, state.simulation],
+          [worldId, state.simulation] as const,
         ));
         const agentStates = Object.fromEntries(Object.entries(worlds).map(([worldId, state]) =>
-          [worldId, state.agents],
+          [worldId, state.agents] as const,
         ));
         const simulationRestored = this.societyRegistry.restoreStates(simulationStates);
         const agentsRestored = this.agentRuntimeRegistry.restoreStates(agentStates);
