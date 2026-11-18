@@ -1,0 +1,42 @@
+name: Agent PR safety audit
+
+# Executa somente após o workflow de validação da PR. Usa a branch padrão,
+# nunca faz checkout nem executa código fornecido pela PR.
+on:
+  workflow_run:
+    workflows: ["Deploy Tomas Vagabundo to GitHub Pages"]
+    types: [completed]
+
+# Somente leitura: este MVP não pode aprovar, rotular nem mesclar PRs.
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: agent-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0] != null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (branch padrão, não o código da PR)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Avaliar política (somente leitura)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          AGENT_GATE_AUTHORS: ${{ vars.AGENT_GATE_AUTHORS }}
+        run: npx tsx scripts/agent-gate/run.mjs
