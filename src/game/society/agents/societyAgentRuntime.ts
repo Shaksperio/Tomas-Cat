@@ -32,6 +32,17 @@ export interface SocietyAgentRuntimeConfig {
   approvedAssetIds?: ReadonlySet<string>;
 }
 
+export interface SocietyAgentRuntimeState {
+  schemaVersion: 1;
+  memory: AgentMemoryBook;
+  lastDirective: CowilaDirective | null;
+  lastCowilaTick: number;
+  registeredBlueprintIds: string[];
+  projectTaskQueue: Array<{ projectId: string; taskIds: string[] }>;
+  processedBuildEventIds: string[];
+  construction: ReturnType<WorldConstructionRuntime['exportState']>;
+}
+
 export interface SocietyAgentRuntimeFrame {
   snapshot: SocietySimulationSnapshot;
   memory: AgentMemoryBook;
@@ -62,6 +73,7 @@ export class SocietyAgentRuntime {
   private memory: AgentMemoryBook = emptyAgentMemory();
   private lastDirective: CowilaDirective | null = null;
   private readonly construction: WorldConstructionRuntime;
+  private readonly configApprovedAssetIds: ReadonlySet<string>;
   private readonly cowilaEveryTicks: number;
   private lastCowilaTick = -1;
   private readonly registeredBlueprintIds = new Set<string>();
@@ -71,9 +83,8 @@ export class SocietyAgentRuntime {
 
   constructor(config: SocietyAgentRuntimeConfig = {}) {
     this.cowilaEveryTicks = Math.max(1, config.cowilaEveryTicks ?? 25);
-    this.construction = new WorldConstructionRuntime(
-      config.approvedAssetIds ?? DEFAULT_ASSETS,
-    );
+    this.configApprovedAssetIds = config.approvedAssetIds ?? DEFAULT_ASSETS;
+    this.construction = new WorldConstructionRuntime(this.configApprovedAssetIds);
   }
 
   getMemory(): AgentMemoryBook {
@@ -86,6 +97,71 @@ export class SocietyAgentRuntime {
 
   getConstructionRuntime(): WorldConstructionRuntime {
     return this.construction;
+  }
+
+  exportState(): SocietyAgentRuntimeState {
+    return {
+      schemaVersion: 1,
+      memory: JSON.parse(JSON.stringify(this.memory)) as AgentMemoryBook,
+      lastDirective: this.lastDirective
+        ? JSON.parse(JSON.stringify(this.lastDirective)) as CowilaDirective : null,
+      lastCowilaTick: this.lastCowilaTick,
+      registeredBlueprintIds: [...this.registeredBlueprintIds],
+      projectTaskQueue: [...this.projectTaskQueue.entries()].map(([projectId, taskIds]) => ({
+        projectId, taskIds: [...taskIds],
+      })),
+      processedBuildEventIds: [...this.processedBuildEventIds],
+      construction: this.construction.exportState(),
+    };
+  }
+
+  restoreState(state: SocietyAgentRuntimeState): boolean {
+    if (!state || state.schemaVersion !== 1
+      || !state.memory || typeof state.memory.byAgent !== 'object' || state.memory.byAgent === null || Array.isArray(state.memory.byAgent)
+      || !Number.isSafeInteger(state.lastCowilaTick) || state.lastCowilaTick < -1
+      || !Array.isArray(state.registeredBlueprintIds)
+      || !Array.isArray(state.projectTaskQueue)
+      || !Array.isArray(state.processedBuildEventIds)) return false;
+
+    const unique = (values: string[]) => values.every((value) => typeof value === 'string' && value.length > 0)
+      && new Set(values).size === values.length;
+    if (!unique(state.registeredBlueprintIds) || !unique(state.processedBuildEventIds)) return false;
+    if (state.projectTaskQueue.some((entry) => !entry || typeof entry !== 'object'
+      || !Array.isArray(entry.taskIds))) return false;
+    const queueIds = state.projectTaskQueue.map((entry) => entry.projectId);
+    if (!unique(queueIds) || state.projectTaskQueue.some((entry) => !unique(entry.taskIds))) return false;
+
+    for (const entries of Object.values(state.memory.byAgent)) {
+      if (!Array.isArray(entries) || entries.some((entry) =>
+        !Number.isSafeInteger(entry.tick) || entry.tick < 0
+        || typeof entry.kind !== 'string' || typeof entry.summary !== 'string'
+        || typeof entry.sourceEventId !== 'string')) return false;
+    }
+
+    const candidateConstruction = new WorldConstructionRuntime(
+      this.configApprovedAssetIds,
+    );
+    if (!candidateConstruction.restoreState(state.construction)) return false;
+    const constructionState = candidateConstruction.exportState();
+    const projectIds = new Set(constructionState.projects.map((entry) => entry.project.id));
+    if (state.projectTaskQueue.some((entry) => !projectIds.has(entry.projectId))
+      || state.registeredBlueprintIds.some((id) => !projectIds.has(id))) return false;
+    for (const entry of state.projectTaskQueue) {
+      const project = constructionState.projects.find((item) => item.project.id === entry.projectId)?.project;
+      if (!project || entry.taskIds.some((taskId) => !project.taskIds.includes(taskId))) return false;
+    }
+
+    this.memory = JSON.parse(JSON.stringify(state.memory)) as AgentMemoryBook;
+    this.lastDirective = state.lastDirective
+      ? JSON.parse(JSON.stringify(state.lastDirective)) as CowilaDirective : null;
+    this.lastCowilaTick = state.lastCowilaTick;
+    this.registeredBlueprintIds.clear();
+    for (const id of state.registeredBlueprintIds) this.registeredBlueprintIds.add(id);
+    this.projectTaskQueue.clear();
+    for (const entry of state.projectTaskQueue) this.projectTaskQueue.set(entry.projectId, [...entry.taskIds]);
+    this.processedBuildEventIds.clear();
+    for (const id of state.processedBuildEventIds) this.processedBuildEventIds.add(id);
+    return this.construction.restoreState(state.construction);
   }
 
   step(simulation: SocietySimulation, steps = 1): SocietyAgentRuntimeFrame {

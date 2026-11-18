@@ -99,6 +99,21 @@ export interface SimulatedAgent extends SocietyAgent {
   wallet: number;
 }
 
+export interface SocietySimulationState {
+  schemaVersion: 1;
+  tick: number;
+  agents: SimulatedAgent[];
+  tasks: AgentTask[];
+  taskRuntime: Array<{ taskId: string; elapsedTicks: number; durationTicks: number }>;
+  relationships: AgentRelationship[];
+  events: WorldEvent[];
+  eventSequence: number;
+  completedSincePayday: Array<{ agentId: string; count: number }>;
+  discipline: AgentDisciplineRecord[];
+  scheduledConstructionProjects: string[];
+  resources: SocietyResources;
+}
+
 export interface SocietySimulationSnapshot {
   tick: number;
   agents: SimulatedAgent[];
@@ -133,6 +148,13 @@ const TASK_DURATION: Record<AgentTask['kind'], number> = {
 };
 
 const clampNeed = (value: number): number => Math.max(0, Math.min(100, value));
+
+function cloneWorldEvent(event: WorldEvent): WorldEvent {
+  return {
+    ...event,
+    payload: JSON.parse(JSON.stringify(event.payload)) as Record<string, unknown>,
+  };
+}
 
 function makeAgent(
   id: string,
@@ -888,6 +910,137 @@ export class SocietySimulation {
       this.pruneFinishedTasks();
     }
     return this.snapshot();
+  }
+
+  /**
+   * Exporta todo o estado necessário para retomar a simulação sem reiniciar
+   * tarefas, pagamentos, eventos ou decisões de governança.
+   */
+  public exportState(): SocietySimulationState {
+    return {
+      schemaVersion: 1,
+      tick: this.tickCount,
+      agents: [...this.agents.values()].map((agent) => ({
+        ...agent,
+        position: { ...agent.position },
+        needs: { ...agent.needs },
+      })),
+      tasks: [...this.tasks.values()].map((task) => ({
+        ...task,
+        target: task.target ? { ...task.target } : null,
+        dependencies: [...task.dependencies],
+        requiredResources: { ...task.requiredResources },
+        ...(task.constructionMaterialYield
+          ? { constructionMaterialYield: { ...task.constructionMaterialYield } } : {}),
+      })),
+      taskRuntime: [...this.taskRuntime.entries()].map(([taskId, runtime]) => ({
+        taskId, ...runtime,
+      })),
+      relationships: [...this.relationships.values()].map((relationship) => ({ ...relationship })),
+      events: this.events.map(cloneWorldEvent),
+      eventSequence: this.eventSequence,
+      completedSincePayday: [...this.completedSincePayday.entries()].map(([agentId, count]) => ({ agentId, count })),
+      discipline: [...this.discipline.values()].map((record) => this.cloneDisciplineRecord(record)),
+      scheduledConstructionProjects: [...this.scheduledConstructionProjects],
+      resources: { ...this.resources },
+    };
+  }
+
+  /**
+   * Restaura estado validado em uma simulação existente. Falhas de validação
+   * não alteram a instância, permitindo que saves antigos sigam o fluxo normal.
+   */
+  public restoreState(state: SocietySimulationState): boolean {
+    if (!state || state.schemaVersion !== 1
+      || !Number.isSafeInteger(state.tick) || state.tick < 0
+      || !Number.isSafeInteger(state.eventSequence) || state.eventSequence < 0
+      || !Array.isArray(state.agents) || !Array.isArray(state.tasks)
+      || !Array.isArray(state.taskRuntime) || state.taskRuntime.length !== state.tasks.length || !Array.isArray(state.relationships)
+      || !Array.isArray(state.events) || !Array.isArray(state.completedSincePayday)
+      || !Array.isArray(state.discipline) || !Array.isArray(state.scheduledConstructionProjects)
+      || !state.resources || !['food', 'wood', 'stone', 'planks', 'coins'].every((key) =>
+        Number.isFinite(state.resources[key as keyof SocietyResources])
+        && state.resources[key as keyof SocietyResources] >= 0)) return false;
+
+    const unique = (values: string[]) => values.every((value) => typeof value === 'string' && value.length > 0)
+      && new Set(values).size === values.length;
+    if (state.agents.some((agent) => !agent || typeof agent !== 'object')
+      || state.tasks.some((task) => !task || typeof task !== 'object')
+      || state.taskRuntime.some((entry) => !entry || typeof entry !== 'object')
+      || state.relationships.some((relationship) => !relationship || typeof relationship !== 'object')
+      || state.completedSincePayday.some((entry) => !entry || typeof entry !== 'object')
+      || state.discipline.some((record) => !record || typeof record !== 'object')
+      || state.events.some((event) => !event || typeof event !== 'object')
+      || !unique(state.scheduledConstructionProjects)) return false;
+    if (!unique(state.agents.map((agent) => agent.id))
+      || !unique(state.tasks.map((task) => task.id))
+      || !unique(state.taskRuntime.map((entry) => entry.taskId))
+      || !unique(state.discipline.map((record) => record.agentId))) return false;
+
+    const agentIds = new Set(state.agents.map((agent) => agent.id));
+    const taskIds = new Set(state.tasks.map((task) => task.id));
+    if (state.agents.some((agent) => !agent.id || !agent.position
+      || typeof agent.position.sectorId !== 'string'
+      || !Number.isFinite(agent.position.x) || !Number.isFinite(agent.position.z)
+      || !Number.isFinite(agent.health) || !Number.isFinite(agent.energy)
+      || !agent.needs || !['hunger', 'social', 'morale'].every((key) =>
+        Number.isFinite(agent.needs[key as keyof AgentNeeds])))) return false;
+    if (state.tasks.some((task) => !task.id || !Array.isArray(task.dependencies)
+      || task.dependencies.some((id) => typeof id !== 'string')
+      || !task.requiredResources || typeof task.requiredResources !== 'object'
+      || !Number.isSafeInteger(task.createdAtTick) || task.createdAtTick < 0
+      || !Number.isSafeInteger(task.updatedAtTick) || task.updatedAtTick < 0
+      || (task.assignedAgentId !== null && !agentIds.has(task.assignedAgentId)))) return false;
+    if (state.taskRuntime.some((entry) => !taskIds.has(entry.taskId)
+      || !Number.isFinite(entry.elapsedTicks) || entry.elapsedTicks < 0
+      || !Number.isFinite(entry.durationTicks) || entry.durationTicks <= 0)) return false;
+    if (state.relationships.some((relationship) => !relationship.id
+      || !agentIds.has(relationship.fromAgentId) || !agentIds.has(relationship.toAgentId)
+      || !Number.isFinite(relationship.trust) || !Number.isFinite(relationship.affinity)
+      || !Number.isSafeInteger(relationship.interactionCount) || relationship.interactionCount < 0)) return false;
+    if (state.completedSincePayday.some((entry) => !agentIds.has(entry.agentId)
+      || !Number.isSafeInteger(entry.count) || entry.count < 0)) return false;
+    if (state.discipline.some((record) => !agentIds.has(record.agentId)
+      || !Array.isArray(record.violations)
+      || record.violations.some((violation) => !violation || typeof violation !== 'object'))) return false;
+    if (state.events.some((event) => !event.id || !Number.isSafeInteger(event.tick)
+      || event.tick < 0 || !event.payload || typeof event.payload !== 'object')) return false;
+
+    this.tickCount = state.tick;
+    this.agents.clear();
+    for (const agent of state.agents) this.agents.set(agent.id, {
+      ...agent, position: { ...agent.position }, needs: { ...agent.needs },
+    });
+    this.tasks.clear();
+    for (const task of state.tasks) this.tasks.set(task.id, {
+      ...task,
+      target: task.target ? { ...task.target } : null,
+      dependencies: [...task.dependencies],
+      requiredResources: { ...task.requiredResources },
+      ...(task.constructionMaterialYield
+        ? { constructionMaterialYield: { ...task.constructionMaterialYield } } : {}),
+    });
+    this.taskRuntime.clear();
+    for (const entry of state.taskRuntime) {
+      this.taskRuntime.set(entry.taskId, {
+        elapsedTicks: entry.elapsedTicks, durationTicks: entry.durationTicks,
+      });
+    }
+    this.relationships.clear();
+    for (const relationship of state.relationships) {
+      this.relationships.set(relationship.id, { ...relationship });
+    }
+    this.events.splice(0, this.events.length,
+      ...state.events.map(cloneWorldEvent));
+    this.eventSequence = state.eventSequence;
+    this.completedSincePayday.clear();
+    for (const entry of state.completedSincePayday) this.completedSincePayday.set(entry.agentId, entry.count);
+    this.discipline.clear();
+    for (const record of state.discipline) this.discipline.set(record.agentId, this.cloneDisciplineRecord(record));
+    this.scheduledConstructionProjects.clear();
+    for (const projectId of state.scheduledConstructionProjects) this.scheduledConstructionProjects.add(projectId);
+    Object.assign(this.resources, state.resources);
+    return true;
   }
 
   public snapshot(): SocietySimulationSnapshot {

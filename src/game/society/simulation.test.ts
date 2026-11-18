@@ -327,3 +327,49 @@ test('repeated verified incitement permanently blocks the agent identity', () =>
   assert.equal(blocked.status, 'permanently_blocked');
   assert.equal(simulation.step(1).agents.find((agent) => agent.id === 'agent-01')?.activeTaskId, null);
 });
+
+
+test('restores the complete society state and continues deterministically', () => {
+  const uninterrupted = new SocietySimulation();
+  uninterrupted.step(17);
+  const state = uninterrupted.exportState();
+
+  const restored = new SocietySimulation();
+  assert.equal(restored.restoreState(state), true);
+  assert.deepEqual(restored.snapshot(), uninterrupted.snapshot());
+  assert.deepEqual(restored.exportState(), state);
+
+  for (let tick = 0; tick < 45; tick += 1) {
+    assert.deepEqual(restored.step(1), uninterrupted.step(1));
+  }
+  assert.deepEqual(restored.exportState(), uninterrupted.exportState());
+});
+
+test('restored task runtime preserves elapsed work instead of restarting tasks', () => {
+  const simulation = new SocietySimulation();
+  simulation.step(25);
+  const state = simulation.exportState();
+  const runtime = state.taskRuntime.find((entry) => entry.elapsedTicks > 0);
+  assert.ok(runtime);
+  assert.ok(runtime.elapsedTicks > 0);
+
+  const restored = new SocietySimulation();
+  assert.equal(restored.restoreState(state), true);
+  assert.deepEqual(
+    restored.exportState().taskRuntime.find((entry) => entry.taskId === runtime.taskId),
+    runtime,
+  );
+});
+
+test('rejects malformed society state without mutating the current simulation', () => {
+  const simulation = new SocietySimulation();
+  simulation.step(3);
+  const before = simulation.exportState();
+  const malformed = {
+    ...before,
+    schemaVersion: 99,
+  } as unknown as ReturnType<typeof simulation.exportState>;
+
+  assert.equal(simulation.restoreState(malformed), false);
+  assert.deepEqual(simulation.exportState(), before);
+});

@@ -54,3 +54,22 @@ test('rejects attempts to advance or inspect an unregistered world', () => {
   assert.throws(() => registry.snapshot('unknown'), /Unknown world/);
   assert.throws(() => registry.advance('unknown'), /Unknown world/);
 });
+
+
+test('restores each world simulation independently and rejects invalid state atomically', () => {
+  const source = new WorldSocietyRegistry(['quarantine-city', 'undergrid']);
+  source.advance('quarantine-city', 14);
+  source.advance('undergrid', 7);
+  const states = source.exportStates();
+
+  const restored = new WorldSocietyRegistry(['quarantine-city', 'undergrid']);
+  assert.equal(restored.restoreStates(states), true);
+  assert.deepEqual(restored.exportStates(), states);
+
+  const before = restored.exportStates();
+  assert.equal(restored.restoreStates({
+    ...states,
+    unknown_world: states['undergrid']!,
+  }), false);
+  assert.deepEqual(restored.exportStates(), before);
+});

@@ -3,7 +3,7 @@
  * Espelha a ideia do WorldSocietyRegistry: memória e Cowila não vazam entre mundos.
  */
 
-import { SocietyAgentRuntime, type SocietyAgentRuntimeConfig } from './societyAgentRuntime';
+import { SocietyAgentRuntime, type SocietyAgentRuntimeConfig, type SocietyAgentRuntimeState } from './societyAgentRuntime';
 
 export class WorldAgentRuntimeRegistry {
   private readonly runtimes = new Map<string, SocietyAgentRuntime>();
@@ -31,6 +31,26 @@ export class WorldAgentRuntimeRegistry {
     const runtime = new SocietyAgentRuntime(this.config);
     this.runtimes.set(worldId, runtime);
     return runtime;
+  }
+
+  exportStates(): Record<string, SocietyAgentRuntimeState> {
+    return Object.fromEntries([...this.runtimes.entries()].map(([worldId, runtime]) =>
+      [worldId, runtime.exportState()] as const,
+    ));
+  }
+
+  restoreStates(states: Record<string, SocietyAgentRuntimeState>): boolean {
+    if (!states || typeof states !== 'object') return false;
+    const entries = Object.entries(states);
+    if (entries.some(([worldId]) => !this.runtimes.has(worldId))) return false;
+    const candidates = new Map<string, SocietyAgentRuntime>();
+    for (const [worldId, state] of entries) {
+      const runtime = new SocietyAgentRuntime(this.config);
+      if (!runtime.restoreState(state)) return false;
+      candidates.set(worldId, runtime);
+    }
+    for (const [worldId, runtime] of candidates) this.runtimes.set(worldId, runtime);
+    return true;
   }
 
   get registeredWorldIds(): readonly string[] {

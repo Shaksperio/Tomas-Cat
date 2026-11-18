@@ -14,6 +14,12 @@ export interface ReadyConstructionPlacement {
   rotationY: number;
 }
 
+export interface WorldConstructionRuntimeState {
+  schemaVersion: 1;
+  projects: Array<{ project: ConstructionProject; completedTaskIds: string[] }>;
+  publishedProjectIds: string[];
+}
+
 interface TrackedProject {
   project: ConstructionProject;
   completedTaskIds: Set<string>;
@@ -22,7 +28,8 @@ interface TrackedProject {
 /**
  * Deterministic bridge between approved society projects and world rendering.
  * It emits only catalog-approved placements after every project task completes.
- * It does not create geometry, mutate a Three.js scene, or persist world state.
+ * It does not create geometry or mutate a Three.js scene; exportState/restoreState
+ * expose a validated snapshot for the owning save system, not external storage.
  */
 export class WorldConstructionRuntime {
   private readonly projects = new Map<string, TrackedProject>();
@@ -84,11 +91,82 @@ export class WorldConstructionRuntime {
     return true;
   }
 
+  exportState(): WorldConstructionRuntimeState {
+    return {
+      schemaVersion: 1,
+      projects: [...this.projects.values()].map((tracked) => ({
+        project: {
+          ...tracked.project,
+          modules: tracked.project.modules.map((module) => ({
+            ...module, position: { ...module.position },
+          })),
+          requiredResources: { ...tracked.project.requiredResources },
+          taskIds: [...tracked.project.taskIds],
+        },
+        completedTaskIds: [...tracked.completedTaskIds],
+      })),
+      publishedProjectIds: [...this.publishedProjectIds],
+    };
+  }
+
+  restoreState(state: WorldConstructionRuntimeState): boolean {
+    if (!state || state.schemaVersion !== 1
+      || !Array.isArray(state.projects) || !Array.isArray(state.publishedProjectIds)) return false;
+    if (state.projects.some((entry) => !entry || typeof entry !== 'object'
+      || !entry.project || typeof entry.project !== 'object'
+      || !Array.isArray(entry.completedTaskIds))) return false;
+    const projectIds = state.projects.map((entry) => entry.project.id);
+    if (projectIds.some((id) => typeof id !== 'string' || id.length === 0)
+      || new Set(projectIds).size !== projectIds.length
+      || state.publishedProjectIds.some((id) => typeof id !== 'string' || id.length === 0)
+      || new Set(state.publishedProjectIds).size !== state.publishedProjectIds.length
+      || state.projects.some((entry) => entry.completedTaskIds.some((id) => typeof id !== 'string')
+        || new Set(entry.completedTaskIds).size !== entry.completedTaskIds.length)) return false;
+
+    const candidate = new WorldConstructionRuntime(this.approvedAssetIds);
+    for (const entry of state.projects) {
+      if (!candidate.registerProject(entry.project).valid) return false;
+      for (const taskId of entry.completedTaskIds) {
+        if (!candidate.completeTask(entry.project.id, taskId)) return false;
+      }
+    }
+    for (const projectId of state.publishedProjectIds) {
+      if (!candidate.markProjectPublished(projectId)) return false;
+    }
+
+    this.projects.clear();
+    for (const [id, tracked] of candidate.projects) this.projects.set(id, tracked);
+    this.publishedProjectIds.clear();
+    for (const id of candidate.publishedProjectIds) this.publishedProjectIds.add(id);
+    return true;
+  }
+
   getReadyPlacements(): ReadyConstructionPlacement[] {
     const placements: ReadyConstructionPlacement[] = [];
     for (const [projectId, tracked] of this.projects) {
       if (tracked.completedTaskIds.size !== tracked.project.taskIds.length) continue;
       if (this.publishedProjectIds.has(projectId)) continue;
+      tracked.project.modules.forEach((module, placementIndex) => {
+        placements.push({
+          projectId,
+          placementIndex,
+          assetId: module.assetId,
+          sectorId: module.position.sectorId,
+          x: module.position.x,
+          z: module.position.z,
+          rotationY: module.rotationY,
+        });
+      });
+    }
+    return placements;
+  }
+
+  /** Retorna placements já publicados para reconstruir a cena após carregar um save. */
+  getPublishedPlacements(): ReadyConstructionPlacement[] {
+    const placements: ReadyConstructionPlacement[] = [];
+    for (const projectId of this.publishedProjectIds) {
+      const tracked = this.projects.get(projectId);
+      if (!tracked) continue;
       tracked.project.modules.forEach((module, placementIndex) => {
         placements.push({
           projectId,

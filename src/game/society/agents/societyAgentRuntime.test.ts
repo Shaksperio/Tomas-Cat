@@ -176,3 +176,39 @@ test('step é determinístico para o mesmo caminho de ticks', () => {
   };
   assert.deepEqual(run(), run());
 });
+
+
+test('persists Cowila memory, project queue and construction publication state', () => {
+  const base = new SocietySimulation().snapshot();
+  const snapshot = {
+    ...base,
+    tick: 1,
+    resources: { food: 60, wood: 60, stone: 60, planks: 60, coins: 999 },
+  };
+  const fakeSimulation = {
+    step: () => snapshot,
+    scheduleConstructionProject: (project: { taskIds: string[] }) => [...project.taskIds],
+  } as unknown as SocietySimulation;
+  const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 10 });
+  const frame = runtime.step(fakeSimulation, 1);
+  assert.ok(frame.registeredProjectIds.length > 0);
+
+  const saved = runtime.exportState();
+  const restored = new SocietyAgentRuntime({ cowilaEveryTicks: 10 });
+  assert.equal(restored.restoreState(saved), true);
+  assert.deepEqual(restored.exportState(), saved);
+  assert.deepEqual(restored.getLastDirective(), runtime.getLastDirective());
+
+  const projectId = frame.registeredProjectIds[0]!;
+  const taskIds = saved.projectTaskQueue.find((entry) => entry.projectId === projectId)?.taskIds ?? [];
+  assert.ok(taskIds.length > 0);
+  for (const taskId of taskIds) {
+    assert.equal(runtime.notifyConstructionTaskComplete(projectId, taskId), true);
+    assert.equal(restored.notifyConstructionTaskComplete(projectId, taskId), true);
+  }
+  assert.deepEqual(restored.getConstructionRuntime().getReadyPlacements(),
+    runtime.getConstructionRuntime().getReadyPlacements());
+  assert.equal(runtime.markPlacementsPublished([projectId]), 1);
+  assert.equal(restored.markPlacementsPublished([projectId]), 1);
+  assert.deepEqual(restored.exportState(), runtime.exportState());
+});

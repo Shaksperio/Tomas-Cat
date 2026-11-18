@@ -157,6 +157,7 @@ export class GameEngine {
   }
   private readonly societyActors: SocietyActors;
   private societyTickTimer = 0;
+  private societySaveTimer = 0;
   private readonly contactShadow: THREE.Mesh;
   private readonly gpsRoutePositions = new Float32Array(768 * 3);
   private readonly gpsRoute: THREE.Line;
@@ -691,6 +692,7 @@ export class GameEngine {
     this.societyRegistry.reset(this.worldSceneManager.activeWorldId);
     this.agentRuntimeRegistry.reset(this.worldSceneManager.activeWorldId);
     this.societyTickTimer = 0;
+    this.societySaveTimer = 0;
 
     this.world.interactables.forEach((item) => {
       item.active = true;
@@ -897,6 +899,31 @@ export class GameEngine {
         PLAYABLE_WORLD_IDS,
         LEGACY_WORLD_ID,
       );
+      this.societySaveTimer = 0;
+      if (saved.society?.schemaVersion === 1 && saved.society.worlds
+        && typeof saved.society.worlds === 'object' && !Array.isArray(saved.society.worlds)) {
+        const worlds = saved.society.worlds;
+        const entries = Object.entries(worlds);
+        const validWorldEntries = entries.every(([, state]) =>
+          Boolean(state && typeof state === 'object' && state.simulation && state.agents),
+        );
+        const simulationStates = validWorldEntries
+          ? Object.fromEntries(entries.map(([worldId, state]) => [worldId, state.simulation] as const))
+          : {};
+        const agentStates = validWorldEntries
+          ? Object.fromEntries(entries.map(([worldId, state]) => [worldId, state.agents] as const))
+          : {};
+        const simulationRestored = validWorldEntries && this.societyRegistry.restoreStates(simulationStates);
+        const agentsRestored = validWorldEntries && this.agentRuntimeRegistry.restoreStates(agentStates);
+        if (!simulationRestored || !agentsRestored) {
+          // Estado parcial/corrompido: descarta o bloco da sociedade por inteiro,
+          // sem impedir o carregamento do progresso principal do jogador.
+          for (const worldId of PLAYABLE_WORLD_IDS) {
+            this.societyRegistry.reset(worldId);
+            this.agentRuntimeRegistry.reset(worldId);
+          }
+        }
+      }
       this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, saved.level || 1));
       this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, saved.unlockedMoves ?? []));
       this.stars = saved.stars || 0;
@@ -2315,6 +2342,13 @@ export class GameEngine {
       });
       this.worldTravel = updateActiveWorldPosition(this.worldTravel, { x: this.catPos.x, z: this.catPos.z });
       const payload: SavedGameState = {
+        society: {
+          schemaVersion: 1,
+          worlds: Object.fromEntries(PLAYABLE_WORLD_IDS.map((worldId) => [worldId, {
+            simulation: this.societyRegistry.simulationFor(worldId).exportState(),
+            agents: this.agentRuntimeRegistry.runtimeFor(worldId).exportState(),
+          }])),
+        },
         stageIndex: this.stageIndex,
         level: this.level,
         stars: this.stars,
@@ -2561,6 +2595,12 @@ export class GameEngine {
           this.callbacks.onToast(frame.directive.brief, 'info');
         }
         this.societyTickTimer -= 1;
+      }
+      // Persiste a evolução autônoma mesmo quando o jogador não executa ações.
+      this.societySaveTimer += dt;
+      if (this.societySaveTimer >= 30) {
+        this.saveGame();
+        this.societySaveTimer = 0;
       }
       this.societyActors.update(dt, this.snapshotForActors(), true);
     } else {
@@ -3816,6 +3856,7 @@ export class GameEngine {
   }
 
   public dispose(): void {
+    this.saveGame();
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
     clearTimeout(this.frameId);

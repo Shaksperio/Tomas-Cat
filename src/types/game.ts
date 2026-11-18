@@ -7,6 +7,8 @@ import type { EquipmentState } from '../game/items/equipment';
 import type { InventoryItemId } from '../game/items/itemCatalog';
 import type { TaskRewardDrop } from '../game/tasks/taskRewards';
 import type { WorldTravelSaveState } from '../game/worlds/portalWorlds';
+import type { SocietySimulationState } from '../game/society/simulation';
+import type { SocietyAgentRuntimeState } from '../game/society/agents/societyAgentRuntime';
 
 export type GamePhase = 'title' | 'playing' | 'paused' | 'fallen' | 'gameover' | 'victory';
 
@@ -400,6 +402,16 @@ export interface BossCheckpointData {
   enemiesDefeated: number;
 }
 
+export interface SavedSocietyWorldState {
+  simulation: SocietySimulationState;
+  agents: SocietyAgentRuntimeState;
+}
+
+export interface SavedSocietyState {
+  schemaVersion: 1;
+  worlds: Record<string, SavedSocietyWorldState>;
+}
+
 export interface SavedGameState {
   stageIndex: number;
   level: number;
@@ -425,6 +437,8 @@ export interface SavedGameState {
   taskCycle?: TaskCycleState;
   /** Estado de viagem entre mundos; opcional para compatibilidade com saves v4 antigos. */
   worldTravel?: WorldTravelSaveState;
+  /** Sociedade e Cowila por mundo; opcional para migrar saves anteriores. */
+  society?: SavedSocietyState;
   day: number;
   timeOfDay: number;
   currentPhase: number;
