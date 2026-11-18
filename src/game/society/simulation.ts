@@ -149,6 +149,13 @@ const TASK_DURATION: Record<AgentTask['kind'], number> = {
 
 const clampNeed = (value: number): number => Math.max(0, Math.min(100, value));
 
+function cloneWorldEvent(event: WorldEvent): WorldEvent {
+  return {
+    ...event,
+    payload: JSON.parse(JSON.stringify(event.payload)) as Record<string, unknown>,
+  };
+}
+
 function makeAgent(
   id: string,
   displayName: string,
@@ -930,7 +937,7 @@ export class SocietySimulation {
         taskId, ...runtime,
       })),
       relationships: [...this.relationships.values()].map((relationship) => ({ ...relationship })),
-      events: this.events.map((event) => ({ ...event, payload: { ...event.payload } })),
+      events: this.events.map(cloneWorldEvent),
       eventSequence: this.eventSequence,
       completedSincePayday: [...this.completedSincePayday.entries()].map(([agentId, count]) => ({ agentId, count })),
       discipline: [...this.discipline.values()].map((record) => this.cloneDisciplineRecord(record)),
@@ -948,7 +955,7 @@ export class SocietySimulation {
       || !Number.isSafeInteger(state.tick) || state.tick < 0
       || !Number.isSafeInteger(state.eventSequence) || state.eventSequence < 0
       || !Array.isArray(state.agents) || !Array.isArray(state.tasks)
-      || !Array.isArray(state.taskRuntime) || !Array.isArray(state.relationships)
+      || !Array.isArray(state.taskRuntime) || state.taskRuntime.length !== state.tasks.length || !Array.isArray(state.relationships)
       || !Array.isArray(state.events) || !Array.isArray(state.completedSincePayday)
       || !Array.isArray(state.discipline) || !Array.isArray(state.scheduledConstructionProjects)
       || !state.resources || !['food', 'wood', 'stone', 'planks', 'coins'].every((key) =>
@@ -1009,7 +1016,7 @@ export class SocietySimulation {
       this.relationships.set(relationship.id, { ...relationship });
     }
     this.events.splice(0, this.events.length,
-      ...state.events.map((event) => ({ ...event, payload: { ...event.payload } })));
+      ...state.events.map(cloneWorldEvent));
     this.eventSequence = state.eventSequence;
     this.completedSincePayday.clear();
     for (const entry of state.completedSincePayday) this.completedSincePayday.set(entry.agentId, entry.count);
