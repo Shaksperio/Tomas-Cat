@@ -6,7 +6,6 @@ import * as THREE from 'three';
 import {
   type ConstructionAssetId,
   isApprovedConstructionAsset,
-  pickModuleAssetIdFromTaskId,
 } from './constructionCatalog';
 
 function mat(color: number, roughness = 0.88): THREE.MeshStandardMaterial {
@@ -152,6 +151,3 @@ export function createModuleMesh(assetId: string): THREE.Group {
   return group;
 }
 
-export function createModuleMeshForTask(taskId: string): THREE.Group {
-  return createModuleMesh(pickModuleAssetIdFromTaskId(taskId));
-}
