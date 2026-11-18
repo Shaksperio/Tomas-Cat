@@ -9,6 +9,10 @@ interface SocietyActorView {
   badge: THREE.Mesh;
   nameTag: THREE.Sprite;
   socialBubble: THREE.Sprite;
+  actionTag: THREE.Sprite;
+  actionCanvas: HTMLCanvasElement;
+  actionTexture: THREE.CanvasTexture;
+  actionKey: string;
   socialBubbleTimer: number;
   phase: number;
 }
@@ -140,6 +144,20 @@ export class SocietyActors {
     nameTag.scale.set(1.35, 0.34, 1);
     root.add(nameTag);
 
+    const actionCanvas = document.createElement('canvas');
+    actionCanvas.width = 320;
+    actionCanvas.height = 72;
+    const actionTexture = new THREE.CanvasTexture(actionCanvas);
+    const actionTag = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: actionTexture,
+      transparent: true,
+      depthWrite: false,
+    }));
+    actionTag.position.set(0, 2.12, 0);
+    actionTag.scale.set(1.5, 0.34, 1);
+    actionTag.visible = false;
+    root.add(actionTag);
+
     const bubbleCanvas = document.createElement('canvas');
     bubbleCanvas.width = 128;
     bubbleCanvas.height = 72;
@@ -175,7 +193,7 @@ export class SocietyActors {
     root.add(shadow);
 
     this.scene.add(root);
-    return { root, body, head, legs, badge, nameTag, socialBubble, socialBubbleTimer: 0, phase: agent.id.length * 0.73 };
+    return { root, body, head, legs, badge, nameTag, socialBubble, actionTag, actionCanvas, actionTexture, actionKey: '', socialBubbleTimer: 0, phase: agent.id.length * 0.73 };
   }
 
   private createFarm(): void {
@@ -386,6 +404,37 @@ export class SocietyActors {
         );
       }
       (actor.badge.material as THREE.MeshBasicMaterial).color.setHex(STATUS_COLORS[agent.status]);
+      const activeTask = snapshot.tasks.find((task) => task.assignedAgentId === agent.id
+        && ['assigned', 'in_progress', 'blocked'].includes(task.status));
+      const actionKey = activeTask ? `${activeTask.kind}:${activeTask.status}` : '';
+      actor.actionTag.visible = visible && Boolean(activeTask) && agent.status !== 'disabled';
+      if (actionKey !== actor.actionKey) {
+        actor.actionKey = actionKey;
+        const context = actor.actionCanvas.getContext('2d');
+        if (context) {
+          context.clearRect(0, 0, actor.actionCanvas.width, actor.actionCanvas.height);
+          if (activeTask) {
+            const labels: Record<string, string> = {
+              survey_site: 'Explorando terreno', design_project: 'Projetando', gather_materials: 'Coletando materiais',
+              transport_materials: 'Transportando', prepare_site: 'Preparando terreno', build_module: 'Construindo',
+              repair_structure: 'Reparando', mediate_conflict: 'Mediando conflito', patrol_area: 'Patrulhando',
+              investigate_event: 'Investigando', cultivate_field: 'Cultivando', harvest_food: 'Colhendo',
+              chop_wood: 'Cortando madeira', mine_stone: 'Minerando', craft_planks: 'Fabricando tábuas',
+              trade_goods: 'Comerciando',
+            };
+            context.fillStyle = activeTask.status === 'blocked' ? 'rgba(127, 29, 29, 0.92)' : 'rgba(8, 16, 30, 0.9)';
+            context.beginPath();
+            context.roundRect(5, 5, 310, 62, 24);
+            context.fill();
+            context.fillStyle = activeTask.status === 'blocked' ? '#fecaca' : '#a5f3fc';
+            context.font = 'bold 27px sans-serif';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(labels[activeTask.kind] ?? 'Em atividade', 160, 36, 290);
+          }
+          actor.actionTexture.needsUpdate = true;
+        }
+      }
       actor.phase += dt * (agent.status === 'working' ? 8 : 2.2);
       const stride = agent.status === 'working' ? Math.sin(actor.phase) * 0.42 : 0;
       actor.legs[0].rotation.x = stride;
