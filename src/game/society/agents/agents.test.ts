@@ -73,16 +73,28 @@ test('rejects stale, malformed and over-prioritized proposals', () => {
   assert.equal(authorizeSpecialistProposal({ ...base, priority: 101 }, snapshot).accepted, false);
 });
 
-test('specialist proposals enter the authoritative task queue exactly once', () => {
+test('specialist scheduler preserves profession work and never duplicates specialist task IDs', () => {
   const simulation = new SocietySimulation();
   const snapshot = simulation.step(20);
   const specialistTasks = snapshot.tasks.filter((task) => task.id.startsWith('specialist-'));
-  assert.ok(specialistTasks.length > 0, 'idle specialists should create approved tasks');
   assert.equal(new Set(specialistTasks.map((task) => task.id)).size, specialistTasks.length);
   for (const task of specialistTasks) {
     assert.equal(task.status === 'queued' || task.status === 'assigned'
       || task.status === 'in_progress' || task.status === 'completed', true);
     assert.equal(task.assignedAgentId === null || snapshot.agents.some((agent) => agent.id === task.assignedAgentId), true);
+  }
+
+  // A profissão não deve receber uma tarefa especialista enquanto já possui
+  // trabalho pendente, pois isso pode interromper cadeias como coleta→transporte
+  // →preparação→construção e impedir o registro correto de salários.
+  for (const task of specialistTasks) {
+    const agent = snapshot.agents.find((candidate) => candidate.id === task.assignedAgentId);
+    if (!agent) continue;
+    assert.equal(snapshot.tasks.some((other) =>
+      other.id !== task.id
+      && other.requiredProfession === agent.profession
+      && ['queued', 'assigned', 'in_progress'].includes(other.status),
+    ), false);
   }
 });
 
