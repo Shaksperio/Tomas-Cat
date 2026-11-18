@@ -5,6 +5,7 @@
  * registro de blueprints no WorldConstructionRuntime.
  *
  * Não modifica a classe SocietySimulation internamente — apenas a consome.
+ * Não conclui tarefas de construção sozinho (operários / scheduler fazem isso).
  * Sem LLM, sem rede, sem geometria inventada.
  */
 
@@ -35,9 +36,9 @@ export interface SocietyAgentRuntimeFrame {
   snapshot: SocietySimulationSnapshot;
   memory: AgentMemoryBook;
   directive: CowilaDirective | null;
-  /** Blueprints aceitos e registrados neste frame (0..n). */
+  /** Projetos validados e registrados neste frame (aguardando tarefas). */
   registeredProjectIds: string[];
-  /** Placements prontos para a camada 3D (ainda não publicados). */
+  /** Placements prontos quando todas as tarefas do projeto forem completeTask'd. */
   readyPlacements: ReadyConstructionPlacement[];
 }
 
@@ -107,8 +108,8 @@ export class SocietyAgentRuntime {
         if (!canAfford(snapshot, bp.requiredResources)) continue;
 
         const project = blueprintToProposedProject(bp, engineer.id, snapshot.tick);
-        // Validação de contrato; status precisa ser validated/active para o runtime de obra.
         project.status = 'validated';
+        // Tarefa de obra a ser cumprida pelo scheduler/operários — não auto-concluída aqui.
         project.taskIds = [`build-${bp.projectId}-0`];
         const validation = validateConstructionProject(project);
         if (!validation.valid) continue;
@@ -116,22 +117,26 @@ export class SocietyAgentRuntime {
         const registered = this.construction.registerProject(project);
         if (!registered.valid) continue;
 
-        // Uma tarefa sintética concluída libera o placement (ponte até o scheduler de obras).
-        this.construction.completeTask(project.id, project.taskIds[0]);
         this.registeredBlueprintIds.add(bp.projectId);
         registeredProjectIds.push(project.id);
       }
     }
-
-    const readyPlacements = this.construction.getReadyPlacements();
 
     return {
       snapshot,
       memory: this.memory,
       directive,
       registeredProjectIds,
-      readyPlacements,
+      readyPlacements: this.construction.getReadyPlacements(),
     };
+  }
+
+  /**
+   * Notifica o runtime de construção que uma tarefa de obra foi concluída
+   * (chamado quando o simulador emite task_completed de build_module, etc.).
+   */
+  notifyConstructionTaskComplete(projectId: string, taskId: string): boolean {
+    return this.construction.completeTask(projectId, taskId);
   }
 
   /** Marca placements já enviados ao SocietyActors / mundo 3D. */
