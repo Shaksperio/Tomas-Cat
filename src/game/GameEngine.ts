@@ -2557,6 +2557,11 @@ export class GameEngine {
       this.societyTickTimer += dt;
       while (this.societyTickTimer >= 1) {
         const frame = this.agentRuntime.step(this.society, 1);
+        if (frame.readyPlacements.length > 0) {
+          this.societyActors.applyReadyPlacements(frame.readyPlacements);
+          const completedProjectIds = [...new Set(frame.readyPlacements.map((placement) => placement.projectId))];
+          this.agentRuntime.markPlacementsPublished(completedProjectIds);
+        }
         if (frame.registeredProjectIds.length > 0 && frame.directive) {
           this.callbacks.onToast(frame.directive.brief, 'info');
         }
