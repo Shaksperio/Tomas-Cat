@@ -126,9 +126,10 @@ export class SocietyAgentRuntime {
     const unique = (values: string[]) => values.every((value) => typeof value === 'string' && value.length > 0)
       && new Set(values).size === values.length;
     if (!unique(state.registeredBlueprintIds) || !unique(state.processedBuildEventIds)) return false;
+    if (state.projectTaskQueue.some((entry) => !entry || typeof entry !== 'object'
+      || !Array.isArray(entry.taskIds))) return false;
     const queueIds = state.projectTaskQueue.map((entry) => entry.projectId);
-    if (!unique(queueIds) || state.projectTaskQueue.some((entry) =>
-      !Array.isArray(entry.taskIds) || !unique(entry.taskIds))) return false;
+    if (!unique(queueIds) || state.projectTaskQueue.some((entry) => !unique(entry.taskIds))) return false;
 
     for (const entries of Object.values(state.memory.byAgent)) {
       if (!Array.isArray(entries) || entries.some((entry) =>
