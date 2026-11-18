@@ -51,6 +51,8 @@ compartilhada.
 - `src/game/society/agents/orchestrator.ts`
 - `src/game/society/agents/agents.test.ts`
 
+Os habitantes exibem sobre a cabeça uma etiqueta de atividade em português, atualizada quando a tarefa muda e diferenciada para tarefas bloqueadas. Isso torna observável no mundo 3D o trabalho atribuído sem acoplar a simulação ao Three.js.
+
 A integração local agora converte propostas aprovadas em tarefas da fila autoritativa
 por IDs determinísticos. O scheduler existente continua responsável por atribuição,
 dependências, deslocamento, consumo de recursos, conclusão e eventos. A execução é
