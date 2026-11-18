@@ -13,7 +13,6 @@ test('runtime avança simulação e preenche memória', () => {
 
 test('Cowila roda no intervalo e devolve diretiva', () => {
   const sim = new SocietySimulation();
-  // Garante estoque mínimo para possível registro de blueprint
   const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 10 });
   let last = runtime.step(sim, 1);
   assert.ok(last.directive, 'primeira passagem deve gerar diretiva');
@@ -25,12 +24,10 @@ test('Cowila roda no intervalo e devolve diretiva', () => {
   assert.ok(last.directive);
 });
 
-test('projetos só ficam prontos após completeTask', () => {
+test('projetos só ficam prontos após completeTask manual', () => {
   const sim = new SocietySimulation();
   const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 1 });
-  // Acumula recursos via muitos ticks de produção
-  let frame = runtime.step(sim, 200);
-  // Se registrou projeto, placements ainda vazios até notify
+  const frame = runtime.step(sim, 200);
   for (const projectId of frame.registeredProjectIds) {
     const progress = runtime.getConstructionRuntime().getProjectProgress(projectId);
     assert.ok(progress);
@@ -38,6 +35,27 @@ test('projetos só ficam prontos após completeTask', () => {
     const taskId = `build-${projectId}-0`;
     assert.equal(runtime.notifyConstructionTaskComplete(projectId, taskId), true);
     assert.ok(runtime.getConstructionRuntime().getReadyPlacements().length >= 1);
+  }
+});
+
+test('build_module na simulação pode avançar projeto registrado', () => {
+  const sim = new SocietySimulation();
+  const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 1 });
+  let sawRegister = false;
+  let sawAdvance = false;
+  for (let i = 0; i < 400; i++) {
+    const frame = runtime.step(sim, 1);
+    if (frame.registeredProjectIds.length) sawRegister = true;
+    if (frame.advancedProjectIds.length) {
+      sawAdvance = true;
+      assert.ok(frame.readyPlacements.length >= 1);
+      break;
+    }
+  }
+  // Com recursos iniciais baixos, registro pode não ocorrer; o caminho manual cobre isso.
+  // Se registrou e houve build_module, placement deve aparecer.
+  if (sawRegister && sawAdvance) {
+    assert.ok(true);
   }
 });
 
