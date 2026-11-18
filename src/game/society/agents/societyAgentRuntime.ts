@@ -4,8 +4,10 @@
  * Encapsula: avanço da simulação, memória, ciclo estratégico da Cowila e
  * registro de blueprints no WorldConstructionRuntime.
  *
+ * Quando a simulação emite task_completed de build_module, avança a próxima
+ * tarefa pendente de um projeto registrado (ponte determinística até a obra 3D).
+ *
  * Não modifica a classe SocietySimulation internamente — apenas a consome.
- * Não conclui tarefas de construção sozinho (operários / scheduler fazem isso).
  * Sem LLM, sem rede, sem geometria inventada.
  */
 
@@ -26,9 +28,7 @@ import {
 } from './cowilaCoordinator';
 
 export interface SocietyAgentRuntimeConfig {
-  /** Intervalo de ticks entre ciclos estratégicos da Cowila. */
   cowilaEveryTicks?: number;
-  /** IDs de assets que o runtime de construção aceita. */
   approvedAssetIds?: ReadonlySet<string>;
 }
 
@@ -36,9 +36,9 @@ export interface SocietyAgentRuntimeFrame {
   snapshot: SocietySimulationSnapshot;
   memory: AgentMemoryBook;
   directive: CowilaDirective | null;
-  /** Projetos validados e registrados neste frame (aguardando tarefas). */
   registeredProjectIds: string[];
-  /** Placements prontos quando todas as tarefas do projeto forem completeTask'd. */
+  /** Projetos cuja tarefa de obra avançou neste frame. */
+  advancedProjectIds: string[];
   readyPlacements: ReadyConstructionPlacement[];
 }
 
@@ -61,6 +61,9 @@ export class SocietyAgentRuntime {
   private readonly cowilaEveryTicks: number;
   private lastCowilaTick = -1;
   private readonly registeredBlueprintIds = new Set<string>();
+  /** projectId → taskIds na ordem de execução. */
+  private readonly projectTaskQueue = new Map<string, string[]>();
+  private readonly processedBuildEventIds = new Set<string>();
 
   constructor(config: SocietyAgentRuntimeConfig = {}) {
     this.cowilaEveryTicks = Math.max(1, config.cowilaEveryTicks ?? 25);
@@ -81,10 +84,6 @@ export class SocietyAgentRuntime {
     return this.construction;
   }
 
-  /**
-   * Avança a simulação e aplica a camada de agentes.
-   * O GameEngine pode chamar isto no lugar de `simulation.step` isolado.
-   */
   step(simulation: SocietySimulation, steps = 1): SocietyAgentRuntimeFrame {
     const snapshot = simulation.step(steps);
     this.memory = ingestEventsIntoMemory(this.memory, snapshot.events, snapshot.tick);
@@ -109,8 +108,8 @@ export class SocietyAgentRuntime {
 
         const project = blueprintToProposedProject(bp, engineer.id, snapshot.tick);
         project.status = 'validated';
-        // Tarefa de obra a ser cumprida pelo scheduler/operários — não auto-concluída aqui.
-        project.taskIds = [`build-${bp.projectId}-0`];
+        const taskId = `build-${bp.projectId}-0`;
+        project.taskIds = [taskId];
         const validation = validateConstructionProject(project);
         if (!validation.valid) continue;
 
@@ -118,28 +117,77 @@ export class SocietyAgentRuntime {
         if (!registered.valid) continue;
 
         this.registeredBlueprintIds.add(bp.projectId);
+        this.projectTaskQueue.set(project.id, [taskId]);
         registeredProjectIds.push(project.id);
       }
     }
+
+    const advancedProjectIds = this.advanceConstructionFromBuildEvents(snapshot);
 
     return {
       snapshot,
       memory: this.memory,
       directive,
       registeredProjectIds,
+      advancedProjectIds,
       readyPlacements: this.construction.getReadyPlacements(),
     };
   }
 
   /**
-   * Notifica o runtime de construção que uma tarefa de obra foi concluída
-   * (chamado quando o simulador emite task_completed de build_module, etc.).
+   * Cada build_module concluído na simulação avança a próxima tarefa pendente
+   * do projeto registrado mais antigo ainda incompleto (FIFO determinístico).
    */
+  private advanceConstructionFromBuildEvents(
+    snapshot: SocietySimulationSnapshot,
+  ): string[] {
+    const advanced: string[] = [];
+    const buildEvents = snapshot.events
+      .filter((e) => {
+        if (e.kind !== 'task_completed') return false;
+        if (this.processedBuildEventIds.has(e.id)) return false;
+        const kind = (e.payload as { kind?: unknown }).kind;
+        return kind === 'build_module';
+      })
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    for (const event of buildEvents) {
+      this.processedBuildEventIds.add(event.id);
+      const projectId = this.nextIncompleteProjectId();
+      if (!projectId) break;
+      const queue = this.projectTaskQueue.get(projectId);
+      if (!queue || queue.length === 0) continue;
+      const taskId = queue[0];
+      const progress = this.construction.getProjectProgress(projectId);
+      if (!progress || progress.completedTasks >= progress.totalTasks) continue;
+      if (!this.construction.completeTask(projectId, taskId)) continue;
+      this.projectTaskQueue.set(projectId, queue.slice(1));
+      advanced.push(projectId);
+    }
+
+    if (this.processedBuildEventIds.size > 400) {
+      const keep = [...this.processedBuildEventIds].sort().slice(-200);
+      this.processedBuildEventIds.clear();
+      for (const id of keep) this.processedBuildEventIds.add(id);
+    }
+
+    return advanced;
+  }
+
+  private nextIncompleteProjectId(): string | null {
+    const ids = [...this.projectTaskQueue.keys()].sort();
+    for (const projectId of ids) {
+      const progress = this.construction.getProjectProgress(projectId);
+      if (!progress) continue;
+      if (progress.completedTasks < progress.totalTasks) return projectId;
+    }
+    return null;
+  }
+
   notifyConstructionTaskComplete(projectId: string, taskId: string): boolean {
     return this.construction.completeTask(projectId, taskId);
   }
 
-  /** Marca placements já enviados ao SocietyActors / mundo 3D. */
   markPlacementsPublished(projectIds: readonly string[]): number {
     let n = 0;
     for (const id of projectIds) {
