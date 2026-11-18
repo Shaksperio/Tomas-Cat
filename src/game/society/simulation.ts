@@ -736,6 +736,15 @@ export class SocietySimulation {
       if (this.tasks.has(taskId)) continue;
       const agent = this.agents.get(proposal.agentId);
       if (!agent) continue;
+      // Não deixe propostas oportunistas da camada especialista furarem
+      // sequências de trabalho já enfileiradas para a profissão (ex.: coletar
+      // materiais → transportar → preparar terreno → construir). Isso também
+      // preserva a conclusão de trabalho e o registro de salários.
+      const professionHasPendingWork = [...this.tasks.values()].some((existing) =>
+        existing.requiredProfession === agent.profession
+        && ['queued', 'assigned', 'in_progress'].includes(existing.status),
+      );
+      if (professionHasPendingWork) continue;
       const task = makeTask(taskId, proposal.taskKind, agent.profession, this.tickCount);
       task.sectorId = proposal.sectorId;
       task.target = proposal.target ? { ...proposal.target } : null;
