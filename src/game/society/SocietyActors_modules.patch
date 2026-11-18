@@ -4,47 +4,24 @@
  import * as THREE from 'three';
  import type { SocietySimulationSnapshot, SimulatedAgent } from './simulation';
 +import type { ReadyConstructionPlacement } from './worldConstructionRuntime';
-+import { createModuleMesh, createModuleMeshForTask } from './moduleMeshFactory';
++import { createModuleMesh } from './moduleMeshFactory';
 +import { isApprovedConstructionAsset } from './constructionCatalog';
  
  interface SocietyActorView {
    root: THREE.Group;
-@@ -424,50 +427,38 @@
-     this.updateCommunityVisuals(snapshot, visible);
- 
-     // Uma estrutura só aparece após a tarefa de construção ser concluída.
-+    // Meshes vêm do catálogo aprovado (moduleMeshFactory), nunca geometria inventada pela IA.
-     for (const task of snapshot.tasks) {
-       if (task.kind !== 'build_module' || task.status !== 'completed' || !task.target) continue;
-       if (this.constructions.has(task.id)) continue;
- 
--      const structure = new THREE.Group();
--      // ... geometria inline do abrigo único ...
-+      const structure = createModuleMeshForTask(task.id);
-       structure.position.set(task.target.x, 0, task.target.z);
-       structure.visible = visible;
+@@
+   public applyReadyPlacements(placements: readonly ReadyConstructionPlacement[]): number {
+     let spawned = 0;
+     for (const p of placements) {
+       if (!isApprovedConstructionAsset(p.assetId)) continue;
+       const key = `${p.projectId}:${p.placementIndex}`;
+       if (this.constructions.has(key)) continue;
+       const structure = createModuleMesh(p.assetId);
+       structure.position.set(p.x, 0, p.z);
+       structure.rotation.y = p.rotationY;
        this.scene.add(structure);
-       this.constructions.set(task.id, structure);
+       this.constructions.set(key, structure);
+       spawned += 1;
      }
-     for (const structure of this.constructions.values()) structure.visible = visible;
+     return spawned;
    }
-+
-+  /**
-+   * Aplica placements prontos do WorldConstructionRuntime (projetos 100% concluídos).
-+   * Idempotente por chave projectId:placementIndex. Só aceita assetIds do catálogo.
-+   */
-+  public applyReadyPlacements(placements: readonly ReadyConstructionPlacement[]): number {
-+    let spawned = 0;
-+    for (const p of placements) {
-+      if (!isApprovedConstructionAsset(p.assetId)) continue;
-+      const key = `${p.projectId}:${p.placementIndex}`;
-+      if (this.constructions.has(key)) continue;
-+      const structure = createModuleMesh(p.assetId);
-+      structure.position.set(p.x, 0, p.z);
-+      structure.rotation.y = p.rotationY;
-+      this.scene.add(structure);
-+      this.constructions.set(key, structure);
-+      spawned += 1;
-+    }
-+    return spawned;
-+  }
