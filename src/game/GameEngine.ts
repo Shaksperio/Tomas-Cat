@@ -26,6 +26,7 @@ import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuil
 import { SocietySimulation } from './society/simulation';
 import { WorldSocietyRegistry } from './society/worldSocietyRegistry';
 import { SocietyActors } from './society/SocietyActors';
+import { WorldAgentRuntimeRegistry } from './society/agents/worldAgentRuntimeRegistry';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
 import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
 import {
@@ -145,6 +146,12 @@ export class GameEngine {
   private readonly worldSceneManager: WorldSceneManager;
   private readonly cat: ArticulatedCat;
   private readonly societyRegistry = new WorldSocietyRegistry(PLAYABLE_WORLD_IDS);
+  private readonly agentRuntimeRegistry = new WorldAgentRuntimeRegistry(PLAYABLE_WORLD_IDS, {
+    cowilaEveryTicks: 25,
+  });
+  private get agentRuntime() {
+    return this.agentRuntimeRegistry.runtimeFor(this.worldSceneManager.activeWorldId);
+  }
   private get society(): SocietySimulation {
     return this.societyRegistry.simulationFor(this.worldSceneManager.activeWorldId);
   }
@@ -682,6 +689,7 @@ export class GameEngine {
     this.enemiesDefeated = 0;
     this.lastThreatCause = '';
     this.societyRegistry.reset(this.worldSceneManager.activeWorldId);
+    this.agentRuntimeRegistry.reset(this.worldSceneManager.activeWorldId);
     this.societyTickTimer = 0;
 
     this.world.interactables.forEach((item) => {
@@ -2548,7 +2556,10 @@ export class GameEngine {
       this.updateTaskGpsRoute();
       this.societyTickTimer += dt;
       while (this.societyTickTimer >= 1) {
-        this.society.step(1);
+        const frame = this.agentRuntime.step(this.society, 1);
+        if (frame.registeredProjectIds.length > 0 && frame.directive) {
+          this.callbacks.onToast(frame.directive.brief, 'info');
+        }
         this.societyTickTimer -= 1;
       }
       this.societyActors.update(dt, this.snapshotForActors(), true);

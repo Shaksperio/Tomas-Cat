@@ -70,6 +70,11 @@ export class WorldConstructionRuntime {
     return { valid: true };
   }
 
+  unregisterProject(projectId: string): boolean {
+    if (this.publishedProjectIds.has(projectId)) return false;
+    return this.projects.delete(projectId);
+  }
+
   completeTask(projectId: string, taskId: string): boolean {
     if (!projectId.trim() || !taskId.trim()) return false;
     const tracked = this.projects.get(projectId);
