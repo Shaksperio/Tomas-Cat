@@ -1,3 +1,4 @@
+import type { WorldEvent } from '../contracts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SocietySimulation } from '../simulation.ts';
@@ -31,6 +32,29 @@ test('memória ingere task_completed de forma idempotente', () => {
   const entries = memoryForAgent(book, someAgent!);
   assert.ok(entries.length >= 1);
   assert.match(formatAgentMemoryBrief(book, someAgent!), /Concluiu/);
+});
+
+test('memória registra o salário para cada habitante pago no evento coletivo', () => {
+  const event: WorldEvent = {
+    id: 'wage-event-1',
+    kind: 'wage_paid',
+    regionId: 'local-suburb',
+    tick: 100,
+    idempotencyKey: 'wage:100',
+    schemaVersion: 1,
+    payload: {
+      paid: [
+        { agentId: 'worker-01', amount: 4 },
+        { agentId: 'farmer-01', amount: 4 },
+      ],
+      unpaid: [],
+      treasury: 12,
+    },
+  };
+  const book = ingestEventsIntoMemory(emptyAgentMemory(), [event], 100);
+  assert.match(formatAgentMemoryBrief(book, 'worker-01'), /Recebeu salário/);
+  assert.match(formatAgentMemoryBrief(book, 'farmer-01'), /Recebeu salário/);
+  assert.deepEqual(ingestEventsIntoMemory(book, [event], 100), book);
 });
 
 test('Cowila produz diretiva determinística com blueprint aprovado', () => {
