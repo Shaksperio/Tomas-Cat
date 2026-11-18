@@ -116,6 +116,7 @@ test('evento build_module sem vínculo explícito não conclui projeto de constr
   };
   const fakeSimulation = {
     step: () => snapshot,
+    scheduleConstructionProject: (project: { taskIds: string[] }) => [...project.taskIds],
   } as unknown as SocietySimulation;
   const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 1 });
   const frame = runtime.step(fakeSimulation, 1);
