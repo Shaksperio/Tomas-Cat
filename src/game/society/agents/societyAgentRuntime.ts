@@ -11,6 +11,8 @@
  * Sem LLM, sem rede, sem geometria inventada.
  */
 
+import { allocateSite, MAX_TOTAL_PROJECTS } from './siteAllocator';
+import { getModuleDef } from '../constructionCatalog';
 import { validateConstructionProject } from '../contracts';
 import type { SocietySimulation, SocietySimulationSnapshot } from '../simulation';
 import { WorldConstructionRuntime } from '../worldConstructionRuntime';
@@ -29,6 +31,8 @@ import {
 
 export interface SocietyAgentRuntimeConfig {
   cowilaEveryTicks?: number;
+  /** Consulta opcional do motor: o terreno está livre de colisores do mundo? */
+  isSiteFree?: (x: number, z: number, radius: number) => boolean;
   approvedAssetIds?: ReadonlySet<string>;
 }
 
@@ -69,12 +73,16 @@ function canAfford(
   });
 }
 
+/** Obras simultâneas permitidas por mundo. */
+export const MAX_CONCURRENT_PROJECTS = 2;
+
 export class SocietyAgentRuntime {
   private memory: AgentMemoryBook = emptyAgentMemory();
   private lastDirective: CowilaDirective | null = null;
   private readonly construction: WorldConstructionRuntime;
   private readonly configApprovedAssetIds: ReadonlySet<string>;
   private readonly cowilaEveryTicks: number;
+  private readonly isSiteFree?: (x: number, z: number, radius: number) => boolean;
   private lastCowilaTick = -1;
   private readonly registeredBlueprintIds = new Set<string>();
   /** projectId → taskIds na ordem de execução. */
@@ -83,8 +91,19 @@ export class SocietyAgentRuntime {
 
   constructor(config: SocietyAgentRuntimeConfig = {}) {
     this.cowilaEveryTicks = Math.max(1, config.cowilaEveryTicks ?? 25);
+    this.isSiteFree = config.isSiteFree;
     this.configApprovedAssetIds = config.approvedAssetIds ?? DEFAULT_ASSETS;
     this.construction = new WorldConstructionRuntime(this.configApprovedAssetIds);
+  }
+
+  /** Projetos registrados cujas tarefas ainda não terminaram. */
+  private countProjectsInFlight(): number {
+    let count = 0;
+    for (const projectId of this.projectTaskQueue.keys()) {
+      const progress = this.construction.getProjectProgress(projectId);
+      if (!progress || progress.completedTasks < progress.totalTasks) count += 1;
+    }
+    return count;
   }
 
   getMemory(): AgentMemoryBook {
@@ -181,12 +200,31 @@ export class SocietyAgentRuntime {
       this.lastCowilaTick = snapshot.tick;
 
       const engineer = snapshot.agents.find((a) => a.profession === 'engineer');
+      // Limite de obras simultâneas: sem ele a Cowila registra um projeto a cada ciclo e
+      // a fila de operários cresce sem que nenhuma obra termine (verificado em simulação).
+      let inFlight = this.countProjectsInFlight();
       for (const bp of directive.blueprints) {
+        if (inFlight >= MAX_CONCURRENT_PROJECTS) break;
         if (this.registeredBlueprintIds.has(bp.projectId)) continue;
         if (!engineer) continue;
+        if (this.registeredBlueprintIds.size >= MAX_TOTAL_PROJECTS) break;
         if (!canAfford(snapshot, bp.requiredResources)) continue;
 
-        const project = blueprintToProposedProject(bp, engineer.id, snapshot.tick);
+        // O terreno é decidido pelo motor, não pela sugestão da Cowila: sem sobreposição.
+        const def = getModuleDef(bp.assetId);
+        const siteRadius = def ? Math.hypot(def.footprintX, def.footprintZ) / 2 : 2;
+        const occupied = this.construction.exportState().projects.flatMap((entry) =>
+          entry.project.modules.map((m) => {
+            const d = getModuleDef(m.assetId);
+            return { x: m.position.x, z: m.position.z, radius: d ? Math.hypot(d.footprintX, d.footprintZ) / 2 : 2 };
+          }));
+        const site = allocateSite({
+          anchor: { x: engineer.position.x, z: engineer.position.z },
+          radius: siteRadius, occupied, isFree: this.isSiteFree, seed: this.registeredBlueprintIds.size,
+        });
+        if (!site) continue;
+        const placedBp = { ...bp, x: site.x, z: site.z };
+        const project = blueprintToProposedProject(placedBp, engineer.id, snapshot.tick);
         project.status = 'validated';
         const craftCount = Math.ceil((bp.requiredResources.planks ?? 0) / 2);
         project.taskIds = [
@@ -211,6 +249,7 @@ export class SocietyAgentRuntime {
         this.registeredBlueprintIds.add(bp.projectId);
         this.projectTaskQueue.set(project.id, scheduledTaskIds);
         registeredProjectIds.push(project.id);
+        inFlight += 1;
       }
     }
 

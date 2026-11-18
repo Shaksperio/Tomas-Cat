@@ -148,6 +148,8 @@ export class GameEngine {
   private readonly societyRegistry = new WorldSocietyRegistry(PLAYABLE_WORLD_IDS);
   private readonly agentRuntimeRegistry = new WorldAgentRuntimeRegistry(PLAYABLE_WORLD_IDS, {
     cowilaEveryTicks: 25,
+    // Terreno livre de colisores do mundo (o motor decide onde cada obra pode ficar).
+    isSiteFree: (x, z, radius) => !this.checkHorizontalCollision(x, z, radius),
   });
   private get agentRuntime() {
     return this.agentRuntimeRegistry.runtimeFor(this.worldSceneManager.activeWorldId);

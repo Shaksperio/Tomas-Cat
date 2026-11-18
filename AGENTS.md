@@ -151,6 +151,11 @@ Portais físicos e transição jogável entre mundos; carregamento de cenas inde
 - HUD: painel da loja (toque/E na barraca) e mochila com os seis slots. Não verificado em aparelho real nem renderizado.
 - **Pendente do pedido de lojas:** vender técnicas (especiais, sequências, combos secretos) — dependem de novos comandos no ATB; posturas bípede/quadrúpede; chefes regionais de gangue; desbloqueio por nível de novas sequências/combos secretos; itens de loja como recompensa direta de tarefas (hoje a fonte gratuita são os pickups).
 
+### 4.10 Agentes de IA da sociedade integrados ao jogo (2026-11-18)
+- **Na `main` (PRs #40, #42, #43):** `SocietyAgentRuntime` roda a cada tick no `GameEngine` (um runtime por mundo): memória resumida, Cowila local determinística (a cada 25 ticks propõe obras), projetos validados e cadeia real de tarefas (coleta → carpintaria → transporte → preparo → construção) agendada na `SocietySimulation`. Obras concluídas viram módulos 3D aprovados (`constructionCatalog.ts`, `moduleMeshFactory.ts`) e a sociedade, os agentes e as construções publicadas são salvos e restaurados com o save. Sem LLM, sem rede.
+- **Correções feitas ao testar em simulação:** a Cowila registrava uma obra por ciclo sem limite (117 em 3000 ticks e nenhuma concluía) e as posições se repetiam (só 7 terrenos possíveis, obras sobrepostas). Agora há no máximo 2 obras simultâneas, teto de 24 obras por mundo e `siteAllocator.ts` escolhe terreno livre sem sobreposição e fora de colisores do mundo (`isSiteFree` fornecido pelo motor). Testes em `agents/siteAllocator.test.ts`, incluindo salvar/restaurar no meio do jogo com resultado idêntico ao de não interromper.
+- **Não verificado:** renderização e restauração no navegador real (só lógica testada); `GameEngine_agentRuntime.patch` em `src/game/society/agents/` é um arquivo de documentação de PR que sobrou e pode ser removido. Seguem pendentes: LLM/Cowila remota, Worker/DO/D1, mundo evoluindo sem jogador (fases 6–9).
+
 ## 5. Roteiro e decisões do autor
 
 ### 5.1 Decisões de arquitetura (definidas)
@@ -168,7 +173,7 @@ Portais físicos e transição jogável entre mundos; carregamento de cenas inde
 | 1 | Sociedade local determinística (habitantes, necessidades, tarefas, relações) | Feito |
 | 2 | Visualização 3D dos habitantes, interação social, balões | Feito |
 | 3 | Economia básica e agricultura (estoque, custos, colheita, refeições) | Feito |
-| 4 | Projetos e construções modulares visíveis no mundo | Parcial (falta catálogo de módulos aprovados) |
+| 4 | Projetos e construções modulares visíveis no mundo | Parcial (catálogo de 8 módulos aprovados, obras concluídas e restauradas com o save; falta verificação visual em navegador e mais módulos) |
 | 5 | Profissões especializadas, economia com salários e comércio | Parcial (8 profissões, salários, consumo e comércio básico; faltam preços dinâmicos, saúde, ensino etc.) |
 | 6 | Persistência remota e sincronização (Worker, DO, D1) | Pendente |
 | 7 | Mundo evoluindo sem jogadores conectados | Pendente |
