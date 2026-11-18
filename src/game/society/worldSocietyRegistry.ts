@@ -47,7 +47,7 @@ export class WorldSocietyRegistry {
 
   exportStates(): Record<string, SocietySimulationState> {
     return Object.fromEntries([...this.worlds.entries()].map(([worldId, simulation]) =>
-      [worldId, simulation.exportState()],
+      [worldId, simulation.exportState()] as const,
     ));
   }
 
