@@ -7,7 +7,6 @@ const task = (process.env.ENGINEERING_TASK || "").trim();
 const runId = process.env.GITHUB_RUN_ID || String(Date.now());
 const baseBranch = process.env.BASE_BRANCH || "main";
 if (!apiKey) throw new Error("GEMINI_API_KEY ausente; nenhuma alteração foi feita.");
-if (!task && process.env.GITHUB_EVENT_NAME !== "schedule") throw new Error("Informe ENGINEERING_TASK no workflow_dispatch.");
 
 const read = (path) => readFileSync(path, "utf8");
 const agents = read("AGENTS.md");
