@@ -156,6 +156,13 @@ Portais físicos e transição jogável entre mundos; carregamento de cenas inde
 - **Correções feitas ao testar em simulação:** a Cowila registrava uma obra por ciclo sem limite (117 em 3000 ticks e nenhuma concluía) e as posições se repetiam (só 7 terrenos possíveis, obras sobrepostas). Agora há no máximo 2 obras simultâneas, teto de 24 obras por mundo e `siteAllocator.ts` escolhe terreno livre sem sobreposição e fora de colisores do mundo (`isSiteFree` fornecido pelo motor). Testes em `agents/siteAllocator.test.ts`, incluindo salvar/restaurar no meio do jogo com resultado idêntico ao de não interromper.
 - **Não verificado:** renderização e restauração no navegador real (só lógica testada); `GameEngine_agentRuntime.patch` em `src/game/society/agents/` é um arquivo de documentação de PR que sobrou e pode ser removido. Seguem pendentes: LLM/Cowila remota, Worker/DO/D1, mundo evoluindo sem jogador (fases 6–9).
 
+### 4.11 Porta de segurança para PRs de agentes (2026-11-18)
+- Não existe ainda um executor de engenharia autônoma (auditoria de 2026-11-18: nenhum código ou workflow cria branch, commit ou PR). Existe apenas a **porta de segurança**, pré-requisito para qualquer ciclo autônomo: `scripts/agent-gate/policy.ts` (regras puras, testadas), `run.mjs` e `.github/workflows/agent-gate.yml`.
+- A porta roda após o CI de uma PR, **a partir da `main`** (nunca executa código da PR). Só integra PRs com o rótulo `agent-pr`, base `main`, todos os checks `success` (sem cancelados, ignorados, pendentes ou ausentes; só `deploy` pode ser `skipped` em PR), diff dentro do limite (25 arquivos, 1500 linhas), até 5 por dia, e apenas em `src/game/`, `docs/` e `AGENTS.md`.
+- Áreas sempre humanas: `.github/`, `scripts/agent-gate/`, `workers/`, regras Firebase, `package.json`/locks, `src/firebase/`, `src/game/saves/`, segredos.
+- **Inerte por padrão:** sem a variável de repositório `AGENT_GATE_ENABLED=true` ela só relata a decisão no log. O humano precisa também ativar proteção da `main` exigindo o check `build` e "Allow auto-merge". Não verificado em execução real do Actions (o ambiente de desenvolvimento não alcança a API do GitHub via Node).
+- Observação: o deploy-pages.yml usa `cancel-in-progress` no grupo `github-pages`, então CIs de PR podem ser cancelados por outras execuções; a porta trata cancelado como reprovado e espera um novo CI.
+
 ## 5. Roteiro e decisões do autor
 
 ### 5.1 Decisões de arquitetura (definidas)
