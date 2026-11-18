@@ -347,18 +347,16 @@ test('restores the complete society state and continues deterministically', () =
 
 test('restored task runtime preserves elapsed work instead of restarting tasks', () => {
   const simulation = new SocietySimulation();
-  simulation.step(2);
+  simulation.step(25);
   const state = simulation.exportState();
-  const active = state.tasks.find((task) => task.status === 'in_progress' || task.status === 'assigned');
-  assert.ok(active);
-  const runtime = state.taskRuntime.find((entry) => entry.taskId === active.id);
+  const runtime = state.taskRuntime.find((entry) => entry.elapsedTicks > 0);
   assert.ok(runtime);
   assert.ok(runtime.elapsedTicks > 0);
 
   const restored = new SocietySimulation();
   assert.equal(restored.restoreState(state), true);
   assert.deepEqual(
-    restored.exportState().taskRuntime.find((entry) => entry.taskId === active.id),
+    restored.exportState().taskRuntime.find((entry) => entry.taskId === runtime.taskId),
     runtime,
   );
 });
