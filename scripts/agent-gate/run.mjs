@@ -2,7 +2,9 @@
 // Sem a variável de repositório AGENT_GATE_ENABLED=true, apenas relata a decisão (modo simulação).
 import { DEFAULT_GATE_CONFIG, evaluateGate } from './policy.ts';
 
-const { GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER, HEAD_SHA, AGENT_GATE_ENABLED } = process.env;
+const { GITHUB_TOKEN, GITHUB_REPOSITORY, PR_NUMBER, HEAD_SHA, AGENT_GATE_ENABLED, AGENT_GATE_AUTHORS } = process.env;
+// Lista de contas autorizadas vem de variável de repositório; vazia = falha fechada.
+const agentAuthors = (AGENT_GATE_AUTHORS ?? '').split(',').map((x) => x.trim()).filter(Boolean);
 if (!GITHUB_TOKEN || !GITHUB_REPOSITORY || !PR_NUMBER) {
   console.log('Sem PR associada à execução; nada a fazer.');
   process.exit(0);
@@ -27,12 +29,21 @@ const runs = await api(`${repo}/commits/${pr.head.sha}/check-runs?per_page=100`)
 const day = new Date().toISOString().slice(0, 10);
 const merged = await api(`/search/issues?q=${encodeURIComponent(`repo:${GITHUB_REPOSITORY} is:pr is:merged label:${DEFAULT_GATE_CONFIG.label} merged:>=${day}`)}`);
 
+const reviewList = await api(`${repo}/pulls/${PR_NUMBER}/reviews?per_page=100`);
+const latestByUser = new Map();
+for (const review of reviewList) if (review.user && review.state !== 'COMMENTED') latestByUser.set(review.user.login, review);
+const open = await api(`/search/issues?q=${encodeURIComponent(`repo:${GITHUB_REPOSITORY} is:pr is:open label:${DEFAULT_GATE_CONFIG.label}`)}`);
+
 const decision = evaluateGate({
-  labels: pr.labels.map((l) => l.name), baseRef: pr.base.ref, draft: pr.draft,
-  files: files.map((f) => ({ filename: f.filename, additions: f.additions, deletions: f.deletions })),
+  labels: pr.labels.map((l) => l.name), author: pr.user.login, headRef: pr.head.ref,
+  headRepo: pr.head.repo?.full_name ?? '', baseRepo: pr.base.repo.full_name,
+  reviews: [...latestByUser.values()].map((r) => ({ login: r.user.login, state: r.state, association: r.author_association })),
+  openAgentPrs: open.total_count,
+  baseRef: pr.base.ref, draft: pr.draft,
+  files: files.map((f) => ({ filename: f.filename, additions: f.additions, deletions: f.deletions, status: f.status, previousFilename: f.previous_filename })),
   checks: runs.check_runs.map((c) => ({ name: c.name, status: c.status, conclusion: c.conclusion })),
   mergedToday: merged.total_count,
-});
+}, { ...DEFAULT_GATE_CONFIG, agentAuthors });
 console.log(JSON.stringify({ pr: Number(PR_NUMBER), ...decision }, null, 2));
 if (!decision.allow) process.exit(0);
 if (AGENT_GATE_ENABLED !== 'true') { console.log('Liberada pela política, mas AGENT_GATE_ENABLED não é "true": modo simulação, nada foi integrado.'); process.exit(0); }
