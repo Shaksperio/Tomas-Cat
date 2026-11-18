@@ -101,14 +101,3 @@ export function getModuleDef(assetId: string): ConstructionModuleDef | undefined
 export function isApprovedConstructionAsset(assetId: string): boolean {
   return APPROVED_CONSTRUCTION_ASSET_IDS.has(assetId);
 }
-
-/** Escolha determinística de módulo a partir de um id de tarefa (quando o task não carrega assetId). */
-export function pickModuleAssetIdFromTaskId(taskId: string): ConstructionAssetId {
-  let hash = 0;
-  for (let i = 0; i < taskId.length; i++) {
-    hash = (Math.imul(hash, 31) + taskId.charCodeAt(i)) | 0;
-  }
-  const list = CONSTRUCTION_MODULE_CATALOG;
-  const index = Math.abs(hash) % list.length;
-  return list[index].assetId;
-}
