@@ -35,7 +35,7 @@ export class WorldAgentRuntimeRegistry {
 
   exportStates(): Record<string, SocietyAgentRuntimeState> {
     return Object.fromEntries([...this.runtimes.entries()].map(([worldId, runtime]) =>
-      [worldId, runtime.exportState()],
+      [worldId, runtime.exportState()] as const,
     ));
   }
 
