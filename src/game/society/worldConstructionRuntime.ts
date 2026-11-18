@@ -161,6 +161,27 @@ export class WorldConstructionRuntime {
     return placements;
   }
 
+  /** Retorna placements já publicados para reconstruir a cena após carregar um save. */
+  getPublishedPlacements(): ReadyConstructionPlacement[] {
+    const placements: ReadyConstructionPlacement[] = [];
+    for (const projectId of this.publishedProjectIds) {
+      const tracked = this.projects.get(projectId);
+      if (!tracked) continue;
+      tracked.project.modules.forEach((module, placementIndex) => {
+        placements.push({
+          projectId,
+          placementIndex,
+          assetId: module.assetId,
+          sectorId: module.position.sectorId,
+          x: module.position.x,
+          z: module.position.z,
+          rotationY: module.rotationY,
+        });
+      });
+    }
+    return placements;
+  }
+
   markProjectPublished(projectId: string): boolean {
     const tracked = this.projects.get(projectId);
     if (!tracked || tracked.completedTaskIds.size !== tracked.project.taskIds.length) return false;
