@@ -75,7 +75,7 @@ test('blueprint da Cowila vira projeto validável', () => {
   assert.ok(engineer);
   const project = blueprintToProposedProject(directive.blueprints[0], engineer!.id, snap.tick);
   const result = validateConstructionProject(project);
-  assert.equal(result.valid, true, result.reason);
+  if (!result.valid) assert.fail(result.reason);
   assert.equal(project.status, 'proposed');
 });
 
