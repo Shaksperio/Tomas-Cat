@@ -924,6 +924,11 @@ export class GameEngine {
           }
         }
       }
+      // Recria na cena as estruturas já publicadas antes do save; a chave
+      // projectId:placementIndex torna esta operação idempotente.
+      this.societyActors.applyReadyPlacements(
+        this.agentRuntime.getConstructionRuntime().getPublishedPlacements(),
+      );
       this.level = Math.max(1, Math.min(MAX_CAT_LEVEL, saved.level || 1));
       this.unlockedMoves = new Set(mergeUnlockedMoves(this.level, saved.unlockedMoves ?? []));
       this.stars = saved.stars || 0;
@@ -2591,6 +2596,11 @@ export class GameEngine {
       this.societyTickTimer += dt;
       while (this.societyTickTimer >= 1) {
         const frame = this.agentRuntime.step(this.society, 1);
+        if (frame.readyPlacements.length > 0) {
+          this.societyActors.applyReadyPlacements(frame.readyPlacements);
+          const completedProjectIds = [...new Set(frame.readyPlacements.map((placement) => placement.projectId))];
+          this.agentRuntime.markPlacementsPublished(completedProjectIds);
+        }
         if (frame.registeredProjectIds.length > 0 && frame.directive) {
           this.callbacks.onToast(frame.directive.brief, 'info');
         }
