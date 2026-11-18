@@ -25,3 +25,21 @@ test('mundo desconhecido lança', () => {
   const reg = new WorldAgentRuntimeRegistry(['world_hub']);
   assert.throws(() => reg.runtimeFor('nope'));
 });
+
+
+test('restores each world Cowila runtime without sharing memory or projects', () => {
+  const source = new WorldAgentRuntimeRegistry(['world_hub', 'world_flood'], { cowilaEveryTicks: 5 });
+  source.runtimeFor('world_hub').step(new SocietySimulation(), 8);
+  const states = source.exportStates();
+
+  const restored = new WorldAgentRuntimeRegistry(['world_hub', 'world_flood'], { cowilaEveryTicks: 5 });
+  assert.equal(restored.restoreStates(states), true);
+  assert.deepEqual(restored.exportStates(), states);
+
+  const before = restored.exportStates();
+  assert.equal(restored.restoreStates({
+    ...states,
+    unknown_world: states.world_hub!,
+  }), false);
+  assert.deepEqual(restored.exportStates(), before);
+});
