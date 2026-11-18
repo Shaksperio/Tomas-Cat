@@ -112,17 +112,20 @@ export class WorldConstructionRuntime {
   restoreState(state: WorldConstructionRuntimeState): boolean {
     if (!state || state.schemaVersion !== 1
       || !Array.isArray(state.projects) || !Array.isArray(state.publishedProjectIds)) return false;
-    const projectIds = state.projects.map((entry) => entry.project?.id);
-    if (projectIds.some((id) => typeof id !== 'string')
+    if (state.projects.some((entry) => !entry || typeof entry !== 'object'
+      || !entry.project || typeof entry.project !== 'object'
+      || !Array.isArray(entry.completedTaskIds))) return false;
+    const projectIds = state.projects.map((entry) => entry.project.id);
+    if (projectIds.some((id) => typeof id !== 'string' || id.length === 0)
       || new Set(projectIds).size !== projectIds.length
-      || state.publishedProjectIds.some((id) => typeof id !== 'string')
-      || new Set(state.publishedProjectIds).size !== state.publishedProjectIds.length) return false;
+      || state.publishedProjectIds.some((id) => typeof id !== 'string' || id.length === 0)
+      || new Set(state.publishedProjectIds).size !== state.publishedProjectIds.length
+      || state.projects.some((entry) => entry.completedTaskIds.some((id) => typeof id !== 'string')
+        || new Set(entry.completedTaskIds).size !== entry.completedTaskIds.length)) return false;
 
     const candidate = new WorldConstructionRuntime(this.approvedAssetIds);
     for (const entry of state.projects) {
-      if (!Array.isArray(entry.completedTaskIds)
-        || new Set(entry.completedTaskIds).size !== entry.completedTaskIds.length
-        || !candidate.registerProject(entry.project).valid) return false;
+      if (!candidate.registerProject(entry.project).valid) return false;
       for (const taskId of entry.completedTaskIds) {
         if (!candidate.completeTask(entry.project.id, taskId)) return false;
       }
