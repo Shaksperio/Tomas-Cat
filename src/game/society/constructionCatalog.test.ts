@@ -5,7 +5,6 @@ import {
   CONSTRUCTION_MODULE_CATALOG,
   getModuleDef,
   isApprovedConstructionAsset,
-  pickModuleAssetIdFromTaskId,
 } from './constructionCatalog.ts';
 
 test('catálogo tem ids únicos e nomes em português', () => {
@@ -23,11 +22,12 @@ test('isApprovedConstructionAsset rejeita ids inventados', () => {
   assert.ok(APPROVED_CONSTRUCTION_ASSET_IDS.has('module_watchtower'));
 });
 
-test('pickModuleAssetIdFromTaskId é determinístico', () => {
-  const a = pickModuleAssetIdFromTaskId('task-worker-42');
-  const b = pickModuleAssetIdFromTaskId('task-worker-42');
-  assert.equal(a, b);
-  assert.ok(isApprovedConstructionAsset(a));
+test('cada estrutura precisa ser selecionada por assetId aprovado do projeto', () => {
+  for (const module of CONSTRUCTION_MODULE_CATALOG) {
+    assert.ok(isApprovedConstructionAsset(module.assetId));
+    assert.equal(getModuleDef(module.assetId)?.assetId, module.assetId);
+  }
+  assert.equal(getModuleDef('task-worker-42'), undefined);
 });
 
 test('getModuleDef retorna def ou undefined', () => {
