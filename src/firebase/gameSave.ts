@@ -68,6 +68,7 @@ export function queueAccountGameSave(
   const revision = createRevision();
   const record: PendingGameSave = { uid, revision, queuedAt: Date.now(), payload };
   const persistPromise = putPendingGameSave(record);
+  void persistPromise.catch((error) => onError?.(error));
   const timer = previous?.timer ?? window.setTimeout(() => {
     void flushAccountGameSave(uid).catch(() => undefined);
   }, 15_000);
@@ -94,7 +95,7 @@ export async function flushAccountGameSave(uid: string): Promise<void> {
       window.clearTimeout(pending.get(uid)!.timer);
       pending.delete(uid);
     }
-    latest?.onSaved?.();
+    if (pending.get(uid)?.revision === candidate.revision) latest?.onSaved?.();
   } catch (error) {
     const current = pending.get(uid);
     if (current?.revision === candidate.revision) {
