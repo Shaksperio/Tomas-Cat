@@ -11,7 +11,44 @@ interface QueuedSave extends PendingGameSave {
 }
 
 const pending = new Map<string, QueuedSave>();
+const remoteFingerprints = new Map<string, string | null>();
+const REMOTE_VERSION_PREFIX = 'tomas-remote-version:';
 let revisionCounter = 0;
+
+export class SaveConflictError extends Error {
+  constructor() {
+    super('O salvamento remoto mudou desde a última sincronização. A cópia offline foi preservada para evitar sobrescrever progresso de outro dispositivo.');
+    this.name = 'SaveConflictError';
+  }
+}
+
+async function fingerprint(payload: SavedGameState): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+function cachedRemoteFingerprint(uid: string): string | null | undefined {
+  if (remoteFingerprints.has(uid)) return remoteFingerprints.get(uid);
+  try {
+    const raw = localStorage.getItem(REMOTE_VERSION_PREFIX + encodeURIComponent(uid));
+    if (raw === null) return undefined;
+    const value = raw === '__none__' ? null : raw;
+    remoteFingerprints.set(uid, value);
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberRemoteFingerprint(uid: string, value: string | null): void {
+  remoteFingerprints.set(uid, value);
+  try {
+    localStorage.setItem(REMOTE_VERSION_PREFIX + encodeURIComponent(uid), value ?? '__none__');
+  } catch {
+    // The IndexedDB outbox remains available even if this cache cannot be written.
+  }
+}
 
 function saveDocument(uid: string) {
   if (!firestore) throw new Error('Firebase Firestore não está configurado.');
@@ -34,12 +71,17 @@ export async function loadAccountGameSave(uid: string): Promise<SavedGameState |
     12_000,
     'Tempo esgotado ao consultar o Firestore (banco não criado, regras não publicadas ou sem conexão).',
   );
-  if (!snapshot.exists()) return null;
+  if (!snapshot.exists()) {
+    await rememberRemoteFingerprint(uid, null);
+    return null;
+  }
   const data = snapshot.data();
   if (data.ownerUid !== uid || !data.payload || typeof data.payload !== 'object') {
     throw new Error('O salvamento remoto não pertence a esta conta ou está inválido.');
   }
-  return data.payload as SavedGameState;
+  const payload = data.payload as SavedGameState;
+  await rememberRemoteFingerprint(uid, await fingerprint(payload));
+  return payload;
 }
 
 export async function saveAccountGameSave(uid: string, payload: SavedGameState): Promise<void> {
@@ -66,7 +108,13 @@ export function queueAccountGameSave(
 ): void {
   const previous = pending.get(uid);
   const revision = createRevision();
-  const record: PendingGameSave = { uid, revision, queuedAt: Date.now(), payload };
+  const record: PendingGameSave = {
+    uid,
+    revision,
+    queuedAt: Date.now(),
+    payload,
+    baseFingerprint: cachedRemoteFingerprint(uid),
+  };
   const persistPromise = putPendingGameSave(record);
   void persistPromise.catch((error) => onError?.(error));
   const timer = previous?.timer ?? window.setTimeout(() => {
@@ -95,7 +143,13 @@ export async function flushAccountGameSave(uid: string): Promise<void> {
   }
 
   try {
+    const baseFingerprint = candidate.baseFingerprint;
+    if (baseFingerprint === undefined) throw new SaveConflictError();
+    const remotePayload = await loadAccountGameSave(uid);
+    const currentFingerprint = remotePayload ? await fingerprint(remotePayload) : null;
+    if (currentFingerprint !== baseFingerprint) throw new SaveConflictError();
     await saveAccountGameSave(uid, candidate.payload);
+    await rememberRemoteFingerprint(uid, await fingerprint(candidate.payload));
     // Compare-and-delete: nunca apague um snapshot mais novo que chegou durante
     // a escrita remota.
     await deletePendingGameSave(uid, candidate.revision);
@@ -112,6 +166,8 @@ export async function flushAccountGameSave(uid: string): Promise<void> {
         void flushAccountGameSave(uid).catch(() => undefined);
       }, 15_000);
       pending.set(uid, { ...current, timer: retryTimer });
+      current.onError?.(error);
+    } else if (current?.revision === candidate.revision) {
       current.onError?.(error);
     } else {
       queued?.onError?.(error);
