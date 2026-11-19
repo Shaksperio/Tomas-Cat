@@ -83,8 +83,16 @@ export async function flushAccountGameSave(uid: string): Promise<void> {
   if (!candidate) return;
   // Se uma versão mais nova chegou enquanto a versão anterior era preparada,
   // não envie a antiga: o próximo flush usará o snapshot mais recente.
-  const latest = pending.get(uid);
-  if (latest && latest.revision !== candidate.revision) return;
+  let latest = pending.get(uid);
+  if (latest && latest.revision !== candidate.revision) {
+    if (latest.queuedAt > candidate.queuedAt) return;
+    window.clearTimeout(latest.timer);
+    const timer = window.setTimeout(() => {
+      void flushAccountGameSave(uid).catch(() => undefined);
+    }, 0);
+    latest = { ...candidate, timer, persistPromise: Promise.resolve(), onError: latest.onError, onSaved: latest.onSaved };
+    pending.set(uid, latest);
+  }
 
   try {
     await saveAccountGameSave(uid, candidate.payload);
@@ -114,18 +122,16 @@ export async function flushAccountGameSave(uid: string): Promise<void> {
 
 /** Reenvia o último snapshot durável da conta após a autenticação/reconexão. */
 export async function flushPendingAccountGameSave(uid: string): Promise<void> {
+  const current = pending.get(uid);
+  if (current) {
+    await flushAccountGameSave(uid);
+    return;
+  }
   const durable = await getPendingGameSave(uid);
   if (!durable) return;
-  const current = pending.get(uid);
-  if (!current || current.revision !== durable.revision) {
-    const timer = current?.timer ?? window.setTimeout(() => {
-      void flushAccountGameSave(uid).catch(() => undefined);
-    }, 0);
-    pending.set(uid, {
-      ...durable,
-      timer,
-      persistPromise: Promise.resolve(),
-    });
-  }
+  const timer = window.setTimeout(() => {
+    void flushAccountGameSave(uid).catch(() => undefined);
+  }, 0);
+  pending.set(uid, { ...durable, timer, persistPromise: Promise.resolve() });
   await flushAccountGameSave(uid);
 }
