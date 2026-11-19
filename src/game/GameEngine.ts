@@ -26,6 +26,8 @@ import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuil
 import { SocietySimulation } from './society/simulation';
 import { WorldSocietyRegistry } from './society/worldSocietyRegistry';
 import { SocietyActors } from './society/SocietyActors';
+import { getModuleDef } from './society/constructionCatalog';
+import { parseOracleWorldActions, type OracleWorldAction } from './society/agents/oracleWorldActions';
 import { OraculoActor } from './society/agents/OraculoActor';
 import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
 import { WorldAgentRuntimeRegistry } from './society/agents/worldAgentRuntimeRegistry';
@@ -167,6 +169,7 @@ export class GameEngine {
   private societySaveTimer = 0;
   private cowilaAiRequestPending = false;
   private cowilaAiLastRequestedTick = -1;
+  private oracleCreationSequence = 0;
   private readonly contactShadow: THREE.Mesh;
   private readonly gpsRoutePositions = new Float32Array(768 * 3);
   private readonly gpsRoute: THREE.Line;
@@ -1069,6 +1072,79 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Aplica comandos estruturados da Oráculo ao mundo ativo.
+   * A autorização do Escolhido é verificada novamente no motor; o modelo
+   * nunca envia código, nomes de classes ou chamadas arbitrárias.
+   */
+  public applyOracleWorldActions(input: unknown): number {
+    if (!this.oracleAuthorized || this.phase !== 'paused') return 0;
+    const actions: OracleWorldAction[] = parseOracleWorldActions(input);
+    let applied = 0;
+    const weatherDurations: Record<WeatherState, number> = {
+      clear: 75, rain: 48, snow: 52, cold_wind: 42, freezing: 36, acid_warning: 12, acid_rain: 28,
+    };
+    for (const action of actions) {
+      if (action.type === 'set_weather') {
+        this.weather = action.weather;
+        this.weatherTimer = weatherDurations[action.weather];
+        applied += 1;
+        continue;
+      }
+      if (action.type === 'set_time') {
+        this.timeOfDay = THREE.MathUtils.clamp(action.timeOfDay, 0, 1);
+        applied += 1;
+        continue;
+      }
+      if (action.type === 'create_structure') {
+        const definition = getModuleDef(action.assetId);
+        if (!definition) continue;
+        const radius = Math.hypot(definition.footprintX, definition.footprintZ) / 2;
+        if (Math.abs(action.x) > WORLD_BOUNDS - radius || Math.abs(action.z) > WORLD_BOUNDS - radius
+          || this.checkHorizontalCollision(action.x, action.z, radius)) continue;
+        const construction = this.agentRuntime.getConstructionRuntime();
+        const overlapsPublishedStructure = construction.getPublishedPlacements().some((placement) => {
+          const existing = getModuleDef(placement.assetId);
+          if (!existing) return false;
+          const existingRadius = Math.hypot(existing.footprintX, existing.footprintZ) / 2;
+          return Math.hypot(placement.x - action.x, placement.z - action.z) < existingRadius + radius;
+        });
+        if (overlapsPublishedStructure) continue;
+        const snapshot = this.society.snapshot();
+        const sectorId = snapshot.agents[0]?.position.sectorId ?? 'suburb-01';
+        const engineerId = snapshot.agents.find((agent) => agent.profession === 'engineer')?.id ?? 'cowila-oracle';
+        const projectId = 'oracle-' + this.worldSceneManager.activeWorldId + '-' + snapshot.tick + '-' + Date.now() + '-' + this.oracleCreationSequence++;
+        const taskId = projectId + ':creation';
+        const registered = construction.registerProject({
+          id: projectId,
+          name: 'Criação da Oráculo: ' + definition.displayName,
+          status: 'validated',
+          sectorId,
+          modules: [{ assetId: action.assetId, position: { x: action.x, z: action.z, sectorId }, rotationY: 0 }],
+          requiredResources: {},
+          taskIds: [taskId],
+          createdByAgentId: engineerId,
+          createdAtTick: snapshot.tick,
+          version: 1,
+        });
+        if (!registered.valid) continue;
+        if (!construction.completeTask(projectId, taskId)) { construction.unregisterProject(projectId); continue; }
+        const placements = construction.getReadyPlacements().filter((placement) => placement.projectId === projectId);
+        if (placements.length !== 1 || this.societyActors.applyReadyPlacements(placements) !== 1) {
+          construction.unregisterProject(projectId);
+          continue;
+        }
+        construction.markProjectPublished(projectId);
+        this.saveGame();
+        applied += 1;
+      }
+    }
+    if (applied > 0) {
+      this.callbacks.onToast('A Oráculo alterou a Matrix: ' + applied + ' ação(ões) aplicada(s).', 'success');
+      this.syncHud();
+    }
+    return applied;
+  }
   public setPhase(phase: GamePhase): void {
     this.phase = phase;
     if (phase === 'playing') {

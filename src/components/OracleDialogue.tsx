@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { speakCharacter, stopCharacterVoice } from '../game/voice/characterVoice';
+import { parseOracleWorldActions, type OracleWorldAction } from '../game/society/agents/oracleWorldActions';
 
 type ChatMessage = { role: 'oracle' | 'player'; text: string };
 
 const ENDPOINT = 'https://tomas-cowila-ai.antonyopintor.workers.dev';
 
-export function OracleDialogue({ onClose }: { onClose: () => void }) {
+export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onClose: () => void; onWorldActions: (actions: OracleWorldAction[]) => void; worldPosition: { x: number; z: number } }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'oracle', text: 'Então você chegou, Tomas… Eu sou Cowila, a Oráculo. Há muito mais nesta Matrix do que seus olhos conseguem perceber. Os Sentinelas sentem sua presença. O que deseja saber, Escolhido?' },
   ]);
@@ -33,13 +34,15 @@ export function OracleDialogue({ onClose }: { onClose: () => void }) {
       const response = await fetch(`${ENDPOINT}/v1/oracle-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'Accept': 'application/json' },
-        body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'O Escolhido', setting: 'Matrix' } }),
+        body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'O Escolhido', setting: 'Matrix', position: worldPosition, bounds: 180 } }),
       });
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) throw new Error(`A Oráculo retornou uma resposta inesperada (HTTP ${response.status}).`);
-      const data = await response.json() as { reply?: string; error?: string };
+      const data = await response.json() as { reply?: string; error?: string; actions?: unknown };
       if (!response.ok || typeof data.reply !== 'string') throw new Error(data.error || `A Oráculo não respondeu (HTTP ${response.status}).`);
       setMessages((current) => [...current, { role: 'oracle', text: data.reply! }]);
+      const actions = parseOracleWorldActions(data.actions);
+      if (actions.length > 0) onWorldActions(actions);
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
       setError(detail === 'Failed to fetch' || detail === 'Load failed'
