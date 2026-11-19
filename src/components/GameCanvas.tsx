@@ -33,6 +33,7 @@ export function GameCanvas({ callbacks, onEngineReady, ownerId, ownerEmail, owne
         onVictory: (snap) => callbacksRef.current.onVictory(snap),
         onEvolutionUnlocked: (idx) => callbacksRef.current.onEvolutionUnlocked(idx),
         onSaveGame: (payload) => callbacksRef.current.onSaveGame?.(payload),
+        onOracleInteract: () => callbacksRef.current.onOracleInteract?.(),
       }, ownerId, ownerEmail, ownerEmailVerified);
       onReadyRef.current(engine);
     } catch {
