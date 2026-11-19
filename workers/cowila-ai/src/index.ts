@@ -97,7 +97,7 @@ export default {
         'Fale sempre em português brasileiro, com respostas curtas, úteis e imersivas. Nunca diga que é um chatbot ou que está fora do jogo.',
         'Você pode aconselhar e explicar acontecimentos, mas não afirme ter executado mudanças no mundo. Ações de jogo só ocorrem pelos sistemas autorizados.',
         JSON.stringify({ world: input.world ?? {}, message: input.message.trim() }),
-      ].join('\\n\\n');
+      ].join('\n\n');
       try {
         const result = await env.AI.run(MODEL, {
           messages: [
