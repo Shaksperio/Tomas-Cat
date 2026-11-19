@@ -1,4 +1,5 @@
 import type { WeatherState } from '../../../types/game';
+import type { AgentProfession } from '../contracts';
 import { getModuleDef, type ConstructionAssetId } from '../constructionCatalog';
 import { COWILA_APPROVED_ASSETS } from './cowilaCoordinator';
 
@@ -7,7 +8,8 @@ const APPROVED_ORACLE_ASSETS = new Set<string>(COWILA_APPROVED_ASSETS);
 export type OracleWorldAction =
   | { type: 'set_weather'; weather: WeatherState }
   | { type: 'set_time'; timeOfDay: number }
-  | { type: 'create_structure'; assetId: ConstructionAssetId; x: number; z: number };
+  | { type: 'create_structure'; assetId: ConstructionAssetId; x: number; z: number }
+  | { type: 'spawn_agent'; displayName: string; profession: AgentProfession; x: number; z: number };
 
 const WEATHER_STATES = new Set<WeatherState>([
   'clear', 'rain', 'snow', 'cold_wind', 'freezing', 'acid_warning', 'acid_rain',
@@ -26,6 +28,17 @@ export function parseOracleWorldActions(value: unknown): OracleWorldAction[] {
     }
     if (action.type === 'set_time' && typeof action.timeOfDay === 'number' && Number.isFinite(action.timeOfDay) && action.timeOfDay >= 0 && action.timeOfDay <= 1) {
       actions.push({ type: 'set_time', timeOfDay: action.timeOfDay });
+      continue;
+    }
+    if (action.type === 'spawn_agent' && typeof action.displayName === 'string'
+      && action.displayName.trim().length >= 2 && action.displayName.trim().length <= 28
+      && !/cowila|oráculo|oraculo/i.test(action.displayName)
+      && typeof action.profession === 'string'
+      && ['engineer', 'worker', 'agent', 'farmer', 'lumberjack', 'miner', 'carpenter', 'merchant'].includes(action.profession)
+      && typeof action.x === 'number' && Number.isFinite(action.x)
+      && typeof action.z === 'number' && Number.isFinite(action.z)
+      && Math.abs(action.x) <= 160 && Math.abs(action.z) <= 160) {
+      actions.push({ type: 'spawn_agent', displayName: action.displayName.trim(), profession: action.profession as AgentProfession, x: action.x, z: action.z });
       continue;
     }
     if (action.type === 'create_structure' && typeof action.assetId === 'string' && APPROVED_ORACLE_ASSETS.has(action.assetId) && getModuleDef(action.assetId)
