@@ -3695,6 +3695,9 @@ export class GameEngine {
   }
 
   private buildPrompt(): PromptInfo | null {
+    if (this.activeInteractableId === 'cowila-oracle' && this.oracle && this.oracleAuthorized) {
+      return { id: 'cowila-oracle', kind: 'resident', label: 'Oráculo · Cowila', detail: 'Inteligência central da sociedade · Acesso exclusivo do criador', actionText: 'Conversar com Cowila' };
+    }
     if (!this.activeInteractableId) return null;
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return null;
