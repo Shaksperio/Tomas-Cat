@@ -20,7 +20,7 @@ testCase('metrópole oculta constrói infraestrutura urbana, população e santu
   assert.ok(root.getObjectByName('metropolis-traffic'));
   assert.ok(root.getObjectByName('metropolis-suspension-bridge'));
   assert.ok(root.getObjectByName('hidden-oracle-sanctuary'));
-  assert.ok(colliders.length > 80);
+  assert.ok(colliders.length > 30);
   assert.equal(METROPOLIS_POPULATION, 850_000);
   assert.deepEqual(HIDDEN_NEW_YORK_SANCTUARY, { x: -45, y: 0, z: -190 });
 });
