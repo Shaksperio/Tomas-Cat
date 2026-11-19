@@ -29,3 +29,12 @@ test('caps each model response to four actions', () => {
   const actions = parseOracleWorldActions(Array.from({ length: 8 }, () => ({ type: 'set_weather', weather: 'rain' })));
   assert.equal(actions.length, 4);
 });
+test('accepts only valid new residents and known professions', () => {
+  const actions = parseOracleWorldActions([
+    { type: 'spawn_agent', displayName: 'Luna', profession: 'worker', x: 8, z: 12 },
+    { type: 'spawn_agent', displayName: 'Cowila', profession: 'agent', x: 8, z: 12 },
+    { type: 'spawn_agent', displayName: 'Invalid', profession: 'oracle', x: 8, z: 12 },
+    { type: 'spawn_agent', displayName: 'Outside', profession: 'worker', x: 500, z: 12 },
+  ]);
+  assert.deepEqual(actions, [{ type: 'spawn_agent', displayName: 'Luna', profession: 'worker', x: 8, z: 12 }]);
+});
