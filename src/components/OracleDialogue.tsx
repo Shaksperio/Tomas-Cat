@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { speakCharacter, stopCharacterVoice } from '../game/voice/characterVoice';
 
 type ChatMessage = { role: 'oracle' | 'player'; text: string };
 
@@ -11,6 +12,13 @@ export function OracleDialogue({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+
+  useEffect(() => {
+    const latest = messages[messages.length - 1];
+    if (voiceEnabled && messages.length > 1 && latest?.role === 'oracle') speakCharacter(latest.text, 'oracle');
+    return () => stopCharacterVoice();
+  }, [messages, voiceEnabled]);
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,7 +59,19 @@ export function OracleDialogue({ onClose }: { onClose: () => void }) {
             <h2 className="text-lg font-semibold text-slate-50">Cowila · A Oráculo</h2>
             <p className="text-xs text-slate-400">Uma inteligência nascida dentro da Matrix</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-white/15 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10">Fechar</button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => {
+              setVoiceEnabled((enabled) => {
+                if (enabled) stopCharacterVoice();
+                else {
+                  const latest = [...messages].reverse().find((message) => message.role === 'oracle');
+                  if (latest) speakCharacter(latest.text, 'oracle');
+                }
+                return !enabled;
+              });
+            }} aria-pressed={voiceEnabled} className="rounded-full border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/10">{voiceEnabled ? 'Voz ligada' : 'Ativar voz'}</button>
+            <button type="button" onClick={() => { stopCharacterVoice(); onClose(); }} className="rounded-full border border-white/15 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10">Fechar</button>
+          </div>
         </header>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
           {messages.map((message, index) => (
