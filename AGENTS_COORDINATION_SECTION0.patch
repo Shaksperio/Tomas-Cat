@@ -1,0 +1,16 @@
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ após o bloco de introdução, antes de "## 1. Resumo do projeto"
++
++## 0. AVISO DE COORDENAÇÃO ENTRE IAs (2026-11-19)
++
++Ver documento canônico: `docs/architecture/AI-COORDINATION.md`.
++
++| Área | Quem | PR |
++|------|------|----|
++| Skills Hermes + Worker agentRuntime | Codex/ChatGPT | #62 |
++| Métricas de aprendizado de skills | Grok | branch grok/skill-learning-metrics |
++| Especialistas → fila | Codex | #37 |
++| Construção 3D placements | Grok | #38/#41 |
++
++Não editar `skills/`, `orchestrator` skill-based ou `workers/cowila-ai/src/agentRuntime.ts` enquanto a #62 estiver aberta.
