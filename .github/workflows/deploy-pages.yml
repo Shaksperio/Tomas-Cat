@@ -90,7 +90,7 @@ jobs:
             if curl --connect-timeout 10 --max-time 30 --fail --silent --show-error "${PAGE_URL}" -o /tmp/tomas-index.html; then
               if grep -q '<title>Tomas Vagabundo' /tmp/tomas-index.html \
                 && grep -q 'id="root"' /tmp/tomas-index.html \
-                && grep -Eq 'assets/index-[^"]+\\.js' /tmp/tomas-index.html; then
+                && grep -Eq 'assets/index-[^"]+\.js' /tmp/tomas-index.html; then
                 ok=true
                 break
               fi
