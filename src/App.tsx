@@ -11,7 +11,7 @@ import { GameEngine } from './game/GameEngine';
 import { firebaseAuth, firebaseConfigured } from './firebase/client';
 import { pickBestSave } from './game/saves/saveSelection';
 import { isRecoverableConnectivityFailure } from './game/offline/connectivity';
-import { flushAccountGameSave, loadAccountGameSave, queueAccountGameSave } from './firebase/gameSave';
+import { flushAccountGameSave, flushPendingAccountGameSave, loadAccountGameSave, queueAccountGameSave } from './firebase/gameSave';
 import { EVOLUTION_STAGES, GamePhase, HudSnapshot, LoreLog, MAX_CHANCES, SavedGameState } from './types/game';
 
 const INITIAL_HUD: HudSnapshot = {
@@ -77,7 +77,13 @@ export default function App() {
     };
     const handleOnline = () => {
       setConnectionOnline(true);
-      if (authUser) engineRef.current?.persistNow();
+      if (authUser) {
+        engineRef.current?.persistNow();
+        void flushPendingAccountGameSave(authUser.uid).catch((error) => {
+          setOfflineFallback(true);
+          showToast(`A sincronização será tentada novamente: ${errorMessage(error)}`, 'warn');
+        });
+      }
     };
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
