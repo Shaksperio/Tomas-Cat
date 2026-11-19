@@ -68,6 +68,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authUser || !accountReady || !connectionOnline) return;
+    void flushPendingAccountGameSave(authUser.uid).catch((error) => {
+      setOfflineFallback(true);
+      showToast(`Sincronização pendente: ${errorMessage(error)}`, 'warn');
+    });
+  }, [authUser, accountReady, connectionOnline, showToast]);
+
+  useEffect(() => {
     const handleOffline = () => {
       setConnectionOnline(false);
       if (authUser) {
