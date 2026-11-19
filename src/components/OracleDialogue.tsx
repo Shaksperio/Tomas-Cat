@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { speakCharacter, stopCharacterVoice } from '../game/voice/characterVoice';
+import { parseOracleWorldActions, type OracleWorldAction } from '../game/society/agents/oracleWorldActions';
 
 type ChatMessage = { role: 'oracle' | 'player'; text: string };
 
