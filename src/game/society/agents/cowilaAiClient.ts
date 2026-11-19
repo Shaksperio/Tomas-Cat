@@ -15,7 +15,7 @@ export interface CowilaAiDecision {
   model?: string;
 }
 
-const endpoint = import.meta.env.VITE_COWILA_AI_URL as string | undefined;
+const endpoint = (import.meta.env.VITE_COWILA_AI_URL as string | undefined) || 'https://tomas-cowila-ai.antonyopintor.workers.dev';
 
 export function isCowilaAiConfigured(): boolean {
   return typeof endpoint === 'string' && /^https:\/\//i.test(endpoint);
