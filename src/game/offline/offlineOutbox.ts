@@ -10,6 +10,8 @@ export interface PendingGameSave {
   revision: string;
   queuedAt: number;
   payload: SavedGameState;
+  /** Fingerprint of the remote snapshot this offline edit was based on. */
+  baseFingerprint?: string | null;
 }
 
 let databasePromise: Promise<IDBDatabase> | null = null;
