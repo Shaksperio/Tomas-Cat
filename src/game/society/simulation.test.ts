@@ -29,6 +29,30 @@ test('assigns work to matching professions and completes tasks over logical tick
   assert.ok(finished.events.some((event) => event.kind === 'task_completed'));
 });
 
+test('deterministic specialist cycle enqueues and completes real society tasks', () => {
+  const simulation = new SocietySimulation();
+  let specialistCreated = false;
+  let specialistCompleted = false;
+
+  for (let tick = 0; tick < 240; tick += 1) {
+    const snapshot = simulation.step(1);
+    specialistCreated ||= snapshot.events.some((event) =>
+      event.kind === 'task_created'
+      && typeof event.payload.taskId === 'string'
+      && event.payload.taskId.startsWith('specialist:'),
+    );
+    specialistCompleted ||= snapshot.events.some((event) =>
+      event.kind === 'task_completed'
+      && typeof event.payload.taskId === 'string'
+      && event.payload.taskId.startsWith('specialist:'),
+    );
+    if (specialistCreated && specialistCompleted) break;
+  }
+
+  assert.equal(specialistCreated, true, 'expected the specialist cycle to enqueue an authorized task');
+  assert.equal(specialistCompleted, true, 'expected the normal scheduler to execute a specialist task');
+});
+
 test('produces the same state for the same number of logical steps', () => {
   const first = new SocietySimulation().step(12);
   const second = new SocietySimulation().step(12);
