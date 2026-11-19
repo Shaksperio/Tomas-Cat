@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import type { SavedGameState } from '../types/game';
 import { deletePendingGameSave, getPendingGameSave, putPendingGameSave, type PendingGameSave } from '../game/offline/offlineOutbox';
 import { firestore } from './client';
@@ -84,15 +84,34 @@ export async function loadAccountGameSave(uid: string): Promise<SavedGameState |
   return payload;
 }
 
-export async function saveAccountGameSave(uid: string, payload: SavedGameState): Promise<void> {
+export async function saveAccountGameSave(
+  uid: string,
+  payload: SavedGameState,
+  expectedFingerprint: string | null,
+): Promise<void> {
   const serialized = JSON.stringify(payload);
   if (serialized.length > 850_000) throw new Error('O salvamento excede o limite seguro de tamanho.');
-  await setDoc(saveDocument(uid), {
-    ownerUid: uid,
-    schemaVersion: 1,
-    payload,
-    updatedAt: serverTimestamp(),
+  const reference = saveDocument(uid);
+  if (!firestore) throw new Error('Firebase Firestore não está configurado.');
+  await runTransaction(firestore, async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    let currentFingerprint: string | null = null;
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data.ownerUid !== uid || !data.payload || typeof data.payload !== 'object') {
+        throw new Error('O salvamento remoto não pertence a esta conta ou está inválido.');
+      }
+      currentFingerprint = await fingerprint(data.payload as SavedGameState);
+    }
+    if (currentFingerprint !== expectedFingerprint) throw new SaveConflictError();
+    transaction.set(reference, {
+      ownerUid: uid,
+      schemaVersion: 1,
+      payload,
+      updatedAt: serverTimestamp(),
+    });
   });
+  rememberRemoteFingerprint(uid, await fingerprint(payload));
 }
 
 function createRevision(): string {
@@ -145,11 +164,7 @@ export async function flushAccountGameSave(uid: string): Promise<void> {
   try {
     const baseFingerprint = candidate.baseFingerprint;
     if (baseFingerprint === undefined) throw new SaveConflictError();
-    const remotePayload = await loadAccountGameSave(uid);
-    const currentFingerprint = remotePayload ? await fingerprint(remotePayload) : null;
-    if (currentFingerprint !== baseFingerprint) throw new SaveConflictError();
-    await saveAccountGameSave(uid, candidate.payload);
-    await rememberRemoteFingerprint(uid, await fingerprint(candidate.payload));
+    await saveAccountGameSave(uid, candidate.payload, baseFingerprint);
     // Compare-and-delete: nunca apague um snapshot mais novo que chegou durante
     // a escrita remota.
     await deletePendingGameSave(uid, candidate.revision);
