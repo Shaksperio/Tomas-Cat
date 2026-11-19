@@ -1102,12 +1102,19 @@ export class GameEngine {
         const radius = Math.hypot(definition.footprintX, definition.footprintZ) / 2;
         if (Math.abs(action.x) > WORLD_BOUNDS - radius || Math.abs(action.z) > WORLD_BOUNDS - radius
           || this.checkHorizontalCollision(action.x, action.z, radius)) continue;
+        const construction = this.agentRuntime.getConstructionRuntime();
+        const overlapsPublishedStructure = construction.getPublishedPlacements().some((placement) => {
+          const existing = getModuleDef(placement.assetId);
+          if (!existing) return false;
+          const existingRadius = Math.hypot(existing.footprintX, existing.footprintZ) / 2;
+          return Math.hypot(placement.x - action.x, placement.z - action.z) < existingRadius + radius;
+        });
+        if (overlapsPublishedStructure) continue;
         const snapshot = this.society.snapshot();
         const sectorId = snapshot.agents[0]?.position.sectorId ?? 'suburb-01';
         const engineerId = snapshot.agents.find((agent) => agent.profession === 'engineer')?.id ?? 'cowila-oracle';
-        const projectId = 'oracle-' + this.worldSceneManager.activeWorldId + '-' + snapshot.tick + '-' + this.oracleCreationSequence++;
+        const projectId = 'oracle-' + this.worldSceneManager.activeWorldId + '-' + snapshot.tick + '-' + Date.now() + '-' + this.oracleCreationSequence++;
         const taskId = projectId + ':creation';
-        const construction = this.agentRuntime.getConstructionRuntime();
         const registered = construction.registerProject({
           id: projectId,
           name: 'Criação da Oráculo: ' + definition.displayName,
