@@ -413,3 +413,12 @@ O autor, Tom, comunica-se em português do Brasil e prefere que as tarefas pedid
 - Discordância, crítica e propostas alternativas não são infrações. Evidência não verificada e eventos duplicados não geram punição.
 - O bloqueio global exige persistência compartilhada da identidade/blocklist; a integração com backend e execução real de projetos ainda não está concluída.
 - Documentação detalhada em `docs/architecture/COWILA-GOVERNANCE-AND-WORLD-EXPANSION.md`.
+
+
+### 4.3 Cowila generativa — integração inicial (PR codex/cowila-in-game-ai-v1)
+- O cliente chama o Worker independente `workers/cowila-ai` a cada 25 ticks da sociedade, sem bloquear o loop 3D.
+- O Worker usa Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) para recomendar até três tarefas por ciclo.
+- As recomendações são apenas propostas: `SocietySimulation.scheduleAiSpecialistTask` valida profissão, allowlist de tarefas, disponibilidade, tick, recursos e duplicidade antes de enfileirar.
+- Sem URL configurada, sem rede ou com erro do provedor, a simulação determinística existente continua normalmente.
+- Para ativar após merge: publicar `workers/cowila-ai` com Wrangler e cadastrar a variável de repositório `COWILA_AI_URL` com a URL do Worker. O workflow de Pages injeta essa variável como `VITE_COWILA_AI_URL` no build.
+- Estado: integração de código implementada em PR; Worker ainda precisa ser implantado na conta Cloudflare e URL configurada. Não declarar IA online antes de validar a resposta real do Worker no jogo.
