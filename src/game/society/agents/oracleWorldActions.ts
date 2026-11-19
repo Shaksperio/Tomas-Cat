@@ -1,5 +1,8 @@
 import type { WeatherState } from '../../../types/game';
 import { getModuleDef, type ConstructionAssetId } from '../constructionCatalog';
+import { COWILA_APPROVED_ASSETS } from './cowilaCoordinator';
+
+const APPROVED_ORACLE_ASSETS = new Set<string>(COWILA_APPROVED_ASSETS);
 
 export type OracleWorldAction =
   | { type: 'set_weather'; weather: WeatherState }
@@ -25,7 +28,7 @@ export function parseOracleWorldActions(value: unknown): OracleWorldAction[] {
       actions.push({ type: 'set_time', timeOfDay: action.timeOfDay });
       continue;
     }
-    if (action.type === 'create_structure' && typeof action.assetId === 'string' && getModuleDef(action.assetId)
+    if (action.type === 'create_structure' && typeof action.assetId === 'string' && APPROVED_ORACLE_ASSETS.has(action.assetId) && getModuleDef(action.assetId)
       && typeof action.x === 'number' && Number.isFinite(action.x) && typeof action.z === 'number' && Number.isFinite(action.z)
       && Math.abs(action.x) <= 180 && Math.abs(action.z) <= 180) {
       actions.push({ type: 'create_structure', assetId: action.assetId as ConstructionAssetId, x: action.x, z: action.z });
