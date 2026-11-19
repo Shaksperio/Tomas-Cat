@@ -85,6 +85,43 @@ async function geminiOracleReply(apiKey: string, prompt: string): Promise<string
   }
 }
 
+const ORACLE_WEATHER = new Set(['clear', 'rain', 'snow', 'cold_wind', 'freezing', 'acid_warning', 'acid_rain']);
+const ORACLE_ASSETS = new Set(['module_shelter_basic', 'module_warehouse', 'module_workshop', 'module_farm_plot', 'module_watchtower', 'module_market_stall']);
+
+async function generateOracleActions(env: Env, message: string, world: unknown): Promise<unknown[]> {
+  const prompt = [
+    'Extraia somente ordens explícitas para alterar o mundo do jogo. Responda exclusivamente JSON: {"actions":[]}.',
+    'Se for pergunta, conversa, opinião ou hipótese, retorne actions vazio.',
+    'Ações: set_weather com weather clear|rain|snow|cold_wind|freezing|acid_warning|acid_rain; set_time com timeOfDay de 0 a 1 (0 meia-noite, 0.25 amanhecer, 0.5 meio-dia, 0.75 anoitecer); create_structure com assetId module_shelter_basic|module_warehouse|module_workshop|module_farm_plot|module_watchtower|module_market_stall e coordenadas x/z.',
+    'Para estruturas, escolha posições próximas ao jogador mas não sobre ele. Use world.position e mantenha x/z entre -160 e 160. Uma ordem de cidade pode virar até quatro módulos aprovados.',
+    'Não invente ações, assets, código ou comandos. Só produza ações se o jogador ordenou claramente uma mudança concreta.',
+    JSON.stringify({ message, world }),
+  ].join('\\n');
+  let raw = '';
+  try {
+    raw = extractText(await env.AI.run(MODEL, { messages: [
+      { role: 'system', content: 'Você é um extrator estrito de comandos de jogo. Retorne apenas JSON válido.' },
+      { role: 'user', content: prompt },
+    ], max_tokens: 450, temperature: 0.1 }));
+  } catch {
+    if (!env.GEMINI_API_KEY) return [];
+    try { raw = await geminiOracleReply(env.GEMINI_API_KEY, prompt); } catch { return []; }
+  }
+  try {
+    const parsed = parseJson(raw) as { actions?: unknown };
+    if (!Array.isArray(parsed.actions)) return [];
+    return parsed.actions.slice(0, 4).flatMap((entry) => {
+      if (!entry || typeof entry !== 'object') return [];
+      const action = entry as Record<string, unknown>;
+      if (action.type === 'set_weather' && typeof action.weather === 'string' && ORACLE_WEATHER.has(action.weather)) return [{ type: 'set_weather', weather: action.weather }];
+      if (action.type === 'set_time' && typeof action.timeOfDay === 'number' && Number.isFinite(action.timeOfDay) && action.timeOfDay >= 0 && action.timeOfDay <= 1) return [{ type: 'set_time', timeOfDay: action.timeOfDay }];
+      if (action.type === 'create_structure' && typeof action.assetId === 'string' && ORACLE_ASSETS.has(action.assetId)
+        && typeof action.x === 'number' && Number.isFinite(action.x) && typeof action.z === 'number' && Number.isFinite(action.z)
+        && Math.abs(action.x) <= 160 && Math.abs(action.z) <= 160) return [{ type: 'create_structure', assetId: action.assetId, x: action.x, z: action.z }];
+      return [];
+    });
+  } catch { return []; }
+}
 function parseJson(text: string): unknown {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   const start = cleaned.indexOf('{');
@@ -142,12 +179,14 @@ export default {
         });
         const reply = extractText(result).trim().slice(0, 1_800);
         if (!reply) throw new Error('Resposta vazia.');
-        return json({ reply, model: MODEL, provider: 'cloudflare' }, 200, origin, allowed);
+        const actions = await generateOracleActions(env, input.message.trim(), input.world ?? {});
+        return json({ reply, actions, model: MODEL, provider: 'cloudflare' }, 200, origin, allowed);
       } catch {
         if (env.GEMINI_API_KEY) {
           try {
             const reply = await geminiOracleReply(env.GEMINI_API_KEY, prompt);
-            return json({ reply, model: 'gemini-2.5-flash', provider: 'gemini', fallback: true }, 200, origin, allowed);
+            const actions = await generateOracleActions(env, input.message.trim(), input.world ?? {});
+            return json({ reply, actions, model: 'gemini-2.5-flash', provider: 'gemini', fallback: true }, 200, origin, allowed);
           } catch {
             // Provider details and credentials are intentionally not exposed to the browser.
           }
