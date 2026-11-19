@@ -89,7 +89,7 @@ export default function App() {
         engineRef.current?.persistNow();
         void flushPendingAccountGameSave(authUser.uid).catch((error) => {
           setOfflineFallback(true);
-          showToast(`A sincronização será tentada novamente: ${errorMessage(error)}`, 'warn');
+          showToast(`Sincronização pendente: ${errorMessage(error)}`, 'warn');
         });
       }
     };
@@ -424,7 +424,7 @@ export default function App() {
 
       {(offlineFallback || !connectionOnline) && (
         <div role="status" className="relative z-20 flex shrink-0 items-center justify-center gap-2 border-b border-amber-300/20 bg-amber-950/80 px-3 py-1.5 text-center text-[10px] font-medium text-amber-100">
-          <span>{!connectionOnline ? 'Sem internet' : 'Servidor Firebase indisponível'} — modo de contingência ativo; progresso salvo localmente.</span>
+          <span>{!connectionOnline ? 'Sem internet' : 'Sincronização pendente'} — modo de contingência ativo; progresso salvo localmente.</span>
         </div>
       )}
 
