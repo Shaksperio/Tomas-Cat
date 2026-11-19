@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserPopupRedirectResolver, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { OracleDialogue } from './components/OracleDialogue';
+import type { OracleWorldAction } from './game/society/agents/oracleWorldActions';
 import { GameHUD } from './components/GameHUD';
 import { LoginScreen } from './components/LoginScreen';
 import { TitleScreen } from './components/TitleScreen';
@@ -350,7 +351,14 @@ export default function App() {
       <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} ownerEmail={authUser.email ?? ''} ownerEmailVerified={authUser.emailVerified} onEngineReady={handleEngineReady} />
 
       {oracleOpen && authUser?.emailVerified && authUser.email?.trim().toLowerCase() === 'antonyopintor@gmail.com' && (
-        <OracleDialogue onClose={() => { setOracleOpen(false); engineRef.current?.setPhase('playing'); }} />
+        <OracleDialogue
+          onClose={() => { setOracleOpen(false); engineRef.current?.setPhase('playing'); }}
+          worldPosition={{ x: hud.catX, z: hud.catZ }}
+          onWorldActions={(actions: OracleWorldAction[]) => {
+            const applied = engineRef.current?.applyOracleWorldActions(actions) ?? 0;
+            if (applied === 0) showToast('A Matrix recusou a alteração: posição, estrutura ou autorização inválida.', 'warn');
+          }}
+        />
       )}
 
       {phase === 'title' && <TitleScreen hasSave={hasSave} onNewGame={handleNewGame} onContinue={() => void handleContinue()} />}
