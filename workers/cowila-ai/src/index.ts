@@ -61,7 +61,7 @@ function extractText(result: unknown): string {
   throw new Error('Resposta vazia do modelo.');
 }
 
-async function geminiOracleReply(apiKey: string, prompt: string): Promise<string> {
+async function geminiOracleReply(apiKey: string, prompt: string, systemInstruction = 'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo. Responda em português brasileiro por padrão, com sabedoria, naturalidade e precisão. Tomas é O Escolhido; preserve a identidade da história, mas responda também sobre qualquer assunto geral. Não invente fatos nem alegue executar ações reais.'): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
@@ -69,7 +69,7 @@ async function geminiOracleReply(apiKey: string, prompt: string): Promise<string
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: 'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo. Responda em português brasileiro por padrão, com sabedoria, naturalidade e precisão. Tomas é O Escolhido; preserve a identidade da história, mas responda também sobre qualquer assunto geral. Não invente fatos nem alegue executar ações reais.' }] },
+        systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.65, maxOutputTokens: 900 },
       }),
@@ -105,7 +105,7 @@ async function generateOracleActions(env: Env, message: string, world: unknown):
     ], max_tokens: 450, temperature: 0.1 }));
   } catch {
     if (!env.GEMINI_API_KEY) return [];
-    try { raw = await geminiOracleReply(env.GEMINI_API_KEY, prompt); } catch { return []; }
+    try { raw = await geminiOracleReply(env.GEMINI_API_KEY, prompt, 'Você é um extrator estrito de comandos de jogo. Retorne apenas JSON válido com ações permitidas.'); } catch { return []; }
   }
   try {
     const parsed = parseJson(raw) as { actions?: unknown };
