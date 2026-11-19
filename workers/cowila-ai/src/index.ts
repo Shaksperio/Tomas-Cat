@@ -87,12 +87,14 @@ async function geminiOracleReply(apiKey: string, prompt: string, systemInstructi
 
 const ORACLE_WEATHER = new Set(['clear', 'rain', 'snow', 'cold_wind', 'freezing', 'acid_warning', 'acid_rain']);
 const ORACLE_ASSETS = new Set(['module_shelter_basic', 'module_warehouse', 'module_workshop', 'module_farm_plot', 'module_watchtower', 'module_market_stall']);
+const ORACLE_PROFESSIONS = new Set(['engineer','worker','agent','farmer','lumberjack','miner','carpenter','merchant']);
 
 async function generateOracleActions(env: Env, message: string, world: unknown): Promise<unknown[]> {
   const prompt = [
     'Extraia somente ordens explícitas para alterar o mundo do jogo. Responda exclusivamente JSON: {"actions":[]}.',
     'Se for pergunta, conversa, opinião ou hipótese, retorne actions vazio.',
     'Ações: set_weather com weather clear|rain|snow|cold_wind|freezing|acid_warning|acid_rain; set_time com timeOfDay de 0 a 1 (0 meia-noite, 0.25 amanhecer, 0.5 meio-dia, 0.75 anoitecer); create_structure com assetId module_shelter_basic|module_warehouse|module_workshop|module_farm_plot|module_watchtower|module_market_stall e coordenadas x/z.',
+    'Também pode criar habitantes com spawn_agent: displayName (2 a 28 caracteres), profession engineer|worker|agent|farmer|lumberjack|miner|carpenter|merchant e coordenadas x/z. Use nomes originais; nunca use Cowila ou Oráculo como nome de habitante.',
     'Para estruturas, escolha posições próximas ao jogador mas não sobre ele. Use world.position e mantenha x/z entre -160 e 160. Uma ordem de cidade pode virar até quatro módulos aprovados.',
     'Não invente ações, assets, código ou comandos. Só produza ações se o jogador ordenou claramente uma mudança concreta.',
     JSON.stringify({ message, world }),
@@ -115,6 +117,10 @@ async function generateOracleActions(env: Env, message: string, world: unknown):
       const action = entry as Record<string, unknown>;
       if (action.type === 'set_weather' && typeof action.weather === 'string' && ORACLE_WEATHER.has(action.weather)) return [{ type: 'set_weather', weather: action.weather }];
       if (action.type === 'set_time' && typeof action.timeOfDay === 'number' && Number.isFinite(action.timeOfDay) && action.timeOfDay >= 0 && action.timeOfDay <= 1) return [{ type: 'set_time', timeOfDay: action.timeOfDay }];
+      if (action.type === 'spawn_agent' && typeof action.displayName === 'string' && action.displayName.trim().length >= 2 && action.displayName.trim().length <= 28
+        && !/cowila|oráculo|oraculo/i.test(action.displayName) && typeof action.profession === 'string' && ORACLE_PROFESSIONS.has(action.profession)
+        && typeof action.x === 'number' && Number.isFinite(action.x) && typeof action.z === 'number' && Number.isFinite(action.z)
+        && Math.abs(action.x) <= 160 && Math.abs(action.z) <= 160) return [{ type: 'spawn_agent', displayName: action.displayName.trim(), profession: action.profession, x: action.x, z: action.z }];
       if (action.type === 'create_structure' && typeof action.assetId === 'string' && ORACLE_ASSETS.has(action.assetId)
         && typeof action.x === 'number' && Number.isFinite(action.x) && typeof action.z === 'number' && Number.isFinite(action.z)
         && Math.abs(action.x) <= 160 && Math.abs(action.z) <= 160) return [{ type: 'create_structure', assetId: action.assetId, x: action.x, z: action.z }];
