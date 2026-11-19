@@ -175,7 +175,7 @@ export class SocietyAgentRuntime {
     );
     if (!candidateConstruction.restoreState(state.construction)) return false;
     const candidateLearningHost = new SkillLearningHost();
-    if (state.skillLearning && !candidateLearningHost.restoreState(state.skillLearning)) return false;
+    if (state.skillLearning !== undefined && !candidateLearningHost.restoreState(state.skillLearning)) return false;
     const constructionState = candidateConstruction.exportState();
     const projectIds = new Set(constructionState.projects.map((entry) => entry.project.id));
     if (state.projectTaskQueue.some((entry) => !projectIds.has(entry.projectId))
