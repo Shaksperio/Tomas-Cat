@@ -71,6 +71,7 @@ import {
 } from './contracts';
 import { authorizeSpecialistProposal, type SpecialistTaskProposal } from './agents/policies';
 import { runSpecialistCycle } from './agents/orchestrator';
+import type { SkillLearningBook } from './agents/skillLearning';
 import {
   completeProbation,
   createDisciplineRecord,
@@ -941,8 +942,8 @@ export class SocietySimulation {
    * autorizadas em tarefas da fila real. A simulação continua sendo a única
    * autoridade para atribuição, movimento, recursos e conclusão.
    */
-  private scheduleSpecialistTasks(): void {
-    const report = runSpecialistCycle(this.snapshot());
+  private scheduleSpecialistTasks(learning?: SkillLearningBook): void {
+    const report = runSpecialistCycle(this.snapshot(), learning);
     for (const proposal of report.proposals) {
       const agent = this.agents.get(proposal.agentId);
       if (!agent || this.tasks.has(proposal.proposalId)) continue;
@@ -955,12 +956,14 @@ export class SocietySimulation {
       if (professionHasPendingWork) continue;
 
       // Revalida no ponto de entrada autoritativo antes de inserir a tarefa.
-      this.scheduleAiSpecialistTask(proposal);
+      // Uma proposta por tick faz a prioridade aprendida influenciar a ordem
+      // real da fila (o scheduler base ordena tarefas do mesmo tick por ID).
+      if (this.scheduleAiSpecialistTask(proposal)) break;
     }
   }
 
   /** Avança exatamente um passo lógico da simulação. */
-  public step(steps = 1): SocietySimulationSnapshot {
+  public step(steps = 1, learning?: SkillLearningBook): SocietySimulationSnapshot {
     const safeSteps = Math.max(0, Math.min(1000, Math.floor(steps)));
     for (let index = 0; index < safeSteps; index += 1) {
       this.tickCount += 1;
@@ -976,7 +979,7 @@ export class SocietySimulation {
       this.consumeCommunityNeeds();
       this.payWages();
       this.pruneFinishedTasks();
-      this.scheduleSpecialistTasks();
+      this.scheduleSpecialistTasks(learning);
     }
     return this.snapshot();
   }
