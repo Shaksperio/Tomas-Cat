@@ -6,30 +6,34 @@
 
 | Item | Estado |
 |------|--------|
-| **PR #62** Skills Hermes + orquestrador + Worker agentRuntime | **MERGEADA** na `main` |
-| **PR #63** / `skillLearning` métricas isoladas | Aberta / supersedida pela wire |
-| **Grok** `grok/skill-learning-wire` | Liga `skillPriorityBias` no orquestrador + módulo de métricas |
+| **PR #62** Skills Hermes + orquestrador + skillId | **MERGEADA** |
+| **PR #64** Codex — Worker com IDs canônicos de skills | **Aberta** |
+| **PR #65** Grok — skillLearning + bias + SkillLearningHost | **Aberta** |
+| **PR #63** métricas isoladas | Fechar em favor da #65 |
+| **PR #37** especialistas → fila | Aberta (Codex) |
 
-## Trabalho em aberto
+## Divisão (não colidir)
 
-| Área | Quem | PR / branch | Não editar |
-|------|------|-------------|------------|
-| Especialistas → fila + placas 3D | Codex | **#37** | `simulation.ts` scheduleSpecialistTasks |
-| Construção 3D placements | Grok | **#38 / #41** | meshes / applyReadyPlacements |
-| Agente engenharia Gemini | Codex | **#46** | `scripts/engineering-agent/` |
-| Família NPC | Codex | **#35** | family |
-| Embodiment / D1 | Codex (draft) | **#36** | identity Worker |
-| Skill learning wire | Grok | `grok/skill-learning-wire` | — |
+| Área | Quem | PR | Não editar |
+|------|------|-----|------------|
+| Worker skill IDs + bounds | **Codex** | **#64** | `workers/cowila-ai/**` |
+| skillLearning + orchestrator bias + host | **Grok** | **#65** | `skillLearning*.ts` |
+| scheduleSpecialist / placas | **Codex** | **#37** | trechos `simulation.ts` da PR |
+| placements 3D | **Grok** | **#38/#41** | meshes |
+| engineering agent | **Codex** | **#46** | `scripts/engineering-agent/` |
 
-## Já na main (não reimplementar)
+## Encaixe após #64 + #65
 
-- `skills/` (catálogo Hermes-like)
-- orquestrador com `selectSkillForAgent` + `skillId` nas propostas
-- `agentMemory`, `cowilaCoordinator`, `SocietyAgentRuntime`
-- Worker docs de governança Cowila/Hermes
+```ts
+const host = new SkillLearningHost();
+const learning = host.observe(simulation.snapshot());
+const report = runSpecialistCycle(snapshot, learning);
+for (const p of report.proposals) simulation.scheduleAiSpecialistTask(p);
+```
 
 ## Regras
 
-1. Não colidir com PRs abertas na tabela.
-2. Skills versionadas em código; LLM não edita skills em produção.
-3. Determinismo: IA propõe; motor valida.
+1. Grok não edita `workers/cowila-ai/` com #64 aberta.
+2. Codex não reimplementa `skillLearning.ts`.
+3. Skills só em código versionado.
+4. Determinismo: IA propõe; motor valida.
