@@ -1,3 +1,4 @@
+import { inferExplicitOracleActions } from './oracleCommands';
 export interface Env {
   AI: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
   ALLOWED_ORIGIN: string;
@@ -90,6 +91,8 @@ const ORACLE_ASSETS = new Set(['module_shelter_basic', 'module_warehouse', 'modu
 const ORACLE_PROFESSIONS = new Set(['engineer','worker','agent','farmer','lumberjack','miner','carpenter','merchant']);
 
 async function generateOracleActions(env: Env, message: string, world: unknown): Promise<unknown[]> {
+  const explicitActions = inferExplicitOracleActions(message, world);
+  if (explicitActions.length > 0) return explicitActions;
   const prompt = [
     'Extraia somente ordens explícitas para alterar o mundo do jogo. Responda exclusivamente JSON: {"actions":[]}.',
     'Se for pergunta, conversa, opinião ou hipótese, retorne actions vazio.',
