@@ -43,6 +43,7 @@ import {
 } from './worlds/portalWorlds';
 import { PLAYABLE_WORLD_IDS, WORLD_IDS } from './worlds/worldCatalog';
 import { WorldSceneManager } from './worlds/worldSceneManager';
+import { buildHiddenNewYorkDistrict, HIDDEN_NEW_YORK_SANCTUARY } from './worlds/hiddenNewYork';
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
 import type { TaskCycleState } from './tasks/taskCycles';
@@ -443,7 +444,11 @@ export class GameEngine {
       [{
         id: LEGACY_WORLD_ID,
         spawn: { x: 0, z: 8 },
-        build: (root) => buildPostApocalypticWorld(root, this.textures),
+        build: (root) => {
+          const world = buildPostApocalypticWorld(root, this.textures);
+          world.colliders.push(...buildHiddenNewYorkDistrict(root));
+          return world;
+        },
       }],
       LEGACY_WORLD_ID,
     );
@@ -2841,6 +2846,25 @@ export class GameEngine {
   }
 
   private getTaskGpsTarget(): TaskGpsTarget | null {
+    // A missão secreta da Oráculo tem prioridade até Tomas alcançar o santuário.
+    // O destino só existe no HUD da conta proprietária; os demais jogadores não o veem.
+    if (this.oracle && this.oracleAuthorized && !this.oracle.isNear(this.catPos.x, this.catPos.z)) {
+      const dx = HIDDEN_NEW_YORK_SANCTUARY.x - this.catPos.x;
+      const dz = HIDDEN_NEW_YORK_SANCTUARY.z - this.catPos.z;
+      return {
+        id: 'hidden-new-york-oracle',
+        label: 'Santuário da Oráculo — Nova York Oculta',
+        event: 'enemy_defeated',
+        x: HIDDEN_NEW_YORK_SANCTUARY.x,
+        y: HIDDEN_NEW_YORK_SANCTUARY.y,
+        z: HIDDEN_NEW_YORK_SANCTUARY.z,
+        dx,
+        dz,
+        distance: Math.hypot(dx, dz),
+        objective: 'Siga a linha azul do GPS até a cidade escondida e encontre Cowila.',
+        taskTitle: 'Encontre a Oráculo',
+      };
+    }
     const objectives: Array<{ event: PlayerTaskEvent; objective: string; taskTitle: string }> = [];
     // Recompensas físicas de missões concluídas têm prioridade: não basta avisar
     // que existem sucatas no mundo, o GPS também precisa conduzir Tomas até elas.
