@@ -28,6 +28,11 @@ import {
   runCowilaStrategicCycle,
   type CowilaDirective,
 } from './cowilaCoordinator';
+import {
+  SkillLearningHost,
+  type SkillLearningHostState,
+} from './skillLearningHost';
+import type { SkillLearningBook } from './skillLearning';
 
 export interface SocietyAgentRuntimeConfig {
   cowilaEveryTicks?: number;
@@ -45,6 +50,8 @@ export interface SocietyAgentRuntimeState {
   projectTaskQueue: Array<{ projectId: string; taskIds: string[] }>;
   processedBuildEventIds: string[];
   construction: ReturnType<WorldConstructionRuntime['exportState']>;
+  /** Opcional para restaurar saves anteriores à implantação do aprendizado. */
+  skillLearning?: SkillLearningHostState;
 }
 
 export interface SocietyAgentRuntimeFrame {
@@ -78,6 +85,7 @@ export const MAX_CONCURRENT_PROJECTS = 2;
 
 export class SocietyAgentRuntime {
   private memory: AgentMemoryBook = emptyAgentMemory();
+  private learningHost = new SkillLearningHost();
   private lastDirective: CowilaDirective | null = null;
   private readonly construction: WorldConstructionRuntime;
   private readonly configApprovedAssetIds: ReadonlySet<string>;
@@ -114,6 +122,10 @@ export class SocietyAgentRuntime {
     return this.lastDirective;
   }
 
+  getSkillLearningBook(): SkillLearningBook {
+    return this.learningHost.getBook();
+  }
+
   getConstructionRuntime(): WorldConstructionRuntime {
     return this.construction;
   }
@@ -131,6 +143,7 @@ export class SocietyAgentRuntime {
       })),
       processedBuildEventIds: [...this.processedBuildEventIds],
       construction: this.construction.exportState(),
+      skillLearning: this.learningHost.exportState(),
     };
   }
 
@@ -161,6 +174,8 @@ export class SocietyAgentRuntime {
       this.configApprovedAssetIds,
     );
     if (!candidateConstruction.restoreState(state.construction)) return false;
+    const candidateLearningHost = new SkillLearningHost();
+    if (state.skillLearning !== undefined && !candidateLearningHost.restoreState(state.skillLearning)) return false;
     const constructionState = candidateConstruction.exportState();
     const projectIds = new Set(constructionState.projects.map((entry) => entry.project.id));
     if (state.projectTaskQueue.some((entry) => !projectIds.has(entry.projectId))
@@ -171,6 +186,7 @@ export class SocietyAgentRuntime {
     }
 
     this.memory = JSON.parse(JSON.stringify(state.memory)) as AgentMemoryBook;
+    this.learningHost = candidateLearningHost;
     this.lastDirective = state.lastDirective
       ? JSON.parse(JSON.stringify(state.lastDirective)) as CowilaDirective : null;
     this.lastCowilaTick = state.lastCowilaTick;
@@ -184,7 +200,10 @@ export class SocietyAgentRuntime {
   }
 
   step(simulation: SocietySimulation, steps = 1): SocietyAgentRuntimeFrame {
-    const snapshot = simulation.step(steps);
+    // Eventos do ciclo anterior alimentam o viés do próximo ciclo especialista.
+    const learning = this.learningHost.observe(simulation.snapshot());
+    const snapshot = simulation.step(steps, learning);
+    this.learningHost.observe(snapshot);
     this.memory = ingestEventsIntoMemory(this.memory, snapshot.events, snapshot.tick);
 
     const registeredProjectIds: string[] = [];
