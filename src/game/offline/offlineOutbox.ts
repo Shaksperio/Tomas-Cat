@@ -73,7 +73,9 @@ export async function getPendingGameSave(uid: string): Promise<PendingGameSave |
       request.onsuccess = () => resolve((request.result as PendingGameSave | undefined) ?? null);
       request.onerror = () => reject(request.error ?? new Error('Falha ao ler a fila offline.'));
     });
-    return stored ?? readFallback(uid);
+    const fallback = readFallback(uid);
+    if (!stored) return fallback;
+    return fallback && fallback.queuedAt > stored.queuedAt ? fallback : stored;
   } catch {
     return readFallback(uid);
   }
