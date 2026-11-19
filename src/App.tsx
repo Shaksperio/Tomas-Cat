@@ -69,7 +69,9 @@ export default function App() {
 
   useEffect(() => {
     if (!authUser || !accountReady || !connectionOnline) return;
-    void flushPendingAccountGameSave(authUser.uid).catch((error) => {
+    void flushPendingAccountGameSave(authUser.uid).then(() => {
+      setOfflineFallback(false);
+    }).catch((error) => {
       setOfflineFallback(true);
       showToast(`Sincronização pendente: ${errorMessage(error)}`, 'warn');
     });
@@ -87,7 +89,9 @@ export default function App() {
       setConnectionOnline(true);
       if (authUser) {
         engineRef.current?.persistNow();
-        void flushPendingAccountGameSave(authUser.uid).catch((error) => {
+        void flushPendingAccountGameSave(authUser.uid).then(() => {
+          setOfflineFallback(false);
+        }).catch((error) => {
           setOfflineFallback(true);
           showToast(`Sincronização pendente: ${errorMessage(error)}`, 'warn');
         });
