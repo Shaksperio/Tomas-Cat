@@ -16,6 +16,7 @@ export function OracleDialogue({ onClose }: { onClose: () => void }) {
     event.preventDefault();
     const message = draft.trim();
     if (!message || busy) return;
+    const history = messages.filter((item) => item.role !== 'oracle' || messages.indexOf(item) > 0).slice(-10).map((item) => ({ role: item.role === 'oracle' ? 'assistant' : 'user', content: item.text }));
     setDraft('');
     setError('');
     setMessages((current) => [...current, { role: 'player', text: message }]);
@@ -24,7 +25,7 @@ export function OracleDialogue({ onClose }: { onClose: () => void }) {
       const response = await fetch(`${ENDPOINT}/v1/oracle-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, world: { character: 'Tomas', role: 'O Escolhido', setting: 'Matrix' } }),
+        body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'O Escolhido', setting: 'Matrix' } }),
       });
       const data = await response.json() as { reply?: string; error?: string };
       if (!response.ok || typeof data.reply !== 'string') throw new Error(data.error || `A Oráculo não respondeu (HTTP ${response.status}).`);

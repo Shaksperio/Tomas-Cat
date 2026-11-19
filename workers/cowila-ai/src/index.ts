@@ -38,15 +38,16 @@ function json(data: unknown, status: number, origin: string, allowed: string): R
   });
 }
 
-function rateLimited(ip: string): boolean {
+function rateLimited(ip: string, scope: 'chat' | 'decisions', limit = MAX_REQUESTS_PER_WINDOW): boolean {
   const now = Date.now();
-  const current = requestWindows.get(ip);
+  const key = `${scope}:${ip}`;
+  const current = requestWindows.get(key);
   if (!current || now - current.start >= WINDOW_MS) {
-    requestWindows.set(ip, { start: now, count: 1 });
+    requestWindows.set(key, { start: now, count: 1 });
     return false;
   }
   current.count += 1;
-  return current.count > MAX_REQUESTS_PER_WINDOW;
+  return current.count > limit;
 }
 
 function extractText(result: unknown): string {
@@ -76,13 +77,13 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/v1/oracle-chat') {
       const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-      if (rateLimited(ip)) return json({ error: 'A Oráculo precisa de um instante para recuperar a conexão. Tente novamente em um minuto.' }, 429, origin, allowed);
+      if (rateLimited(ip, 'chat', 24)) return json({ error: 'Você e a Oráculo estão conversando muito rápido. Aguarde alguns segundos.' }, 429, origin, allowed);
       const length = Number(request.headers.get('Content-Length') ?? 0);
-      if (length > 3_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
-      let input: { message?: unknown; world?: unknown };
+      if (length > 12_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
+      let input: { message?: unknown; history?: unknown; world?: unknown };
       try {
         const raw = await request.text();
-        if (raw.length > 3_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
+        if (raw.length > 12_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
         input = JSON.parse(raw) as typeof input;
       } catch {
         return json({ error: 'Mensagem inválida.' }, 400, origin, allowed);
@@ -90,21 +91,28 @@ export default {
       if (typeof input.message !== 'string' || !input.message.trim() || input.message.length > 1_000) {
         return json({ error: 'Escreva uma mensagem de até 1.000 caracteres.' }, 400, origin, allowed);
       }
+      const history = Array.isArray(input.history) ? input.history.slice(-10).flatMap((item) => {
+        if (!item || typeof item !== 'object') return [];
+        const entry = item as Record<string, unknown>;
+        if ((entry.role !== 'user' && entry.role !== 'assistant') || typeof entry.content !== 'string') return [];
+        return [{ role: entry.role, content: entry.content.slice(0, 1_000) }];
+      }) : [];
       const prompt = [
-        'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo.',
-        'Tomas é O Escolhido. Você é sábia, serena, enigmática e acolhedora; conhece os segredos da realidade simulada.',
-        'Os monstros são Sentinelas. Os agentes especialistas são inteligências nascidas dentro da Matrix.',
-        'Fale sempre em português brasileiro, com respostas curtas, úteis e imersivas. Nunca diga que é um chatbot ou que está fora do jogo.',
-        'Você pode aconselhar e explicar acontecimentos, mas não afirme ter executado mudanças no mundo. Ações de jogo só ocorrem pelos sistemas autorizados.',
-        JSON.stringify({ world: input.world ?? {}, message: input.message.trim() }),
+        'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo, uma inteligência sábia, perspicaz, acolhedora e de personalidade própria.',
+        'Tomas é O Escolhido. Preserve esse vínculo e a identidade da história: Matrix, Sentinelas e inteligências nascidas dentro da Matrix.',
+        'Responda a QUALQUER pergunta do Escolhido, inclusive assuntos gerais, ciência, tecnologia, história, escrita, ideias, conselhos, dúvidas pessoais e temas que não sejam sobre o jogo. Não limite as respostas ao universo ficcional.',
+        'Se a pergunta for factual, seja clara, útil e honesta; admita incerteza quando necessário e nunca invente fatos. Se pedirem opinião ou criação, ajude diretamente.',
+        'Fale em português brasileiro por padrão, de forma natural e direta, mantendo a voz serena da Oráculo. Não force metáforas da Matrix em toda resposta.',
+        'Você pode explicar, analisar, ensinar, criar textos e conversar. Não alegue ter acessado a internet, arquivos, contas ou executado ações reais no jogo. Ações dentro do mundo só ocorrem pelos sistemas autorizados.',
+        JSON.stringify({ world: input.world ?? {}, conversation: history, currentQuestion: input.message.trim() }),
       ].join('\n\n');
       try {
         const result = await env.AI.run(MODEL, {
           messages: [
-            { role: 'system', content: 'Interprete a personagem Oráculo Cowila e respeite integralmente o contexto do jogo.' },
+            { role: 'system', content: 'Você é Cowila. Ajude o usuário com liberdade temática e precisão, preservando sua identidade de Oráculo sem restringir assuntos ao jogo.' },
             { role: 'user', content: prompt },
           ],
-          max_tokens: 420,
+          max_tokens: 900,
           temperature: 0.65,
         });
         const reply = extractText(result).trim().slice(0, 1_800);
@@ -118,7 +126,7 @@ export default {
       return json({ error: 'Rota não encontrada.' }, 404, origin, allowed);
     }
     const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-    if (rateLimited(ip)) return json({ error: 'Limite temporário de consultas. Tente novamente em um minuto.' }, 429, origin, allowed);
+    if (rateLimited(ip, 'decisions')) return json({ error: 'Limite temporário de consultas. Tente novamente em um minuto.' }, 429, origin, allowed);
     const length = Number(request.headers.get('Content-Length') ?? 0);
     if (length > MAX_BODY) return json({ error: 'Contexto muito grande.' }, 413, origin, allowed);
 
