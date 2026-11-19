@@ -26,6 +26,7 @@ import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuil
 import { SocietySimulation } from './society/simulation';
 import { WorldSocietyRegistry } from './society/worldSocietyRegistry';
 import { SocietyActors } from './society/SocietyActors';
+import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
 import { WorldAgentRuntimeRegistry } from './society/agents/worldAgentRuntimeRegistry';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
 import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
@@ -160,6 +161,8 @@ export class GameEngine {
   private readonly societyActors: SocietyActors;
   private societyTickTimer = 0;
   private societySaveTimer = 0;
+  private cowilaAiRequestPending = false;
+  private cowilaAiLastRequestedTick = -1;
   private readonly contactShadow: THREE.Mesh;
   private readonly gpsRoutePositions = new Float32Array(768 * 3);
   private readonly gpsRoute: THREE.Line;
@@ -2598,6 +2601,39 @@ export class GameEngine {
       this.societyTickTimer += dt;
       while (this.societyTickTimer >= 1) {
         const frame = this.agentRuntime.step(this.society, 1);
+        // A Cowila generativa consulta a sociedade em intervalos de 25 ticks.
+        // A rede nunca bloqueia o frame; propostas retornam ao validador local.
+        if (isCowilaAiConfigured() && !this.cowilaAiRequestPending
+          && frame.snapshot.tick > 0 && frame.snapshot.tick % 25 === 0
+          && this.cowilaAiLastRequestedTick !== frame.snapshot.tick) {
+          this.cowilaAiRequestPending = true;
+          this.cowilaAiLastRequestedTick = frame.snapshot.tick;
+          const targetSociety = this.society;
+          const requestedTick = frame.snapshot.tick;
+          void requestCowilaDecision(frame.snapshot).then((decision) => {
+            if (targetSociety.snapshot().tick !== requestedTick || decision.tick !== requestedTick) return;
+            let accepted = 0;
+            for (const proposal of decision.proposals) {
+              const acceptedProposal = targetSociety.scheduleAiSpecialistTask({
+                proposalId: `cowila-ai:${requestedTick}:${proposal.agentId}:${proposal.taskKind}`,
+                agentId: proposal.agentId,
+                taskKind: proposal.taskKind as import('./society/contracts').AgentTask['kind'],
+                sectorId: targetSociety.snapshot().agents.find((agent) => agent.id === proposal.agentId)?.position.sectorId ?? '',
+                target: null,
+                requiredResources: {},
+                reason: proposal.reason,
+                priority: proposal.priority,
+                createdAtTick: requestedTick,
+              });
+              if (acceptedProposal) accepted += 1;
+            }
+            if (accepted > 0) this.callbacks.onToast(`Cowila IA: ${accepted} nova(s) tarefa(s) estratégica(s). ${decision.brief}`, 'info');
+          }).catch(() => {
+            // Falha remota não interrompe a simulação determinística.
+          }).finally(() => {
+            this.cowilaAiRequestPending = false;
+          });
+        }
         if (frame.readyPlacements.length > 0) {
           this.societyActors.applyReadyPlacements(frame.readyPlacements);
           const completedProjectIds = [...new Set(frame.readyPlacements.map((placement) => placement.projectId))];
