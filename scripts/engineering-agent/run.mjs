@@ -94,7 +94,13 @@ execFileSync("git", ["push", "origin", slug]);
 
 // O rótulo permite que o avaliador reconheça a proposta, mas não substitui CI,
 // aprovação independente nem qualquer outra regra de segurança.
-execFileSync("gh", ["label", "create", "agent-pr", "--color", "1D76DB", "--description", "PR criada por agente autorizado"], { stdio: "ignore" , env: { ...process.env } });
+try {
+  execFileSync("gh", ["label", "create", "agent-pr", "--color", "1D76DB", "--description", "PR criada por agente autorizado"], { stdio: "ignore" });
+} catch {
+  const labels = execFileSync("gh", ["label", "list", "--search", "agent-pr", "--json", "name", "--jq", ".[].name"], { encoding: "utf8" })
+    .split("\\n").map((name) => name.trim());
+  if (!labels.includes("agent-pr")) throw new Error("Não foi possível garantir o rótulo agent-pr; PR não será criada.");
+}
 const body = [
   "## Proposta do agente de engenharia", "", result.summary, "",
   "### Arquivos", ...changed.map((path) => `- \`${path}\``), "",
