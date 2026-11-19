@@ -6,6 +6,9 @@ Adotar padrões úteis do Hermes Agent sem embutir seu runtime Python no cliente
 
 ## Entregue nesta primeira etapa
 
+- **Identidade única de Skills:** o Worker usa os mesmos IDs (`engineer.survey-and-design`, `farmer.food-security` etc.) do catálogo canônico do jogo. Sua lista é apenas um espelho de allowlist para filtrar propostas remotas, não um segundo executor. A versão do runtime Worker foi elevada para `1.0.1`.
+- **Validação estrita de delegação:** profundidades fracionárias, negativas ou acima do limite são recusadas; prioridade deve permanecer entre 0 e 100.
+
 - **Skills versionadas:** cada profissão recebe uma skill identificada e versionada, com missão, tipos de tarefa permitidos e capacidades de ferramenta.
 - **Catálogo de capacidades:** ferramentas são descritas por identificadores estáveis e efeitos `read` ou `propose`. Nesta etapa, o catálogo não executa código arbitrário.
 - **Delegação limitada:** Cowila pode recomendar até três tarefas por ciclo; cada proposta só pode delegar um nível, para agente ocioso e tarefa autorizada simultaneamente pela skill e pela permissão do agente.
