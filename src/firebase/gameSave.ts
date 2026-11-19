@@ -1,8 +1,17 @@
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { SavedGameState } from '../types/game';
+import { deletePendingGameSave, getPendingGameSave, putPendingGameSave, type PendingGameSave } from '../game/offline/offlineOutbox';
 import { firestore } from './client';
 
-const pending = new Map<string, { payload: SavedGameState; timer: number; onError?: (error: unknown) => void; onSaved?: () => void }>();
+interface QueuedSave extends PendingGameSave {
+  timer: number;
+  persistPromise: Promise<void>;
+  onError?: (error: unknown) => void;
+  onSaved?: () => void;
+}
+
+const pending = new Map<string, QueuedSave>();
+let revisionCounter = 0;
 
 function saveDocument(uid: string) {
   if (!firestore) throw new Error('Firebase Firestore não está configurado.');
@@ -20,8 +29,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 export async function loadAccountGameSave(uid: string): Promise<SavedGameState | null> {
-  // Sem banco Firestore criado ou sem rede, getDoc pode ficar pendente por tempo
-  // indeterminado; o limite faz o erro aparecer na tela em vez de travar.
   const snapshot = await withTimeout(
     getDoc(saveDocument(uid)),
     12_000,
@@ -46,6 +53,11 @@ export async function saveAccountGameSave(uid: string, payload: SavedGameState):
   });
 }
 
+function createRevision(): string {
+  revisionCounter += 1;
+  return Date.now().toString(36) + '-' + revisionCounter.toString(36);
+}
+
 export function queueAccountGameSave(
   uid: string,
   payload: SavedGameState,
@@ -53,25 +65,66 @@ export function queueAccountGameSave(
   onError?: (error: unknown) => void,
 ): void {
   const previous = pending.get(uid);
-  if (previous) {
-    // Keep only the latest snapshot, but retain the first timer to throttle
-    // the engine's six-second autosave cadence into a cloud write every ~15s.
-    previous.payload = payload;
-    previous.onSaved = onSaved;
-    previous.onError = onError;
-    return;
-  }
-  const timer = window.setTimeout(() => {
-    void flushAccountGameSave(uid).catch(onError);
+  const revision = createRevision();
+  const record: PendingGameSave = { uid, revision, queuedAt: Date.now(), payload };
+  const persistPromise = putPendingGameSave(record);
+  const timer = previous?.timer ?? window.setTimeout(() => {
+    void flushAccountGameSave(uid).catch(() => undefined);
   }, 15_000);
-  pending.set(uid, { payload, timer, onSaved, onError });
+  pending.set(uid, { ...record, timer, persistPromise, onSaved, onError });
 }
 
 export async function flushAccountGameSave(uid: string): Promise<void> {
   const queued = pending.get(uid);
-  if (!queued) return;
-  window.clearTimeout(queued.timer);
-  pending.delete(uid);
-  await saveAccountGameSave(uid, queued.payload);
-  queued.onSaved?.();
+  await queued?.persistPromise;
+  const durable = await getPendingGameSave(uid);
+  const candidate = durable ?? queued;
+  if (!candidate) return;
+  // Se uma versão mais nova chegou enquanto a versão anterior era preparada,
+  // não envie a antiga: o próximo flush usará o snapshot mais recente.
+  const latest = pending.get(uid);
+  if (latest && latest.revision !== candidate.revision) return;
+
+  try {
+    await saveAccountGameSave(uid, candidate.payload);
+    // Compare-and-delete: nunca apague um snapshot mais novo que chegou durante
+    // a escrita remota.
+    await deletePendingGameSave(uid, candidate.revision);
+    if (pending.get(uid)?.revision === candidate.revision) {
+      window.clearTimeout(pending.get(uid)!.timer);
+      pending.delete(uid);
+    }
+    latest?.onSaved?.();
+  } catch (error) {
+    const current = pending.get(uid);
+    if (current?.revision === candidate.revision) {
+      window.clearTimeout(current.timer);
+      const retryTimer = window.setTimeout(() => {
+        void flushAccountGameSave(uid).catch(() => undefined);
+      }, 15_000);
+      pending.set(uid, { ...current, timer: retryTimer });
+      current.onError?.(error);
+    } else {
+      queued?.onError?.(error);
+    }
+    throw error;
+  }
+}
+
+/** Reenvia o último snapshot durável da conta após a autenticação/reconexão. */
+export async function flushPendingAccountGameSave(uid: string): Promise<void> {
+  const durable = await getPendingGameSave(uid);
+  if (!durable) return;
+  const current = pending.get(uid);
+  if (!current || current.revision !== durable.revision) {
+    const timer = current?.timer ?? window.setTimeout(() => {
+      void flushAccountGameSave(uid).catch(() => undefined);
+    }, 0);
+    pending.set(uid, {
+      ...durable,
+      timer,
+      persistPromise: Promise.resolve(),
+    });
+  }
+  await flushAccountGameSave(uid);
 }
