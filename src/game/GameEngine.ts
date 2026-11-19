@@ -2860,7 +2860,7 @@ export class GameEngine {
       const dz = HIDDEN_NEW_YORK_SANCTUARY.z - this.catPos.z;
       return {
         id: 'hidden-new-york-oracle',
-        label: 'Santuário da Oráculo — Nova York Oculta',
+        label: 'Santuário da Oráculo — Metrópole Oculta',
         event: 'enemy_defeated',
         x: HIDDEN_NEW_YORK_SANCTUARY.x,
         y: HIDDEN_NEW_YORK_SANCTUARY.y,
@@ -2868,7 +2868,7 @@ export class GameEngine {
         dx,
         dz,
         distance: Math.hypot(dx, dz),
-        objective: 'Siga a linha azul do GPS até a cidade escondida e encontre Cowila.',
+        objective: 'Siga a linha azul do GPS até a metrópole escondida e encontre Cowila.',
         taskTitle: 'Encontre a Oráculo',
       };
     }
