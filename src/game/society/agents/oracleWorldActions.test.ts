@@ -8,6 +8,7 @@ test('accepts only bounded, catalog-backed world commands', () => {
     { type: 'set_time', timeOfDay: 0.75 },
     { type: 'create_structure', assetId: 'module_watchtower', x: 12, z: -8 },
     { type: 'create_structure', assetId: 'module_unknown', x: 0, z: 0 },
+    { type: 'create_structure', assetId: 'module_bridge_segment', x: 2, z: 2 },
     { type: 'create_structure', assetId: 'module_watchtower', x: 999, z: 0 },
     { type: 'run_code', code: 'window.alert(1)' },
   ]);
