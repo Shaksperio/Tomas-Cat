@@ -254,6 +254,30 @@ export class SocietySimulation {
     this.enqueueTask(makeTask('task-trade-01', 'trade_goods', 'merchant', 0));
   }
 
+  /** Cria um habitante persistente a pedido da Oráculo, sem lhe revelar a identidade. */
+  public spawnOracleAgent(input: { id: string; displayName: string; profession: AgentProfession; x: number; z: number }): boolean {
+    const allowedProfessions = new Set<AgentProfession>(['engineer', 'worker', 'agent', 'farmer', 'lumberjack', 'miner', 'carpenter', 'merchant']);
+    const displayName = input.displayName.trim();
+    const normalizedName = displayName.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+    if (!/^oracle-agent-[a-z0-9-]{1,48}$/i.test(input.id) || this.agents.has(input.id)
+      || !allowedProfessions.has(input.profession) || displayName.length < 2 || displayName.length > 28
+      || /[\\u0000-\\u001f<>]/.test(displayName) || normalizedName.includes('cowila') || normalizedName.includes('oraculo')
+      || [...this.agents.values()].some((agent) => agent.displayName.toLocaleLowerCase('pt-BR') === displayName.toLocaleLowerCase('pt-BR'))
+      || !Number.isFinite(input.x) || !Number.isFinite(input.z) || Math.abs(input.x) > 160 || Math.abs(input.z) > 160
+      || this.agents.size >= 32) return false;
+    const agent = makeAgent(input.id, displayName, input.profession, input.x, input.z);
+    this.addAgent(agent);
+    const nearest = [...this.agents.values()]
+      .filter((candidate) => candidate.id !== agent.id)
+      .sort((a, b) => Math.hypot(a.position.x - input.x, a.position.z - input.z) - Math.hypot(b.position.x - input.x, b.position.z - input.z))[0];
+    if (nearest) this.addRelationship(nearest.id, agent.id, 50, 50);
+    const initialTask: Record<AgentProfession, AgentTask['kind']> = {
+      engineer: 'survey_site', worker: 'gather_materials', agent: 'patrol_area', farmer: 'cultivate_field',
+      lumberjack: 'chop_wood', miner: 'mine_stone', carpenter: 'craft_planks', merchant: 'trade_goods',
+    };
+    this.enqueueTask(makeTask('oracle-agent-task-' + input.id, initialTask[input.profession], input.profession, this.tickCount));
+    return true;
+  }
   private addAgent(agent: SimulatedAgent): void {
     this.agents.set(agent.id, agent);
     this.emit('agent_spawned', agent.id, { agentId: agent.id, profession: agent.profession });
