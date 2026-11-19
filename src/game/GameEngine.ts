@@ -313,11 +313,11 @@ export class GameEngine {
   /** Estado persistente de viagem; o motor atual ainda carrega apenas o mundo legado. */
   private worldTravel: WorldTravelSaveState = createInitialWorldTravelState(LEGACY_WORLD_ID);
 
-  constructor(container: HTMLElement, callbacks: EngineCallbacks, ownerId: string, ownerEmail = '') {
+  constructor(container: HTMLElement, callbacks: EngineCallbacks, ownerId: string, ownerEmail = '', ownerEmailVerified = false) {
     this.container = container;
     this.callbacks = callbacks;
     this.ownerId = ownerId;
-    this.oracleAuthorized = ownerEmail.trim().toLowerCase() === 'antonyopintor@gmail.com';
+    this.oracleAuthorized = ownerEmailVerified && ownerEmail.trim().toLowerCase() === 'antonyopintor@gmail.com';
     this.saveKey = `${SAVE_KEY}_${ownerId}`;
 
     this.isSoftwareGl = (() => {
