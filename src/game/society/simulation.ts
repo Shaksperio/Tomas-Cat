@@ -69,6 +69,7 @@ import {
   type WorldEvent,
   canAgentAcceptTask,
 } from './contracts';
+import { authorizeSpecialistProposal, type SpecialistTaskProposal } from './agents/policies';
 import {
   completeProbation,
   createDisciplineRecord,
@@ -889,6 +890,25 @@ export class SocietySimulation {
     if (record.status === 'suspended' || record.status === 'permanently_blocked') return false;
     // Durante a probation, agentes não executam construção, reparos ou preparação territorial.
     return !['prepare_site', 'build_module', 'repair_structure'].includes(taskKind);
+  }
+
+  /**
+   * Recebe uma recomendação generativa da Cowila e a transforma em tarefa local
+   * somente após validar tick, profissão, permissões, disponibilidade e recursos.
+   */
+  public scheduleAiSpecialistTask(proposal: SpecialistTaskProposal): boolean {
+    const snapshot = this.snapshot();
+    const decision = authorizeSpecialistProposal(proposal, snapshot);
+    if (!decision.accepted) return false;
+    const agent = this.agents.get(proposal.agentId);
+    if (!agent) return false;
+    if (this.tasks.has(proposal.proposalId)) return false;
+    const task = makeTask(proposal.proposalId, proposal.taskKind, agent.profession, this.tickCount);
+    task.sectorId = proposal.sectorId;
+    task.target = proposal.target ? { ...proposal.target } : null;
+    task.requiredResources = { ...proposal.requiredResources };
+    this.enqueueTask(task);
+    return true;
   }
 
   /** Avança exatamente um passo lógico da simulação. */
