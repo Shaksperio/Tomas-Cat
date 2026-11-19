@@ -26,6 +26,7 @@ import { buildPostApocalypticWorld, BuiltWorld, WORLD_BOUNDS } from './worldBuil
 import { SocietySimulation } from './society/simulation';
 import { WorldSocietyRegistry } from './society/worldSocietyRegistry';
 import { SocietyActors } from './society/SocietyActors';
+import { OraculoActor } from './society/agents/OraculoActor';
 import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
 import { WorldAgentRuntimeRegistry } from './society/agents/worldAgentRuntimeRegistry';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
@@ -131,6 +132,7 @@ export interface EngineCallbacks {
   onVictory: (snapshot: HudSnapshot) => void;
   onEvolutionUnlocked: (newStageIndex: number) => void;
   onSaveGame?: (payload: SavedGameState) => void;
+  onOracleInteract?: () => void;
 }
 
 export class GameEngine {
@@ -159,6 +161,8 @@ export class GameEngine {
     return this.societyRegistry.simulationFor(this.worldSceneManager.activeWorldId);
   }
   private readonly societyActors: SocietyActors;
+  private readonly oracle: OraculoActor | null;
+  private readonly oracleAuthorized: boolean;
   private societyTickTimer = 0;
   private societySaveTimer = 0;
   private cowilaAiRequestPending = false;
@@ -292,6 +296,7 @@ export class GameEngine {
   private isInsideShelter = false;
   private currentShelterId: string | null = null;
   private activeInteractableId: string | null = null;
+  private oracleInteractionCooldown = 0;
   private discoveredTerminals = new Set<string>();
   private foodCollected = 0;
   private waterDrunk = 0;
@@ -308,10 +313,11 @@ export class GameEngine {
   /** Estado persistente de viagem; o motor atual ainda carrega apenas o mundo legado. */
   private worldTravel: WorldTravelSaveState = createInitialWorldTravelState(LEGACY_WORLD_ID);
 
-  constructor(container: HTMLElement, callbacks: EngineCallbacks, ownerId: string) {
+  constructor(container: HTMLElement, callbacks: EngineCallbacks, ownerId: string, ownerEmail = '') {
     this.container = container;
     this.callbacks = callbacks;
     this.ownerId = ownerId;
+    this.oracleAuthorized = ownerEmail.trim().toLowerCase() === 'antonyopintor@gmail.com';
     this.saveKey = `${SAVE_KEY}_${ownerId}`;
 
     this.isSoftwareGl = (() => {
@@ -447,6 +453,7 @@ export class GameEngine {
     this.gpsRoute.visible = false;
     this.scene.add(this.gpsRoute);
     this.societyActors = new SocietyActors(this.scene);
+    this.oracle = this.oracleAuthorized ? new OraculoActor(this.scene) : null;
     this.battleStage = new BattleStage(this.scene, this.camera);
     this.societyActors.update(0, this.society.snapshot(), false);
 
@@ -1970,6 +1977,10 @@ export class GameEngine {
   public triggerInteract(): void {
     if (this.phase !== 'playing') return;
     if (!this.activeInteractableId) return;
+    if (this.activeInteractableId === 'cowila-oracle' && this.oracle && this.oracleAuthorized) {
+      this.callbacks.onOracleInteract?.();
+      return;
+    }
     const item = this.world.interactables.find((i) => i.id === this.activeInteractableId);
     if (!item || !item.active) return;
 
@@ -2651,9 +2662,11 @@ export class GameEngine {
         this.societySaveTimer = 0;
       }
       this.societyActors.update(dt, this.snapshotForActors(), true);
+      this.oracle?.update(dt);
     } else {
       // Durante a conversa o habitante permanece visível para ancorar o balão.
       this.societyActors.update(dt, this.society.snapshot(), this.activeDialogue !== null);
+      this.oracle?.update(dt);
     }
 
     this.renderer.render(this.scene, this.camera);
@@ -3317,6 +3330,9 @@ export class GameEngine {
     if (this.isInsideShelter) this.rainPoints.visible = false;
 
     this.activeInteractableId = closestId;
+    if (this.oracle && this.oracleAuthorized && this.oracle.isNear(this.catPos.x, this.catPos.z)) {
+      this.activeInteractableId = 'cowila-oracle';
+    }
 
     // 6. Predator, Boss & Rooftop Rival Cat AI
     for (const pred of this.world.predators) {
