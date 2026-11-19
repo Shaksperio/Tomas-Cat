@@ -71,9 +71,14 @@ export class OraculoActor {
   dispose(): void {
     this.root.traverse((object) => {
       if (object instanceof THREE.Mesh || object instanceof THREE.Sprite) {
-        object.geometry?.dispose?.();
+        if (object instanceof THREE.Mesh) object.geometry.dispose();
         const materials = Array.isArray(object.material) ? object.material : [object.material];
-        materials.forEach((material) => { material.map?.dispose(); material.dispose(); });
+        materials.forEach((material) => {
+          if (material instanceof THREE.MeshBasicMaterial || material instanceof THREE.MeshStandardMaterial || material instanceof THREE.SpriteMaterial) {
+            material.map?.dispose();
+          }
+          material.dispose();
+        });
       }
     });
     this.scene.remove(this.root);
