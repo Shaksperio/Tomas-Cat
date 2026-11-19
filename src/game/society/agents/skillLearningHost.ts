@@ -24,6 +24,12 @@ import {
   type SkillLearningBook,
 } from './skillLearning';
 
+export interface SkillLearningHostState {
+  schemaVersion: 1;
+  book: SkillLearningBook;
+  seenEventIds: string[];
+}
+
 export class SkillLearningHost {
   private book: SkillLearningBook = emptySkillLearning();
   private seenEventIds = new Set<string>();
@@ -69,6 +75,36 @@ export class SkillLearningHost {
   importBook(book: SkillLearningBook): void {
     this.book = exportSkillLearning(book);
     this.seenEventIds = new Set();
+  }
+
+  exportState(): SkillLearningHostState {
+    return {
+      schemaVersion: 1,
+      book: exportSkillLearning(this.book),
+      seenEventIds: [...this.seenEventIds].sort(),
+    };
+  }
+
+  restoreState(state: SkillLearningHostState): boolean {
+    if (!state || state.schemaVersion !== 1
+      || !state.book || typeof state.book.bySkill !== 'object'
+      || state.book.bySkill === null || Array.isArray(state.book.bySkill)
+      || !Array.isArray(state.seenEventIds)
+      || state.seenEventIds.some((id) => typeof id !== 'string' || id.length === 0)
+      || new Set(state.seenEventIds).size !== state.seenEventIds.length) return false;
+
+    for (const [key, stats] of Object.entries(state.book.bySkill)) {
+      if (!key || !stats || stats.skillKey !== key
+        || !Number.isSafeInteger(stats.successCount) || stats.successCount < 0
+        || !Number.isSafeInteger(stats.failureCount) || stats.failureCount < 0
+        || !Number.isSafeInteger(stats.lastOutcomeTick) || stats.lastOutcomeTick < 0
+        || !Array.isArray(stats.recentFailureReasons)
+        || stats.recentFailureReasons.some((reason) => typeof reason !== 'string')) return false;
+    }
+
+    this.book = exportSkillLearning(state.book);
+    this.seenEventIds = new Set(state.seenEventIds);
+    return true;
   }
 
   reset(): void {
