@@ -28,6 +28,7 @@ test('placements exigem a conclusão de todas as tarefas vinculadas ao projeto',
   const base = new SocietySimulation().snapshot();
   const scheduled: string[][] = [];
   const fakeSimulation = {
+    snapshot: () => base,
     step: () => ({
       ...base,
       tick: 1,
@@ -115,6 +116,7 @@ test('evento build_module sem vínculo explícito não conclui projeto de constr
     }],
   };
   const fakeSimulation = {
+    snapshot: () => base,
     step: () => snapshot,
     scheduleConstructionProject: (project: { taskIds: string[] }) => [...project.taskIds],
   } as unknown as SocietySimulation;
@@ -152,6 +154,7 @@ test('evento de etapa vinculado avança somente o projeto correspondente', () =>
     }],
   };
   const fakeSimulation = {
+    snapshot: () => base,
     step: () => snapshot,
     scheduleConstructionProject: (project: { taskIds: string[] }) => [...project.taskIds],
   } as unknown as SocietySimulation;
@@ -213,6 +216,7 @@ test('persists Cowila memory, project queue and construction publication state',
     resources: { food: 60, wood: 60, stone: 60, planks: 60, coins: 999 },
   };
   const fakeSimulation = {
+    snapshot: () => base,
     step: () => snapshot,
     scheduleConstructionProject: (project: { taskIds: string[] }) => [...project.taskIds],
   } as unknown as SocietySimulation;
