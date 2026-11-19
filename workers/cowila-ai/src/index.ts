@@ -1,6 +1,7 @@
 export interface Env {
   AI: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
   ALLOWED_ORIGIN: string;
+  GEMINI_API_KEY?: string;
 }
 
 type AgentInput = {
@@ -60,6 +61,30 @@ function extractText(result: unknown): string {
   throw new Error('Resposta vazia do modelo.');
 }
 
+async function geminiOracleReply(apiKey: string, prompt: string): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: 'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo. Responda em português brasileiro por padrão, com sabedoria, naturalidade e precisão. Tomas é O Escolhido; preserve a identidade da história, mas responda também sobre qualquer assunto geral. Não invente fatos nem alegue executar ações reais.' }] },
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.65, maxOutputTokens: 900 },
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error('Gemini HTTP ' + response.status);
+    const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    const reply = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim();
+    if (!reply) throw new Error('Gemini retornou resposta vazia.');
+    return reply.slice(0, 1_800);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function parseJson(text: string): unknown {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   const start = cleaned.indexOf('{');
@@ -117,9 +142,17 @@ export default {
         });
         const reply = extractText(result).trim().slice(0, 1_800);
         if (!reply) throw new Error('Resposta vazia.');
-        return json({ reply, model: MODEL }, 200, origin, allowed);
+        return json({ reply, model: MODEL, provider: 'cloudflare' }, 200, origin, allowed);
       } catch {
-        return json({ error: 'A conexão com a Oráculo falhou. Tente novamente em instantes.' }, 503, origin, allowed);
+        if (env.GEMINI_API_KEY) {
+          try {
+            const reply = await geminiOracleReply(env.GEMINI_API_KEY, prompt);
+            return json({ reply, model: 'gemini-2.5-flash', provider: 'gemini', fallback: true }, 200, origin, allowed);
+          } catch {
+            // Provider details and credentials are intentionally not exposed to the browser.
+          }
+        }
+        return json({ error: 'A Oráculo está temporariamente indisponível nos dois provedores. Tente novamente em instantes.' }, 503, origin, allowed);
       }
     }
     if (url.pathname !== '/v1/decisions' || request.method !== 'POST') {
