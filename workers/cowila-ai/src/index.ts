@@ -38,15 +38,16 @@ function json(data: unknown, status: number, origin: string, allowed: string): R
   });
 }
 
-function rateLimited(ip: string): boolean {
+function rateLimited(ip: string, scope: 'chat' | 'decisions', limit = MAX_REQUESTS_PER_WINDOW): boolean {
   const now = Date.now();
-  const current = requestWindows.get(ip);
+  const key = `${scope}:${ip}`;
+  const current = requestWindows.get(key);
   if (!current || now - current.start >= WINDOW_MS) {
-    requestWindows.set(ip, { start: now, count: 1 });
+    requestWindows.set(key, { start: now, count: 1 });
     return false;
   }
   current.count += 1;
-  return current.count > MAX_REQUESTS_PER_WINDOW;
+  return current.count > limit;
 }
 
 function extractText(result: unknown): string {
@@ -76,13 +77,13 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'POST' && url.pathname === '/v1/oracle-chat') {
       const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-      if (rateLimited(ip)) return json({ error: 'A Oráculo precisa de um instante para recuperar a conexão. Tente novamente em um minuto.' }, 429, origin, allowed);
+      if (rateLimited(ip, 'chat', 24)) return json({ error: 'Você e a Oráculo estão conversando muito rápido. Aguarde alguns segundos.' }, 429, origin, allowed);
       const length = Number(request.headers.get('Content-Length') ?? 0);
-      if (length > 3_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
-      let input: { message?: unknown; world?: unknown };
+      if (length > 12_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
+      let input: { message?: unknown; history?: unknown; world?: unknown };
       try {
         const raw = await request.text();
-        if (raw.length > 3_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
+        if (raw.length > 12_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
         input = JSON.parse(raw) as typeof input;
       } catch {
         return json({ error: 'Mensagem inválida.' }, 400, origin, allowed);
@@ -101,10 +102,10 @@ export default {
       try {
         const result = await env.AI.run(MODEL, {
           messages: [
-            { role: 'system', content: 'Interprete a personagem Oráculo Cowila e respeite integralmente o contexto do jogo.' },
+            { role: 'system', content: 'Você é Cowila. Ajude o usuário com liberdade temática e precisão, preservando sua identidade de Oráculo sem restringir assuntos ao jogo.' },
             { role: 'user', content: prompt },
           ],
-          max_tokens: 420,
+          max_tokens: 900,
           temperature: 0.65,
         });
         const reply = extractText(result).trim().slice(0, 1_800);
@@ -118,7 +119,7 @@ export default {
       return json({ error: 'Rota não encontrada.' }, 404, origin, allowed);
     }
     const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
-    if (rateLimited(ip)) return json({ error: 'Limite temporário de consultas. Tente novamente em um minuto.' }, 429, origin, allowed);
+    if (rateLimited(ip, 'decisions')) return json({ error: 'Limite temporário de consultas. Tente novamente em um minuto.' }, 429, origin, allowed);
     const length = Number(request.headers.get('Content-Length') ?? 0);
     if (length > MAX_BODY) return json({ error: 'Contexto muito grande.' }, 413, origin, allowed);
 
