@@ -3943,6 +3943,7 @@ export class GameEngine {
     this.battleStage.dispose();
     this.gpsRoute.geometry.dispose();
     (this.gpsRoute.material as THREE.Material).dispose();
+    this.oracle?.dispose();
     this.societyActors.dispose();
     this.skyVisuals.dispose();
     this.worldSceneManager.dispose();
