@@ -158,6 +158,7 @@ export function buildHiddenNewYorkDistrict(root: THREE.Group): ColliderBox[] {
   const pedestrianBody = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.22, 0.55, 3, 6), pedestrianMaterial, 180);
   const pedestrianHeads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.17, 8, 6), new THREE.MeshStandardMaterial({ color: 0xe8c9aa }), 180);
   const pedestrianDummy = new THREE.Object3D();
+  const pedestrianHomes: Array<{ x: number; z: number; phase: number }> = [];
   let pedestrianIndex = 0;
   for (let z = -220; z <= 220 && pedestrianIndex < 180; z += 22) {
     for (let x = -210; x <= 190 && pedestrianIndex < 180; x += 28) {
@@ -165,6 +166,7 @@ export function buildHiddenNewYorkDistrict(root: THREE.Group): ColliderBox[] {
       const offset = ((pedestrianIndex * 13) % 7) - 3;
       const px = x + offset;
       const pz = z + ((pedestrianIndex * 7) % 5) - 2;
+      pedestrianHomes.push({ x: px, z: pz, phase: pedestrianIndex * 1.71 });
       pedestrianDummy.position.set(px, 0.55, pz);
       pedestrianDummy.rotation.y = (pedestrianIndex % 2) * Math.PI;
       pedestrianDummy.updateMatrix();
@@ -180,6 +182,28 @@ export function buildHiddenNewYorkDistrict(root: THREE.Group): ColliderBox[] {
   pedestrianHeads.name = 'metropolis-resident-heads';
   pedestrianBody.count = pedestrianIndex;
   pedestrianHeads.count = pedestrianIndex;
+  // Passos contínuos em trajetórias curtas: a multidão não é um conjunto de estátuas.
+  const animateCrowd = () => {
+    const time = performance.now() * 0.00022;
+    for (let i = 0; i < pedestrianHomes.length; i++) {
+      const home = pedestrianHomes[i];
+      const phase = time + home.phase;
+      const x = home.x + Math.sin(phase) * 1.8;
+      const z = home.z + Math.cos(phase * 0.72) * 1.4;
+      pedestrianDummy.position.set(x, 0.55, z);
+      pedestrianDummy.rotation.set(0, Math.atan2(Math.cos(phase), -Math.sin(phase)), 0);
+      pedestrianDummy.updateMatrix();
+      pedestrianBody.setMatrixAt(i, pedestrianDummy.matrix);
+      pedestrianDummy.position.set(x, 1.08, z);
+      pedestrianDummy.rotation.set(0, 0, 0);
+      pedestrianDummy.updateMatrix();
+      pedestrianHeads.setMatrixAt(i, pedestrianDummy.matrix);
+    }
+    pedestrianBody.instanceMatrix.needsUpdate = true;
+    pedestrianHeads.instanceMatrix.needsUpdate = true;
+  };
+  pedestrianBody.onBeforeRender = animateCrowd;
+  pedestrianHeads.onBeforeRender = animateCrowd;
   root.add(pedestrianBody, pedestrianHeads);
 
   // Tráfego cenográfico estacionado em faixas; variedade de cores por veículo.
