@@ -70,6 +70,7 @@ import {
   canAgentAcceptTask,
 } from './contracts';
 import { authorizeSpecialistProposal, type SpecialistTaskProposal } from './agents/policies';
+import { runSpecialistCycle } from './agents/orchestrator';
 import {
   completeProbation,
   createDisciplineRecord,
@@ -935,6 +936,29 @@ export class SocietySimulation {
     return true;
   }
 
+  /**
+   * Executa o ciclo determinístico de especialistas e converte propostas
+   * autorizadas em tarefas da fila real. A simulação continua sendo a única
+   * autoridade para atribuição, movimento, recursos e conclusão.
+   */
+  private scheduleSpecialistTasks(): void {
+    const report = runSpecialistCycle(this.snapshot());
+    for (const proposal of report.proposals) {
+      const agent = this.agents.get(proposal.agentId);
+      if (!agent || this.tasks.has(proposal.proposalId)) continue;
+
+      // Não interrompe cadeias de trabalho já enfileiradas para a profissão.
+      const professionHasPendingWork = [...this.tasks.values()].some((task) =>
+        task.requiredProfession === agent.profession
+        && ['queued', 'assigned', 'in_progress'].includes(task.status),
+      );
+      if (professionHasPendingWork) continue;
+
+      // Revalida no ponto de entrada autoritativo antes de inserir a tarefa.
+      this.scheduleAiSpecialistTask(proposal);
+    }
+  }
+
   /** Avança exatamente um passo lógico da simulação. */
   public step(steps = 1): SocietySimulationSnapshot {
     const safeSteps = Math.max(0, Math.min(1000, Math.floor(steps)));
@@ -952,6 +976,7 @@ export class SocietySimulation {
       this.consumeCommunityNeeds();
       this.payWages();
       this.pruneFinishedTasks();
+      this.scheduleSpecialistTasks();
     }
     return this.snapshot();
   }
