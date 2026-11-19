@@ -132,15 +132,9 @@ export function ingestEventsIntoSkillLearning(
       next = recordSkillSuccess(next, skillKey, tick);
       continue;
     }
-    if (event.kind === 'task_failed' || event.kind === 'resource_blocked') {
-      const reason =
-        typeof p.reason === 'string' && p.reason.trim()
-          ? p.reason
-          : event.kind === 'resource_blocked'
-            ? 'Recurso insuficiente.'
-            : 'Tarefa falhou.';
-      next = recordSkillFailure(next, skillKey, tick, reason);
-    }
+    // A simulação atual ainda não emite eventos tipados de falha/bloqueio.
+    // Falhas verificadas podem ser registradas explicitamente por recordSkillFailure;
+    // não inferimos fracasso a partir de eventos genéricos de recursos ou estado.
   }
 
   if (seen.size > 500) {
