@@ -13,7 +13,9 @@ permissions:
   id-token: write
 
 concurrency:
-  group: github-pages
+  # Isola builds de PRs; somente execuções da mesma PR se substituem.
+  # Deploys de main compartilham uma fila própria.
+  group: github-pages-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'deploy' }}
   cancel-in-progress: true
 
 jobs:
