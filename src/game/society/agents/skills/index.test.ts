@@ -11,7 +11,7 @@ test('catalog contains versioned skills for all eight professions', () => {
 });
 
 test('skills expose progressive disclosure by id', () => {
-  assert.equal(getSocietySkill('farmer.food-security')?.procedure[0].taskKind, 'harvest_food');
+  assert.equal(getSocietySkill('farmer.food-security')?.procedure[0].taskKind, 'cultivate_field');
   assert.equal(getSocietySkill('unknown'), undefined);
 });
 
