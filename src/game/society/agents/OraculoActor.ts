@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { HIDDEN_NEW_YORK_SANCTUARY } from '../../worlds/hiddenNewYork';
 
 /** Avatar físico do Oráculo: a instância só é criada para a conta proprietária. */
 export class OraculoActor {
@@ -52,7 +53,7 @@ export class OraculoActor {
     }
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false }));
     label.position.y = 2.55; label.scale.set(2.9, 0.64, 1); this.root.add(label);
-    this.root.position.set(-3.5, 0, -5.5);
+    this.root.position.set(HIDDEN_NEW_YORK_SANCTUARY.x, HIDDEN_NEW_YORK_SANCTUARY.y, HIDDEN_NEW_YORK_SANCTUARY.z);
     this.scene.add(this.root);
   }
 
