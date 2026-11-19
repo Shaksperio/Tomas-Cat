@@ -29,6 +29,8 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # PAT/GitHub App token is required so the new PR triggers normal CI.
+          token: ${{ secrets.AGENT_PR_TOKEN }}
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
@@ -38,6 +40,6 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ENGINEERING_TASK: ${{ inputs.task }}
           GITHUB_RUN_ID: ${{ github.run_id }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AGENT_PR_TOKEN }}
           BASE_BRANCH: main
         run: node scripts/engineering-agent/run.mjs
