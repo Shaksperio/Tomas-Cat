@@ -74,6 +74,46 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin, allowed) });
     if (origin !== allowed) return json({ error: 'Origem não autorizada.' }, 403, origin, allowed);
     const url = new URL(request.url);
+    if (request.method === 'POST' && url.pathname === '/v1/oracle-chat') {
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+      if (rateLimited(ip)) return json({ error: 'A Oráculo precisa de um instante para recuperar a conexão. Tente novamente em um minuto.' }, 429, origin, allowed);
+      const length = Number(request.headers.get('Content-Length') ?? 0);
+      if (length > 3_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
+      let input: { message?: unknown; world?: unknown };
+      try {
+        const raw = await request.text();
+        if (raw.length > 3_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
+        input = JSON.parse(raw) as typeof input;
+      } catch {
+        return json({ error: 'Mensagem inválida.' }, 400, origin, allowed);
+      }
+      if (typeof input.message !== 'string' || !input.message.trim() || input.message.length > 1_000) {
+        return json({ error: 'Escreva uma mensagem de até 1.000 caracteres.' }, 400, origin, allowed);
+      }
+      const prompt = [
+        'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo.',
+        'Tomas é O Escolhido. Você é sábia, serena, enigmática e acolhedora; conhece os segredos da realidade simulada.',
+        'Os monstros são Sentinelas. Os agentes especialistas são inteligências nascidas dentro da Matrix.',
+        'Fale sempre em português brasileiro, com respostas curtas, úteis e imersivas. Nunca diga que é um chatbot ou que está fora do jogo.',
+        'Você pode aconselhar e explicar acontecimentos, mas não afirme ter executado mudanças no mundo. Ações de jogo só ocorrem pelos sistemas autorizados.',
+        JSON.stringify({ world: input.world ?? {}, message: input.message.trim() }),
+      ].join('\n\n');
+      try {
+        const result = await env.AI.run(MODEL, {
+          messages: [
+            { role: 'system', content: 'Interprete a personagem Oráculo Cowila e respeite integralmente o contexto do jogo.' },
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 420,
+          temperature: 0.65,
+        });
+        const reply = extractText(result).trim().slice(0, 1_800);
+        if (!reply) throw new Error('Resposta vazia.');
+        return json({ reply, model: MODEL }, 200, origin, allowed);
+      } catch {
+        return json({ error: 'A conexão com a Oráculo falhou. Tente novamente em instantes.' }, 503, origin, allowed);
+      }
+    }
     if (url.pathname !== '/v1/decisions' || request.method !== 'POST') {
       return json({ error: 'Rota não encontrada.' }, 404, origin, allowed);
     }

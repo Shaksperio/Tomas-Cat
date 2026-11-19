@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserPopupRedirectResolver, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
+import { OracleDialogue } from './components/OracleDialogue';
 import { GameHUD } from './components/GameHUD';
 import { LoginScreen } from './components/LoginScreen';
 import { TitleScreen } from './components/TitleScreen';
@@ -52,6 +53,7 @@ export default function App() {
   const [hasSave, setHasSave] = useState(false);
   const [toast, setToast] = useState<{ id: number; message: string; tone: 'info' | 'success' | 'warn' } | null>(null);
   const [activeLore, setActiveLore] = useState<LoreLog | null>(null);
+  const [oracleOpen, setOracleOpen] = useState(false);
   const [evolvedBannerStage, setEvolvedBannerStage] = useState<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -227,7 +229,7 @@ export default function App() {
       setEvolvedBannerStage(newStageIndex);
       engineRef.current?.setPhase('paused');
     },
-    onOracleInteract: () => showToast('Você encontrou o Oráculo. Cowila está ativa e coordenando a sociedade em tempo real.', 'success'),
+    onOracleInteract: () => { engineRef.current?.setPhase('paused'); setOracleOpen(true); },
     onSaveGame: (payload: SavedGameState) => {
       if (!authUser) return;
       queueAccountGameSave(
@@ -346,6 +348,10 @@ export default function App() {
 
       <div className="relative min-h-0 w-full flex-1 overflow-hidden">
       <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} ownerEmail={authUser.email ?? ''} ownerEmailVerified={authUser.emailVerified} onEngineReady={handleEngineReady} />
+
+      {oracleOpen && authUser?.emailVerified && authUser.email?.trim().toLowerCase() === 'antonyopintor@gmail.com' && (
+        <OracleDialogue onClose={() => { setOracleOpen(false); engineRef.current?.setPhase('playing'); }} />
+      )}
 
       {phase === 'title' && <TitleScreen hasSave={hasSave} onNewGame={handleNewGame} onContinue={() => void handleContinue()} />}
 
