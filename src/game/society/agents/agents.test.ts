@@ -72,3 +72,15 @@ test('rejects stale, malformed and over-prioritized proposals', () => {
   assert.equal(authorizeSpecialistProposal({ ...base, proposalId: 'x' }, snapshot).accepted, false);
   assert.equal(authorizeSpecialistProposal({ ...base, priority: 101 }, snapshot).accepted, false);
 });
+
+test('validates that a declared skill matches both profession and task', () => {
+  const original = new SocietySimulation().snapshot();
+  const snapshot = { ...original, tasks: [] };
+  const base = proposalFor(snapshot);
+  const valid = authorizeSpecialistProposal({ ...base, skillId: 'engineer.survey-and-design' }, snapshot);
+  assert.equal(valid.accepted, true);
+  const wrongProfession = authorizeSpecialistProposal({ ...base, skillId: 'farmer.food-security' }, snapshot);
+  assert.equal(wrongProfession.accepted, false);
+  const unknown = authorizeSpecialistProposal({ ...base, skillId: 'unknown.skill' }, snapshot);
+  assert.equal(unknown.accepted, false);
+});
