@@ -51,10 +51,11 @@ test('ingestão de eventos idempotente', () => {
     {
       id: 'evt-1',
       kind: 'task_completed',
+      regionId: 'local-suburb',
       tick: 3,
-      sourceId: 'sim',
       idempotencyKey: 'k1',
       payload: { agentId: 'a1', kind: 'chop_wood', skillId: 'lumberjack.sustainable-forestry' },
+      schemaVersion: 1,
     },
   ];
   let book = emptySkillLearning();
