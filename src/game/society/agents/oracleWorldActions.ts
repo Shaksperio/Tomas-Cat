@@ -32,7 +32,7 @@ export function parseOracleWorldActions(value: unknown): OracleWorldAction[] {
     }
     if (action.type === 'spawn_agent' && typeof action.displayName === 'string'
       && action.displayName.trim().length >= 2 && action.displayName.trim().length <= 28
-      && !action.displayName.trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').match(/cowila|oraculo/)
+      && !/cowila|oráculo|oraculo/i.test(action.displayName)
       && typeof action.profession === 'string'
       && ['engineer', 'worker', 'agent', 'farmer', 'lumberjack', 'miner', 'carpenter', 'merchant'].includes(action.profession)
       && typeof action.x === 'number' && Number.isFinite(action.x)
