@@ -46,6 +46,7 @@ import type { DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
 import { MOVE_UNLOCKS } from '../game/progression/unlocks';
 import { DIALOGUE_DATA } from '../game/dialogue/dialogueData';
+import { speakCharacter, stopCharacterVoice } from '../game/voice/characterVoice';
 import { ITEM_CATALOG, EQUIPMENT_SLOTS, EQUIPMENT_SLOT_LABELS, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from '../game/items/itemCatalog';
 
 interface GameHUDProps {
@@ -624,6 +625,7 @@ export function GameHUD({
   const [showHelp, setShowHelp] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [touchSprint, setTouchSprint] = useState(false);
+  const [characterVoiceEnabled, setCharacterVoiceEnabled] = useState(true);
 
   useEffect(() => {
     setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -664,6 +666,17 @@ export function GameHUD({
   const dialogueNode = hud.activeDialogue
     ? DIALOGUE_DATA.find((node) => node.id === hud.activeDialogue?.nodeId)
     : undefined;
+  useEffect(() => {
+    if (!characterVoiceEnabled || !hud.activeDialogue || !dialogueNode) {
+      if (!characterVoiceEnabled || !hud.activeDialogue) stopCharacterVoice();
+      return;
+    }
+    const speaker = dialogueNode.speaker.toLowerCase();
+    const style = /bento|vigia|sentinela/.test(speaker) ? 'agent' : 'resident';
+    speakCharacter(dialogueNode.text, style);
+    return () => stopCharacterVoice();
+  }, [characterVoiceEnabled, hud.activeDialogue?.nodeId, dialogueNode?.id, dialogueNode?.text]);
+
   const starPct =
     hud.level >= MAX_CAT_LEVEL
       ? 100
@@ -1240,9 +1253,20 @@ export function GameHUD({
             <div className="relative rounded-xl border border-amber-300/40 bg-[#101827]/95 px-2.5 py-2 shadow-xl backdrop-blur-sm">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="truncate text-[11px] font-bold text-amber-200">{dialogueNode.speaker}</span>
-                <button type="button" onClick={onDialogueClose} aria-label="Fechar conversa" className="rounded p-0.5 text-slate-400 hover:bg-white/10 hover:text-white">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button type="button" onClick={() => {
+                    setCharacterVoiceEnabled((enabled) => {
+                      if (enabled) stopCharacterVoice();
+                      else speakCharacter(dialogueNode.text, 'resident');
+                      return !enabled;
+                    });
+                  }} aria-label={characterVoiceEnabled ? 'Desativar voz dos personagens' : 'Ativar voz dos personagens'} title={characterVoiceEnabled ? 'Voz ligada' : 'Voz desligada'} className="rounded p-0.5 text-cyan-300 hover:bg-white/10">
+                    {characterVoiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                  </button>
+                  <button type="button" onClick={onDialogueClose} aria-label="Fechar conversa" className="rounded p-0.5 text-slate-400 hover:bg-white/10 hover:text-white">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               <p className="mb-1.5 max-h-28 overflow-y-auto text-[12px] leading-snug text-slate-100">{dialogueNode.text}</p>
               {!hud.activeDialogue.ended && (hud.activeDialogueOptions?.length ?? 0) > 0 ? (
