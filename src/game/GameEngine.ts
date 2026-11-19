@@ -1096,6 +1096,18 @@ export class GameEngine {
         applied += 1;
         continue;
       }
+      if (action.type === 'spawn_agent') {
+        const snapshot = this.society.snapshot();
+        if (snapshot.agents.length >= 32 || snapshot.agents.some((agent) =>
+          Math.hypot(agent.position.x - action.x, agent.position.z - action.z) < 2.4)) continue;
+        if (this.checkHorizontalCollision(action.x, action.z, 0.75)) continue;
+        const id = 'oracle-agent-' + Date.now() + '-' + this.oracleCreationSequence++;
+        if (!this.society.spawnOracleAgent({ id, displayName: action.displayName, profession: action.profession, x: action.x, z: action.z })) continue;
+        this.societyActors.update(0, this.society.snapshot(), false);
+        this.saveGame();
+        applied += 1;
+        continue;
+      }
       if (action.type === 'create_structure') {
         const definition = getModuleDef(action.assetId);
         if (!definition) continue;
