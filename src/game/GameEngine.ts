@@ -43,7 +43,7 @@ import {
 } from './worlds/portalWorlds';
 import { PLAYABLE_WORLD_IDS, WORLD_IDS } from './worlds/worldCatalog';
 import { WorldSceneManager } from './worlds/worldSceneManager';
-import { buildHiddenNewYorkDistrict, HIDDEN_NEW_YORK_SANCTUARY } from './worlds/hiddenNewYork';
+import { buildHiddenNewYorkDistrict, getMetropolisDistrictName, HIDDEN_NEW_YORK_SANCTUARY } from './worlds/hiddenNewYork';
 import type { PlayerTaskEvent, PlayerTaskState } from './tasks/playerTasks';
 import { createTaskCycleState, tickTaskCycle, advanceTaskCycleEvent, cloneTaskCycleState } from './tasks/taskCycles';
 import type { TaskCycleState } from './tasks/taskCycles';
@@ -449,11 +449,10 @@ export class GameEngine {
           if (this.oracleAuthorized) {
             world.colliders.push(...buildHiddenNewYorkDistrict(root));
             const originalSectorName = world.getSectorName;
-            world.getSectorName = (x, z) => (
-              x >= -110 && x <= 110 && z >= -222 && z <= -78
-                ? 'Nova York Oculta · Manhattan'
-                : originalSectorName(x, z)
-            );
+            world.getSectorName = (x, z) => {
+              const district = getMetropolisDistrictName(x, z);
+              return district ? `Metrópole Oculta · ${district}` : originalSectorName(x, z);
+            };
           }
           return world;
         },
@@ -2861,7 +2860,7 @@ export class GameEngine {
       const dz = HIDDEN_NEW_YORK_SANCTUARY.z - this.catPos.z;
       return {
         id: 'hidden-new-york-oracle',
-        label: 'Santuário da Oráculo — Nova York Oculta',
+        label: 'Santuário da Oráculo — Metrópole Oculta',
         event: 'enemy_defeated',
         x: HIDDEN_NEW_YORK_SANCTUARY.x,
         y: HIDDEN_NEW_YORK_SANCTUARY.y,
@@ -2869,7 +2868,7 @@ export class GameEngine {
         dx,
         dz,
         distance: Math.hypot(dx, dz),
-        objective: 'Siga a linha azul do GPS até a cidade escondida e encontre Cowila.',
+        objective: 'Siga a linha azul do GPS até a metrópole escondida e encontre Cowila.',
         taskTitle: 'Encontre a Oráculo',
       };
     }
