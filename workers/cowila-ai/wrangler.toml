@@ -1,0 +1,9 @@
+name = "tomas-cowila-ai"
+main = "src/index.ts"
+compatibility_date = "2026-11-18"
+
+[ai]
+binding = "AI"
+
+[vars]
+ALLOWED_ORIGIN = "https://shaksperio.github.io"
