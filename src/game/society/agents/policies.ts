@@ -6,9 +6,11 @@ import {
 } from '../contracts';
 import type { SocietySimulationSnapshot } from '../simulation';
 import { getSpecialistProfile } from './catalog';
+import { getSocietySkill } from './skills';
 
 export interface SpecialistTaskProposal {
   proposalId: string;
+  skillId?: string;
   agentId: string;
   taskKind: AgentTask['kind'];
   sectorId: string;
@@ -52,6 +54,10 @@ export function validateSpecialistProposal(
   const agent = snapshot.agents.find((candidate) => candidate.id === proposal.agentId);
   if (!agent) return { valid: false, reason: 'Agente não encontrado.' };
   const profile = getSpecialistProfile(agent.profession);
+  const skill = proposal.skillId ? getSocietySkill(proposal.skillId) : undefined;
+  if (proposal.skillId && (!skill || skill.profession !== agent.profession || !skill.allowedTaskKinds.includes(proposal.taskKind))) {
+    return { valid: false, reason: 'A Skill informada não autoriza esta profissão ou tarefa.' };
+  }
   if (!profile || !profile.allowedTasks.includes(proposal.taskKind)) {
     return { valid: false, reason: 'A profissão não tem autorização para esta tarefa.' };
   }

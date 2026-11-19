@@ -1,3 +1,4 @@
+import { authorizeDelegation, buildAgentRuntimeContext } from './agentRuntime';
 import { inferExplicitOracleActions } from './oracleCommands';
 export interface Env {
   AI: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
@@ -227,8 +228,12 @@ export default {
       .slice(0, 16);
     if (agents.length === 0) return json({ tick: input.tick, brief: 'Todos os especialistas estão ocupados.', proposals: [] }, 200, origin, allowed);
 
+    const runtimeContext = buildAgentRuntimeContext(agents);
     const prompt = [
       'Você é Cowila, inteligência estratégica coordenadora da sociedade do jogo Tomas Vagabundo.',
+      'Use as skills versionadas e as capacidades declaradas no runtime. Delegação é de um único nível; não crie subagentes recursivos.',
+      'Você apenas propõe tarefas. Não execute ferramentas, não altere mundo, recursos, memória ou estado. O motor autoritativo valida e executa.',
+      JSON.stringify({ agentRuntime: runtimeContext }),
       'Analise o estado e escolha até 3 tarefas úteis para agentes ociosos.',
       'Use somente agentId e taskKind que existam nos dados recebidos e que estejam em allowedTasks.',
       'Não invente recursos, agentes, setores ou tipos de tarefa. Priorize necessidades reais do estoque.',
@@ -247,19 +252,27 @@ export default {
         temperature: 0.2,
       });
       const parsed = parseJson(extractText(result)) as { brief?: unknown; proposals?: unknown };
+      const delegationAudit: ReturnType<typeof authorizeDelegation>[] = [];
+      const seenAgents = new Set<string>();
       const proposals = Array.isArray(parsed.proposals) ? parsed.proposals.slice(0, 3).flatMap((item) => {
         if (!item || typeof item !== 'object') return [];
         const p = item as Record<string, unknown>;
-        const agent = agents.find((candidate) => candidate.id === p.agentId);
-        if (!agent || typeof p.taskKind !== 'string' || !agent.allowedTasks.includes(p.taskKind)) return [];
+        if (typeof p.agentId !== 'string' || typeof p.taskKind !== 'string') return [];
+        if (seenAgents.has(p.agentId)) return [];
         const reason = typeof p.reason === 'string' ? p.reason.slice(0, 220) : 'Prioridade identificada pela Cowila.';
         const priority = Number.isFinite(p.priority) ? Math.max(1, Math.min(100, Math.round(Number(p.priority)))) : 50;
-        return [{ agentId: agent.id, taskKind: p.taskKind, reason, priority }];
+        const audit = authorizeDelegation({ agentId: p.agentId, taskKind: p.taskKind, reason, priority, depth: 1 }, agents);
+        delegationAudit.push(audit);
+        if (!audit.accepted) return [];
+        seenAgents.add(p.agentId);
+        return [{ agentId: p.agentId, taskKind: p.taskKind, reason, priority }];
       }) : [];
       return json({
         tick: input.tick,
         brief: typeof parsed.brief === 'string' ? parsed.brief.slice(0, 220) : 'Cowila concluiu a análise da sociedade.',
         proposals,
+        delegationAudit,
+        agentRuntime: { version: runtimeContext.version, maxDelegationDepth: runtimeContext.maxDelegationDepth },
         model: MODEL,
       }, 200, origin, allowed);
     } catch {
