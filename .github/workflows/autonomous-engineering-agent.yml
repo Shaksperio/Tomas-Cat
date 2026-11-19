@@ -1,0 +1,43 @@
+name: Autonomous game engineering agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Tarefa para o agente (vazio = próximo incremento seguro do roteiro)"
+        required: false
+        type: string
+  schedule:
+    - cron: "17 */12 * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: autonomous-game-engineering
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: github.repository == 'Shaksperio/Tomas-Cat'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout branch padrão
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Criar proposta isolada
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ENGINEERING_TASK: ${{ inputs.task }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: main
+        run: node scripts/engineering-agent/run.mjs
