@@ -9,6 +9,7 @@ import { getSpecialistProfile } from './catalog';
 
 export interface SpecialistTaskProposal {
   proposalId: string;
+  skillId?: string;
   agentId: string;
   taskKind: AgentTask['kind'];
   sectorId: string;
