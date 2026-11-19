@@ -33,6 +33,7 @@ test('accepts only valid new residents and known professions', () => {
   const actions = parseOracleWorldActions([
     { type: 'spawn_agent', displayName: 'Luna', profession: 'worker', x: 8, z: 12 },
     { type: 'spawn_agent', displayName: 'Cowila', profession: 'agent', x: 8, z: 12 },
+    { type: 'spawn_agent', displayName: 'Oráculo', profession: 'agent', x: 8, z: 12 },
     { type: 'spawn_agent', displayName: 'Invalid', profession: 'oracle', x: 8, z: 12 },
     { type: 'spawn_agent', displayName: 'Outside', profession: 'worker', x: 500, z: 12 },
   ]);
