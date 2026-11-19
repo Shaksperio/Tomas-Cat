@@ -227,6 +227,7 @@ export default function App() {
       setEvolvedBannerStage(newStageIndex);
       engineRef.current?.setPhase('paused');
     },
+    onOracleInteract: () => showToast('Você encontrou o Oráculo. Cowila está ativa e coordenando a sociedade em tempo real.', 'success'),
     onSaveGame: (payload: SavedGameState) => {
       if (!authUser) return;
       queueAccountGameSave(
