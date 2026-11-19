@@ -6,6 +6,11 @@ import {
   authorizeSpecialistProposal,
   type SpecialistTaskProposal,
 } from './policies';
+import {
+  applySkillLearningBias,
+  emptySkillLearning,
+  type SkillLearningBook,
+} from './skillLearning';
 
 export interface SpecialistCycleReport {
   tick: number;
@@ -19,8 +24,14 @@ export interface SpecialistCycleReport {
  * ociosos sem alterar agentes, tarefas, recursos, relações ou eventos.
  * Quando o provedor generativo estiver indisponível, este caminho continua
  * funcionando e mantém a simulação reproduzível.
+ *
+ * `learning` (opcional) ajusta a prioridade com histórico de skills.
+ * Sem histórico o comportamento permanece o da PR #62.
  */
-export function runSpecialistCycle(snapshot: SocietySimulationSnapshot): SpecialistCycleReport {
+export function runSpecialistCycle(
+  snapshot: SocietySimulationSnapshot,
+  learning: SkillLearningBook = emptySkillLearning(),
+): SpecialistCycleReport {
   const proposals: SpecialistTaskProposal[] = [];
   const rejected: SpecialistCycleReport['rejected'] = [];
   const agents = [...snapshot.agents].sort((a, b) => a.id.localeCompare(b.id));
@@ -42,7 +53,7 @@ export function runSpecialistCycle(snapshot: SocietySimulationSnapshot): Special
       target: null,
       requiredResources: taskKind === 'craft_planks' ? { wood: 7 } : {},
       reason: `Rotina de ${profile.title.toLocaleLowerCase('pt-BR')} para manter a comunidade operacional.`,
-      priority: profile.priority,
+      priority: applySkillLearningBias(profile.priority, learning, selectedSkill.id),
       createdAtTick: snapshot.tick,
     };
     const decision = authorizeSpecialistProposal(proposal, snapshot);
