@@ -110,7 +110,7 @@ async function generateOracleActions(env: Env, message: string, world: unknown):
   try {
     const parsed = parseJson(raw) as { actions?: unknown };
     if (!Array.isArray(parsed.actions)) return [];
-    return parsed.actions.slice(0, 4).flatMap((entry) => {
+    return parsed.actions.slice(0, 4).flatMap<unknown>((entry) => {
       if (!entry || typeof entry !== 'object') return [];
       const action = entry as Record<string, unknown>;
       if (action.type === 'set_weather' && typeof action.weather === 'string' && ORACLE_WEATHER.has(action.weather)) return [{ type: 'set_weather', weather: action.weather }];
