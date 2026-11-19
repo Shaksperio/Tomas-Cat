@@ -178,6 +178,33 @@ test('step é determinístico para o mesmo caminho de ticks', () => {
 });
 
 
+test('runtime learns canonical skill outcomes and persists deduplication across saves', () => {
+  const sim = new SocietySimulation();
+  const runtime = new SocietyAgentRuntime({ cowilaEveryTicks: 10 });
+  runtime.step(sim, 40);
+
+  const learned = runtime.getSkillLearningBook();
+  assert.ok(Object.values(learned.bySkill).some((stats) => stats.successCount > 0),
+    'completed resident tasks should update skill outcomes');
+
+  const saved = runtime.exportState();
+  assert.ok(saved.skillLearning);
+  const restored = new SocietyAgentRuntime({ cowilaEveryTicks: 10 });
+  assert.equal(restored.restoreState(saved), true);
+  assert.deepEqual(restored.exportState().skillLearning, saved.skillLearning);
+
+  const beforeReplay = restored.getSkillLearningBook();
+  restored.step(sim, 0);
+  assert.deepEqual(restored.getSkillLearningBook(), beforeReplay,
+    'restoring a save must not count the same completion events twice');
+
+  // Saves created before skill learning remain valid.
+  const legacyState = { ...saved };
+  delete legacyState.skillLearning;
+  const legacyRuntime = new SocietyAgentRuntime({ cowilaEveryTicks: 10 });
+  assert.equal(legacyRuntime.restoreState(legacyState), true);
+});
+
 test('persists Cowila memory, project queue and construction publication state', () => {
   const base = new SocietySimulation().snapshot();
   const snapshot = {
