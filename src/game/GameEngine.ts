@@ -446,7 +446,15 @@ export class GameEngine {
         spawn: { x: 0, z: 8 },
         build: (root) => {
           const world = buildPostApocalypticWorld(root, this.textures);
-          if (this.oracleAuthorized) world.colliders.push(...buildHiddenNewYorkDistrict(root));
+          if (this.oracleAuthorized) {
+            world.colliders.push(...buildHiddenNewYorkDistrict(root));
+            const originalSectorName = world.getSectorName;
+            world.getSectorName = (x, z) => (
+              x >= -110 && x <= 110 && z >= -222 && z <= -78
+                ? 'Nova York Oculta · Manhattan'
+                : originalSectorName(x, z)
+            );
+          }
           return world;
         },
       }],
