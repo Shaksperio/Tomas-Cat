@@ -13,7 +13,9 @@ permissions:
   id-token: write
 
 concurrency:
-  group: github-pages
+  # Isola builds de PRs; somente execuções da mesma PR se substituem.
+  # Deploys de main compartilham uma fila própria.
+  group: github-pages-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'deploy' }}
   cancel-in-progress: true
 
 jobs:
@@ -53,6 +55,8 @@ jobs:
 
   deploy:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -62,3 +66,43 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  verify:
+    name: Post-deploy health check
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: deploy
+    timeout-minutes: 4
+    steps:
+      - name: Verify published GitHub Pages site
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${PAGE_URL}" || ! "${PAGE_URL}" =~ ^https:// ]]; then
+            echo "::error::URL de publicação ausente ou inválida."
+            exit 1
+          fi
+
+          ok=false
+          for attempt in {1..12}; do
+            if curl --connect-timeout 10 --max-time 30 --fail --silent --show-error "${PAGE_URL}" -o /tmp/tomas-index.html; then
+              if grep -q '<title>Tomas Vagabundo' /tmp/tomas-index.html \
+                && grep -q 'id="root"' /tmp/tomas-index.html \
+                && grep -Eq 'assets/index-[^"]+\.js' /tmp/tomas-index.html; then
+                ok=true
+                break
+              fi
+              echo "HTML ainda não corresponde ao build esperado (tentativa ${attempt}/12)."
+            else
+              echo "Site ainda indisponível (tentativa ${attempt}/12)."
+            fi
+            sleep 10
+          done
+
+          if [[ "${ok}" != true ]]; then
+            echo "::error::Health check pós-deploy falhou para ${PAGE_URL}."
+            exit 1
+          fi
+          echo "GitHub Pages respondeu e contém o HTML inicial esperado."
