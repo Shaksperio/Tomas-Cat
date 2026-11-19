@@ -96,7 +96,7 @@ async function generateOracleActions(env: Env, message: string, world: unknown):
     'Para estruturas, escolha posições próximas ao jogador mas não sobre ele. Use world.position e mantenha x/z entre -160 e 160. Uma ordem de cidade pode virar até quatro módulos aprovados.',
     'Não invente ações, assets, código ou comandos. Só produza ações se o jogador ordenou claramente uma mudança concreta.',
     JSON.stringify({ message, world }),
-  ].join('\\n');
+  ].join('\n');
   let raw = '';
   try {
     raw = extractText(await env.AI.run(MODEL, { messages: [
