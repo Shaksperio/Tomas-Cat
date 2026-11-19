@@ -16,6 +16,7 @@
  */
 
 import type { SocietySimulationSnapshot } from '../simulation';
+import { listSocietySkills } from './skills';
 import {
   emptySkillLearning,
   exportSkillLearning,
@@ -29,9 +30,25 @@ export class SkillLearningHost {
 
   /** Atualiza métricas a partir dos eventos do snapshot; devolve o livro atual. */
   observe(snapshot: SocietySimulationSnapshot): SkillLearningBook {
+    // O evento task_completed identifica o agente, mas não carrega skillId.
+    // Resolve a habilidade canônica pela profissão do agente no snapshot para
+    // que o viés do orquestrador use a mesma chave do catálogo de skills.
+    const skillByProfession = new Map(
+      listSocietySkills().map((skill) => [skill.profession, skill.id] as const),
+    );
+    const enrichedEvents = snapshot.events.map((event) => {
+      if (event.kind !== 'task_completed') return event;
+      const payload = event.payload as Record<string, unknown>;
+      if (typeof payload.skillId === 'string' && payload.skillId.trim()) return event;
+      const agentId = typeof payload.agentId === 'string' ? payload.agentId : null;
+      const agent = agentId ? snapshot.agents.find((candidate) => candidate.id === agentId) : undefined;
+      const skillId = agent ? skillByProfession.get(agent.profession) : undefined;
+      if (!skillId) return event;
+      return { ...event, payload: { ...payload, skillId } };
+    });
     const result = ingestEventsIntoSkillLearning(
       this.book,
-      snapshot.events,
+      enrichedEvents,
       snapshot.tick,
       this.seenEventIds,
     );
