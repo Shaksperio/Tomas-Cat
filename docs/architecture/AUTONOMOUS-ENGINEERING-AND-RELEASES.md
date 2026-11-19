@@ -59,7 +59,7 @@ Essas categorias podem receber PR e diagnóstico, mas exigem revisão humana esp
 
 - O Agent Gate em `.github/workflows/agent-gate.yml` e `scripts/agent-gate/` é somente leitura; ele avalia elegibilidade e não faz merge.
 - O executor generativo em `scripts/engineering-agent/run.mjs` é proponente: consulta Gemini, limita os arquivos, cria branch e PR.
-- O workflow do executor roda manualmente ou a cada 12 horas. Requer o secret `GEMINI_API_KEY` e permissão de Actions para criar PRs.
+- O workflow do executor roda manualmente ou a cada 12 horas. Requer os secrets `GEMINI_API_KEY` e `AGENT_PR_TOKEN`. O segundo deve ser um fine-grained PAT ou GitHub App token com acesso somente a este repositório e permissões Contents: read/write e Pull requests: read/write. Ele é usado no checkout/push e no GitHub CLI para que PRs criadas pelo agente acionem os workflows de CI; o `GITHUB_TOKEN` padrão não deve ser usado para esse fluxo porque eventos originados por ele não disparam novos workflows.
 - O executor não faz merge, não publica diretamente e não comprova que o secret esteja configurado.
 - A proteção de caminhos inclui rejeição de symlinks, duplicatas, exclusões, arquivos ocultos e caminhos fora do escopo.
 - O rótulo `agent-pr` é apenas metadado de classificação; não é autorização.
