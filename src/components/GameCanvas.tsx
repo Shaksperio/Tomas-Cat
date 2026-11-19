@@ -6,9 +6,10 @@ interface GameCanvasProps {
   onEngineReady: (engine: GameEngine) => void;
   ownerId: string;
   ownerEmail: string;
+  ownerEmailVerified: boolean;
 }
 
-export function GameCanvas({ callbacks, onEngineReady, ownerId, ownerEmail }: GameCanvasProps) {
+export function GameCanvas({ callbacks, onEngineReady, ownerId, ownerEmail, ownerEmailVerified }: GameCanvasProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const callbacksRef = useRef(callbacks);
   const onReadyRef = useRef(onEngineReady);
@@ -32,7 +33,7 @@ export function GameCanvas({ callbacks, onEngineReady, ownerId, ownerEmail }: Ga
         onVictory: (snap) => callbacksRef.current.onVictory(snap),
         onEvolutionUnlocked: (idx) => callbacksRef.current.onEvolutionUnlocked(idx),
         onSaveGame: (payload) => callbacksRef.current.onSaveGame?.(payload),
-      }, ownerId, ownerEmail);
+      }, ownerId, ownerEmail, ownerEmailVerified);
       onReadyRef.current(engine);
     } catch {
       setWebglError(true);
