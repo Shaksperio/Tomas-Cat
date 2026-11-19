@@ -26,6 +26,8 @@ export type CowilaApprovedAsset = (typeof COWILA_APPROVED_ASSETS)[number];
 export type ResourceFocus = 'food' | 'wood' | 'stone' | 'planks' | 'coins' | 'balanced';
 
 export interface CowilaBlueprintSuggestion {
+  /** Skill que originou o planejamento; não concede autorização de execução. */
+  skillId: string;
   projectId: string;
   name: string;
   sectorId: string;
@@ -125,6 +127,7 @@ export function runCowilaStrategicCycle(
     const sectorId = engineer.position.sectorId;
     const offset = (snapshot.tick % 7) * 3;
     blueprints.push({
+      skillId: 'engineer.survey-and-design',
       projectId: `cowila-bp-${snapshot.tick}-${assetId}`,
       name: `Obra prioritária (${assetId.replace(/^module_/, '').replace(/_/g, ' ')})`,
       sectorId,
