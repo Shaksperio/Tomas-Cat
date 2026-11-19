@@ -344,7 +344,7 @@ export default function App() {
       </header>
 
       <div className="relative min-h-0 w-full flex-1 overflow-hidden">
-      <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} onEngineReady={handleEngineReady} />
+      <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} ownerEmail={authUser.email ?? ''} onEngineReady={handleEngineReady} />
 
       {phase === 'title' && <TitleScreen hasSave={hasSave} onNewGame={handleNewGame} onContinue={() => void handleContinue()} />}
 
