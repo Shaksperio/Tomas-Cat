@@ -49,12 +49,6 @@ function summarizeEvent(event: WorldEvent): { agentId: string; summary: string }
       summary: 'Concluiu módulo de construção no terreno.',
     };
   }
-  if (event.kind === 'wage_paid' && typeof p.agentId === 'string') {
-    return {
-      agentId: p.agentId,
-      summary: 'Recebeu salário comunitário.',
-    };
-  }
   if (event.kind === 'trade_completed' && typeof p.merchantId === 'string') {
     return {
       agentId: p.merchantId,
@@ -89,6 +83,32 @@ export function ingestEventsIntoMemory(
   const sorted = [...events].sort((a, b) => a.id.localeCompare(b.id));
   for (const event of sorted) {
     if (seen.has(event.id)) continue;
+
+    // wage_paid é um evento coletivo: o contrato publica a lista "paid",
+    // não um agentId único no nível superior do payload.
+    if (event.kind === 'wage_paid') {
+      const payload = event.payload as Record<string, unknown>;
+      const paid = Array.isArray(payload.paid) ? payload.paid : [];
+      const paidAgentIds = paid
+        .filter((entry): entry is { agentId: string } =>
+          typeof entry === 'object' && entry !== null
+          && typeof (entry as { agentId?: unknown }).agentId === 'string')
+        .map((entry) => entry.agentId);
+      if (paidAgentIds.length === 0) continue;
+      seen.add(event.id);
+      for (const agentId of paidAgentIds) {
+        const list = next.byAgent[agentId] ? [...next.byAgent[agentId]] : [];
+        list.unshift({
+          tick,
+          kind: event.kind,
+          summary: 'Recebeu salário comunitário.',
+          sourceEventId: event.id,
+        });
+        next.byAgent[agentId] = list.slice(0, maxEntries);
+      }
+      continue;
+    }
+
     const parsed = summarizeEvent(event);
     if (!parsed) continue;
     seen.add(event.id);
