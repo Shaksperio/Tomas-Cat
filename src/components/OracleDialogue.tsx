@@ -24,14 +24,19 @@ export function OracleDialogue({ onClose }: { onClose: () => void }) {
     try {
       const response = await fetch(`${ENDPOINT}/v1/oracle-chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'Accept': 'application/json' },
         body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'O Escolhido', setting: 'Matrix' } }),
       });
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) throw new Error(`A Oráculo retornou uma resposta inesperada (HTTP ${response.status}).`);
       const data = await response.json() as { reply?: string; error?: string };
       if (!response.ok || typeof data.reply !== 'string') throw new Error(data.error || `A Oráculo não respondeu (HTTP ${response.status}).`);
       setMessages((current) => [...current, { role: 'oracle', text: data.reply! }]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Falha ao alcançar a Oráculo.');
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      setError(detail === 'Failed to fetch' || detail === 'Load failed'
+        ? 'Não foi possível alcançar a Oráculo. Verifique a conexão e tente novamente; se persistir, o servidor pode estar indisponível.'
+        : detail);
     } finally {
       setBusy(false);
     }
