@@ -78,8 +78,8 @@ export const SOCIETY_SKILLS: readonly SkillDefinition[] = [
     id: 'farmer.food-security', name: 'Segurança alimentar', description: 'Mantém cultivo e abastecimento de alimentos.',
     profession: 'farmer', version: 1, whenToUse: ['estoque de comida baixo', 'agricultor ocioso'],
     procedure: [
-      { id: 'harvest', taskKind: 'harvest_food', purpose: 'Colher quando houver produção madura.' },
       { id: 'cultivate', taskKind: 'cultivate_field', purpose: 'Manter produção contínua.' },
+      { id: 'harvest', taskKind: 'harvest_food', purpose: 'Colher quando houver produção madura.' },
     ],
     pitfalls: ['Não consumir sementes reservadas.', 'Não colher sem produção disponível.'],
     verification: ['Estoque e produção atualizados pelo simulador.'],
