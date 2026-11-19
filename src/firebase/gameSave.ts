@@ -153,21 +153,24 @@ export async function flushAccountGameSave(uid: string): Promise<void> {
     // Compare-and-delete: nunca apague um snapshot mais novo que chegou durante
     // a escrita remota.
     await deletePendingGameSave(uid, candidate.revision);
-    if (pending.get(uid)?.revision === candidate.revision) {
+    const isCurrentRevision = pending.get(uid)?.revision === candidate.revision;
+    if (isCurrentRevision) {
       window.clearTimeout(pending.get(uid)!.timer);
       pending.delete(uid);
+      latest?.onSaved?.();
     }
-    if (pending.get(uid)?.revision === candidate.revision) latest?.onSaved?.();
   } catch (error) {
     const current = pending.get(uid);
     if (current?.revision === candidate.revision) {
       window.clearTimeout(current.timer);
-      const retryTimer = window.setTimeout(() => {
-        void flushAccountGameSave(uid).catch(() => undefined);
-      }, 15_000);
-      pending.set(uid, { ...current, timer: retryTimer });
-      current.onError?.(error);
-    } else if (current?.revision === candidate.revision) {
+      if (error instanceof SaveConflictError) {
+        pending.set(uid, current);
+      } else {
+        const retryTimer = window.setTimeout(() => {
+          void flushAccountGameSave(uid).catch(() => undefined);
+        }, 15_000);
+        pending.set(uid, { ...current, timer: retryTimer });
+      }
       current.onError?.(error);
     } else {
       queued?.onError?.(error);
