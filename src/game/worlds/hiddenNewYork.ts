@@ -53,7 +53,7 @@ export function buildHiddenNewYorkDistrict(root: THREE.Group): ColliderBox[] {
   for (let i = 0; i < 28; i++) {
     const row = Math.floor(i / 7);
     const col = i % 7;
-    dummy.position.set(-57 + col * 4, 2.6, -184 + row * 17);
+    dummy.position.set(-57 + col * 4, 2.6, -176 + row * 15);
     dummy.scale.setScalar(0.72 + (i % 3) * 0.16);
     dummy.updateMatrix();
     trees.setMatrixAt(i, dummy.matrix);
