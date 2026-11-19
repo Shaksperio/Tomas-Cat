@@ -1,6 +1,7 @@
 import type { AgentTask } from '../contracts';
 import type { SocietySimulationSnapshot } from '../simulation';
 import { getSpecialistProfile, SPECIALIST_PROFILES } from './catalog';
+import { selectSkillForAgent } from './skills';
 import {
   authorizeSpecialistProposal,
   type SpecialistTaskProposal,
@@ -12,18 +13,6 @@ export interface SpecialistCycleReport {
   rejected: Array<{ proposalId: string; reason: string }>;
   mode: 'deterministic-fallback';
 }
-
-/** Tarefa-padrão por papel: a IA pode sugerir, mas não inventa tipos de tarefa. */
-const DEFAULT_TASK: Partial<Record<AgentTask['requiredProfession'], AgentTask['kind']>> = {
-  engineer: 'survey_site',
-  worker: 'gather_materials',
-  agent: 'patrol_area',
-  farmer: 'cultivate_field',
-  lumberjack: 'chop_wood',
-  miner: 'mine_stone',
-  carpenter: 'craft_planks',
-  merchant: 'trade_goods',
-};
 
 /**
  * Ciclo determinístico da Cowila local. Produz propostas tipadas para agentes
@@ -38,12 +27,15 @@ export function runSpecialistCycle(snapshot: SocietySimulationSnapshot): Special
 
   for (const agent of agents) {
     const profile = getSpecialistProfile(agent.profession);
-    const taskKind = DEFAULT_TASK[agent.profession];
-    if (!profile || !taskKind || agent.status !== 'idle' || agent.activeTaskId !== null) continue;
+    const selectedSkill = selectSkillForAgent(agent.profession, snapshot);
+    const taskKind = selectedSkill?.procedure[0]?.taskKind;
+    if (!profile || !selectedSkill || !taskKind || !selectedSkill.allowedTaskKinds.includes(taskKind)
+      || !profile.allowedTasks.includes(taskKind) || agent.status !== 'idle' || agent.activeTaskId !== null) continue;
 
     const proposalId = `specialist:${agent.id}:${snapshot.tick}:${taskKind}`;
     const proposal: SpecialistTaskProposal = {
       proposalId,
+      skillId: selectedSkill.id,
       agentId: agent.id,
       taskKind,
       sectorId: agent.position.sectorId,
