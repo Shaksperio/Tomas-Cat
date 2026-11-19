@@ -446,7 +446,7 @@ export class GameEngine {
         spawn: { x: 0, z: 8 },
         build: (root) => {
           const world = buildPostApocalypticWorld(root, this.textures);
-          world.colliders.push(...buildHiddenNewYorkDistrict(root));
+          if (this.oracleAuthorized) world.colliders.push(...buildHiddenNewYorkDistrict(root));
           return world;
         },
       }],
