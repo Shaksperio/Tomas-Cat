@@ -148,8 +148,13 @@ export class BattleStage {
   private spread = 1;
   private orbit: { around: 'center'; radius: number; height: number; speed: number; phase: number } | null = null;
   private guardDomes: Record<Side, THREE.Mesh> | null = null;
-  /** Materiais originais dos lutadores, restaurados ao sair do combate. */
-  private readonly fighterRenderState = new Map<THREE.Mesh, { material: THREE.Material | THREE.Material[]; renderOrder: number }>();
+  /** Objetos do cenário temporariamente ocultos por bloquear a linha de visão dos duelistas. */
+  private readonly occludedObjects = new Map<THREE.Object3D, boolean>();
+  private readonly occlusionRaycaster = new THREE.Raycaster();
+  private readonly fighterBounds = new THREE.Box3();
+  private readonly occlusionTarget = new THREE.Vector3();
+  private readonly occlusionDirection = new THREE.Vector3();
+  private occlusionRefresh = 0;
   private onPlayerClaw: () => void = () => undefined;
   private onPlayerCheer: () => void = () => undefined;
 
@@ -319,10 +324,9 @@ export class BattleStage {
     });
     this.fighters.player.home.y = opts.playerPos.y;
 
-    // A arena mantém o mundo como pano de fundo, mas os duelistas nunca ficam
-    // escondidos atrás de árvores, fachadas, rochas ou outros meshes próximos.
-    // Clonamos os materiais para não alterar materiais compartilhados do mundo.
-    for (const side of this.activeSides) this.prioritizeFighterVisibility(this.fighters[side].root);
+    // Mantém a profundidade 3D dos lutadores. Só meshes do cenário que cruzam
+    // a linha de visão da câmera são ocultados temporariamente durante o combate.
+    this.occlusionRefresh = 0;
 
     // Domos de defesa.
     const domeGeo = new THREE.SphereGeometry(1.15, 20, 14);
@@ -370,7 +374,7 @@ export class BattleStage {
         f.root.rotation.x = 0;
       }
     }
-    this.restoreFighterVisibility();
+    this.restoreOccludedObjects();
     this.flashLight.intensity = 0;
     this.darkness = 0;
     this.whiteFlash = 0;
@@ -390,51 +394,64 @@ export class BattleStage {
   // Utilidades
   // ---------------------------------------------------------------------
 
-  /**
-   * Desenha os meshes dos participantes depois do cenário, sem depth test.
-   * Assim os objetos do mundo continuam visíveis ao fundo, mas não atravessam
-   * visualmente os corpos durante a luta. Os materiais são clones temporários.
-   */
-  private prioritizeFighterVisibility(root: THREE.Object3D): void {
-    root.traverse((object) => {
-      if (!(object instanceof THREE.Mesh) || this.fighterRenderState.has(object)) return;
-      const originalMaterial = object.material;
-      const makeOverlayMaterial = (material: THREE.Material): THREE.Material => {
-        const overlay = material.clone();
-        overlay.depthTest = false;
-        overlay.depthWrite = false;
-        return overlay;
-      };
-      object.material = Array.isArray(originalMaterial)
-        ? originalMaterial.map(makeOverlayMaterial)
-        : makeOverlayMaterial(originalMaterial);
-      this.fighterRenderState.set(object, { material: originalMaterial, renderOrder: object.renderOrder });
-      object.renderOrder = 20;
-    });
-    this.updateFighterRenderOrder();
+  /** Restaura a visibilidade original dos objetos ocultados no quadro anterior. */
+  private restoreOccludedObjects(): void {
+    for (const [object, wasVisible] of this.occludedObjects) object.visible = wasVisible;
+    this.occludedObjects.clear();
+  }
+
+  private isFighterPart(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (this.activeSides.some((side) => this.fighters[side]?.root === current)) return true;
+      current = current.parent;
+    }
+    return false;
   }
 
   /**
-   * Como o depth test está desligado só nos participantes, ordenamos suas
-   * peças de trás para frente a cada quadro para preservar a sobreposição
-   * correta entre os próprios lutadores.
+   * Oculta somente os meshes do cenário que interceptam os raios entre a câmera
+   * e pontos do corpo dos lutadores. Oclusão, sombras e profundidade dos demais
+   * objetos continuam normais; o cenário é restaurado continuamente e ao sair.
    */
-  private updateFighterRenderOrder(): void {
-    for (const mesh of this.fighterRenderState.keys()) {
-      mesh.getWorldPosition(_v);
-      mesh.renderOrder = 1000 - this.camera.position.distanceTo(_v);
-    }
-  }
+  private updateFighterOcclusion(dt: number): void {
+    this.occlusionRefresh -= dt;
+    if (this.occlusionRefresh > 0) return;
+    this.occlusionRefresh = 0.09;
+    this.restoreOccludedObjects();
+    this.scene.updateMatrixWorld(true);
 
-  /** Restaura exatamente materiais e ordem de desenho após vitória, derrota ou desistência. */
-  private restoreFighterVisibility(): void {
-    for (const [mesh, original] of this.fighterRenderState) {
-      const overlayMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (const material of overlayMaterials) material.dispose();
-      mesh.material = original.material;
-      mesh.renderOrder = original.renderOrder;
+    for (const side of this.activeSides) {
+      const root = this.fighters[side].root;
+      this.fighterBounds.setFromObject(root);
+      if (this.fighterBounds.isEmpty()) continue;
+      const height = this.fighterBounds.max.y - this.fighterBounds.min.y;
+      if (height <= 0.05) continue;
+
+      // Dois pontos (tronco e parte superior) evitam ocultar cenário por causa
+      // de raios direcionados ao chão ou às extremidades dos modelos.
+      for (const ratio of [0.48, 0.82]) {
+        this.occlusionTarget.set(
+          (this.fighterBounds.min.x + this.fighterBounds.max.x) * 0.5,
+          this.fighterBounds.min.y + height * ratio,
+          (this.fighterBounds.min.z + this.fighterBounds.max.z) * 0.5,
+        );
+        this.occlusionDirection.subVectors(this.occlusionTarget, this.camera.position);
+        const distance = this.occlusionDirection.length();
+        if (distance <= 0.1) continue;
+        this.occlusionDirection.normalize();
+        this.occlusionRaycaster.set(this.camera.position, this.occlusionDirection);
+        this.occlusionRaycaster.far = Math.max(0, distance - 0.22);
+        const intersections = this.occlusionRaycaster.intersectObjects(this.scene.children, true);
+        for (const hit of intersections) {
+          const object = hit.object;
+          if (!(object instanceof THREE.Mesh) || !object.visible || this.isFighterPart(object)) continue;
+          if (object.parent && this.isFighterPart(object.parent)) continue;
+          if (!this.occludedObjects.has(object)) this.occludedObjects.set(object, object.visible);
+          object.visible = false;
+        }
+      }
     }
-    this.fighterRenderState.clear();
   }
 
   private setBanner(text: string): void {
@@ -1100,7 +1117,7 @@ export class BattleStage {
       this.camera.lookAt(this.camLook);
       this.camera.fov = this.origFov + (1 - e) * 18;
       this.camera.updateProjectionMatrix();
-      this.updateFighterRenderOrder();
+      this.updateFighterOcclusion(step);
       if (this.introT >= this.introDur) {
         this.wideShot(4);
         this.camPos.copy(this.camera.position);
@@ -1160,7 +1177,7 @@ export class BattleStage {
 
     this.updateEffects(step);
     this.updateCamera(dt);
-    this.updateFighterRenderOrder();
+    this.updateFighterOcclusion(dt);
   }
 
   private updateEffects(dt: number): void {
