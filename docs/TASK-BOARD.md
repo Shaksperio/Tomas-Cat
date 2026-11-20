@@ -2,7 +2,7 @@
 
 > **Toda IA (Claude, ChatGPT/Codex, Grok ou outra) lê este arquivo antes de começar qualquer trabalho e atualiza no mesmo commit em que reivindica, entrega ou abandona uma tarefa.** Ele existe para que duas IAs nunca façam a mesma coisa nem mexam no trabalho uma da outra.
 >
-> Última revisão: 2026-11-20 (Manus: reserva T-213 após autorização de Tom). Confira de novo antes de agir.
+> Última revisão: 2026-11-20 (Manus: T-213 integrada na main pela PR #84). Confira de novo antes de agir.
 
 ## 1. Regras
 
@@ -41,8 +41,6 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 - [T-001+T-004] Técnicas à venda nas lojas e novos combos desbloqueados por nível (Fúria Apex e Sequência Suprema como comandos ATB próprios) — dono: Claude — branch: `claude/shop-techniques` — reserva: `src/game/progression/`, `src/game/shop/`, `src/game/battle/` (atb.ts, commands.ts, BattleStage.ts só no trecho de combos), `src/game/GameEngine.ts` (apenas battleCommand, teclas de batalha, compra de técnica e snapshot da loja; **não** o trecho `requestCowilaDecision` da T-101), `src/components/GameHUD.tsx` (comandos de batalha e painel da loja), `src/types/game.ts` — desde: 2026-11-20
 - [T-007] Remover o arquivo de documentação de PR que sobrou — dono: ChatGPT/Codex — branch: `codex/remove-stale-agent-runtime-patch` — PR: #77 — reserva: `src/game/society/agents/GameEngine_agentRuntime.patch` — desde: 2026-11-20
-- [T-213] Polimento visual felino (bigodes, piscadas e microanimações expressivas) — dono: Manus — branch: `codex/cat-visual-polish` — PR: #84 (draft) — reserva: `src/game/catModel.ts`, `src/game/style/catModelVisuals.test.ts`, `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: escopo visual isolado; preserva movimento, combate, estados de água/escalada e saves.
-
 - [T-101] Ponte Cowila IA → skillId canônico — dono: **Grok** — branch: `grok/cowila-ai-skill-bridge` — PR: **#76** — reserva: `src/game/society/agents/cowilaAiBridge.ts`, `cowilaAiBridge.test.ts`, `GameEngine_cowilaAiBridge.patch`; integração final no `GameEngine.ts` **apenas** o trecho `requestCowilaDecision` (usar `applyCowilaAiDecision`) — desde: 2026-11-20 — nota: módulo + testes na branch; wire no motor ainda pendente de merge/CI
 - [T-102] Aceitar health check ignorado no Agent Gate — dono: ChatGPT/Codex — branch: `codex/agent-gate-post-deploy-check` — PR: #73 — reserva: `scripts/agent-gate/`, `AGENTS.md` (seção do gate)
 - [T-103] Primeira camada de contingência offline — dono: ChatGPT/Codex — branch: `codex/offline-contingency-fallback` — PR: #72 — reserva: `AGENTS.md`, `src/App.tsx`, `src/firebase/gameSave.ts`, `src/game/offline/`, `src/game/saves/offlineFallback.test.ts` — desde: 2026-11-20 — Autorizado por Tom em 2026-11-20 para revisar e corrigir `src/firebase/gameSave.ts` e avançar a resolução explícita de conflitos; demais limites de segurança permanecem.
@@ -53,6 +51,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 4. Concluídas (mais recentes primeiro)
 
+- [T-213] Polimento visual felino (bigodes, piscadas e microanimações expressivas) — Manus — PR #84, merge commit `f56b9e11b654d46492698a902bdb2f478bd32f0f`; CI verde no head `d316771`; deploy do merge acionado.
 - [T-109] Visibilidade dos duelistas no cenário (oclusão seletiva) — ChatGPT/Codex — PR #80 (merge em 2026-11-20; commit integrado na main em #83).
 - [T-108] Evocação de Animais Sagrados no modo batalha — ChatGPT/Codex — PR #79 (merge commit `b77758ca292b711d80abc973b52ca12cb6beead3`); CI verde no head da PR; deploy do commit integrado foi iniciado.
 
@@ -85,6 +84,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
 - 2026-11-20 — Manus: T-213 reservada para polimento visual felino; Tom autorizou o push da reserva à `main` sabendo que o push pode disparar o deploy automático.
+- 2026-11-20 — Manus: T-213 integrada na `main` após autorização explícita de Tom; PR #84 e CI verde; deploy de produção acionado.
 - 2026-11-20 — ChatGPT/Codex: T-108 integrada pela PR #79 (merge `b77758c`); iniciado T-109 para corrigir a visibilidade dos lutadores sem alterar o trabalho de combos de Claude. Tom autorizou a melhoria nesta conversa; PR #80 aberta em draft.
 - 2026-11-20 — ChatGPT/Codex: CI da PR #80 concluída com sucesso (testes de contrato, TypeScript e build); deploy foi corretamente ignorado por ser PR. Validação visual em navegador real permanece pendente; PR continua em draft.
 - 2026-11-20 — Grok: reserva completa T-101; nota T-107 (portalWorlds na main); achados na seção 5.
