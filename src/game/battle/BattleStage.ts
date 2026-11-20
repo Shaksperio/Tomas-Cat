@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { type BattleAction, FOE_SIDES, type FoeSide, type Side } from './atb';
+import { FighterOcclusionState, isSafeOcclusionHit } from './fighterOcclusion';
 
 /**
  * Cena cinematográfica da batalha (estilo RPG clássico): cortes de câmera,
@@ -37,6 +38,16 @@ interface TimedEvent {
 }
 
 const _v = new THREE.Vector3();
+const BATTLE_TOP_BAR_FRACTION = 0.11;
+const getBattleHudLayoutFractions = () => {
+  const viewportHeight = Math.max(1, typeof window === 'undefined' ? 800 : window.innerHeight);
+  const bottomBarHeight = Math.min(256, Math.max(160, viewportHeight * 0.28));
+  const bottomBarFraction = bottomBarHeight / viewportHeight;
+  return {
+    sceneHeight: Math.max(0.05, 1 - BATTLE_TOP_BAR_FRACTION - bottomBarFraction),
+    lookShift: bottomBarFraction - BATTLE_TOP_BAR_FRACTION,
+  };
+};
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
@@ -148,12 +159,13 @@ export class BattleStage {
   private spread = 1;
   private orbit: { around: 'center'; radius: number; height: number; speed: number; phase: number } | null = null;
   private guardDomes: Record<Side, THREE.Mesh> | null = null;
-  /** Materiais clonados durante a batalha para desenhar os duelistas acima do cenário. */
-  private readonly fighterRenderStates = new Map<THREE.Mesh, {
-    material: THREE.Material | THREE.Material[];
-    renderOrder: number;
-    clones: THREE.Material[];
-  }>();
+  /** Só os bloqueadores diretos da câmera são temporariamente ocultos. */
+  private readonly fighterOcclusion = new FighterOcclusionState();
+  private readonly occlusionRaycaster = new THREE.Raycaster();
+  private readonly fighterBounds = new THREE.Box3();
+  private readonly occlusionTarget = new THREE.Vector3();
+  private readonly occlusionDirection = new THREE.Vector3();
+  private occlusionRefresh = 0;
   private onPlayerClaw: () => void = () => undefined;
   private onPlayerCheer: () => void = () => undefined;
 
@@ -252,43 +264,59 @@ export class BattleStage {
     });
   }
 
-  /**
-   * Mantém os duelistas legíveis mesmo quando árvores, rochas ou construções
-   * passam entre a câmera e os personagens. Clonamos os materiais para não
-   * alterar materiais compartilhados com os modelos do mundo aberto.
-   */
-  private bringFightersToForeground(): void {
-    for (const side of this.activeSides) {
-      this.fighters[side].root.traverse((object) => {
-        if (!(object instanceof THREE.Mesh) || this.fighterRenderStates.has(object)) return;
-        const original = object.material;
-        const originals = Array.isArray(original) ? original : [original];
-        const clones = originals.map((material) => {
-          const clone = material.clone();
-          clone.depthTest = false;
-          clone.depthWrite = false;
-          clone.needsUpdate = true;
-          return clone;
-        });
-        this.fighterRenderStates.set(object, {
-          material: original,
-          renderOrder: object.renderOrder,
-          clones,
-        });
-        object.material = Array.isArray(original) ? clones : clones[0];
-        object.renderOrder = 9999;
-      });
+  private isBattleStageObject(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (current === this.group) return true;
+      current = current.parent;
     }
+    return false;
   }
 
-  /** Restaura materiais e ordem originais ao sair da batalha. */
-  private restoreFighterRendering(): void {
-    for (const [mesh, state] of this.fighterRenderStates) {
-      mesh.material = state.material;
-      mesh.renderOrder = state.renderOrder;
-      for (const material of state.clones) material.dispose();
+  private isFighterPart(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (this.activeSides.some((side) => this.fighters[side]?.root === current)) return true;
+      current = current.parent;
     }
-    this.fighterRenderStates.clear();
+    return false;
+  }
+
+  /** Mantém depth testing normal e remove apenas um bloqueador pequeno por raio. */
+  private updateFighterOcclusion(dt: number): void {
+    this.occlusionRefresh -= dt;
+    if (this.occlusionRefresh > 0) return;
+    this.occlusionRefresh = 0.11;
+    this.fighterOcclusion.restore();
+    this.scene.updateMatrixWorld(true);
+
+    for (const side of this.activeSides) {
+      const root = this.fighters[side].root;
+      this.fighterBounds.setFromObject(root);
+      if (this.fighterBounds.isEmpty()) continue;
+      const height = this.fighterBounds.max.y - this.fighterBounds.min.y;
+      if (height <= 0.05) continue;
+
+      for (const ratio of [0.48, 0.82]) {
+        this.occlusionTarget.set(
+          (this.fighterBounds.min.x + this.fighterBounds.max.x) * 0.5,
+          this.fighterBounds.min.y + height * ratio,
+          (this.fighterBounds.min.z + this.fighterBounds.max.z) * 0.5,
+        );
+        this.occlusionDirection.subVectors(this.occlusionTarget, this.camera.position);
+        const distance = this.occlusionDirection.length();
+        if (distance <= 0.1) continue;
+        this.occlusionDirection.normalize();
+        this.occlusionRaycaster.set(this.camera.position, this.occlusionDirection);
+        this.occlusionRaycaster.far = Math.max(0, distance - 0.22);
+        const hit = this.occlusionRaycaster.intersectObjects(this.scene.children, true).find((intersection) => {
+          const object = intersection.object;
+          if (this.isFighterPart(object) || this.isBattleStageObject(object)) return false;
+          return isSafeOcclusionHit({ object, instanceId: intersection.instanceId }, () => false);
+        });
+        if (hit) this.fighterOcclusion.hide({ object: hit.object, instanceId: hit.instanceId });
+      }
+    }
   }
 
   public begin(opts: {
@@ -307,6 +335,7 @@ export class BattleStage {
     this.clock = 0;
     this.introT = 0;
     this.events = [];
+    this.occlusionRefresh = 0;
     for (const k of Object.keys(this.displayVigor) as Side[]) this.displayVigor[k] = 100;
     this.fallen.clear();
     this.darkness = 0;
@@ -362,10 +391,6 @@ export class BattleStage {
     });
     this.fighters.player.home.y = opts.playerPos.y;
 
-    // O cenário permanece intacto; somente os materiais dos duelistas usam
-    // depthTest desativado durante a batalha para não serem encobertos por props.
-    this.bringFightersToForeground();
-
     // Domos de defesa.
     const domeGeo = new THREE.SphereGeometry(1.15, 20, 14);
     const mkDome = (color: number) => {
@@ -394,7 +419,7 @@ export class BattleStage {
     this.comboBreakerWindow = false;
     this.actionDone = null;
     this.events = [];
-    this.restoreFighterRendering();
+    this.fighterOcclusion.restore();
     for (const fx of this.effects) {
       this.group.remove(fx.obj);
       fx.dispose();
@@ -481,8 +506,16 @@ export class BattleStage {
   private safeFrameDistance(radius: number, fov: number): number {
     const vertical = THREE.MathUtils.degToRad(fov);
     const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * Math.max(0.3, this.camera.aspect));
-    const halfAngle = Math.max(0.08, Math.min(vertical, horizontal) / 2);
+    const { sceneHeight } = getBattleHudLayoutFractions();
+    const safeVertical = 2 * Math.atan(Math.tan(vertical / 2) * sceneHeight);
+    const halfAngle = Math.max(0.08, Math.min(safeVertical, horizontal) / 2);
     return Math.max(6.5, (radius / Math.sin(halfAngle)) * 1.2);
+  }
+  private shiftLookTargetForHud(cameraPosition: THREE.Vector3, lookTarget: THREE.Vector3, fov: number): void {
+    const viewDistance = cameraPosition.distanceTo(lookTarget);
+    const halfViewHeight = Math.tan(THREE.MathUtils.degToRad(fov) / 2) * viewDistance;
+    const { lookShift } = getBattleHudLayoutFractions();
+    lookTarget.y -= halfViewHeight * lookShift;
   }
 
   /** Corte cinematográfico com todos os duelistas dentro do enquadramento. */
@@ -495,6 +528,7 @@ export class BattleStage {
       .addScaledVector(viewDir, distance);
     this.camPosTarget.y += Math.max(2.8, frame.radius * 0.55);
     this.camLookTarget.copy(frame.center);
+    this.shiftLookTargetForHud(this.camPosTarget, this.camLookTarget, fov);
     this.camK = k;
     this.fovTarget = fov;
     this.orbit = null;
@@ -1095,6 +1129,7 @@ export class BattleStage {
       this.camera.lookAt(this.camLook);
       this.camera.fov = this.origFov + (1 - e) * 18;
       this.camera.updateProjectionMatrix();
+      this.updateFighterOcclusion(step);
       if (this.introT >= this.introDur) {
         this.wideShot(4);
         this.camPos.copy(this.camera.position);
@@ -1154,6 +1189,7 @@ export class BattleStage {
 
     this.updateEffects(step);
     this.updateCamera(dt);
+    this.updateFighterOcclusion(dt);
   }
 
   private updateEffects(dt: number): void {
@@ -1184,6 +1220,7 @@ export class BattleStage {
         around.z + Math.sin(o.phase) * o.radius,
       );
       this.camLookTarget.copy(around);
+      this.shiftLookTargetForHud(this.camPosTarget, this.camLookTarget, this.fovTarget);
     } else {
       // Recalcula a distância também durante a luta: resize/orientação do celular
       // ou deslocamento dos lutadores nunca pode deixar alguém fora do plano.
@@ -1198,6 +1235,7 @@ export class BattleStage {
         this.camPosTarget.y = frame.center.y + Math.max(2.8, frame.radius * 0.55);
       }
       this.camLookTarget.copy(frame.center);
+      this.shiftLookTargetForHud(this.camPosTarget, this.camLookTarget, this.fovTarget);
 
       // Evita que a interpolação de um corte anterior mostre personagens cortados.
       const currentDx = this.camPos.x - frame.center.x;

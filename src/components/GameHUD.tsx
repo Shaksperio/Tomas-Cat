@@ -220,7 +220,7 @@ function BattleOverlay({
     <div className="pointer-events-none absolute inset-0 z-50 select-none">
       {/* Barras de cinema */}
       <div className="battle-bar-top absolute inset-x-0 top-0 h-[11vh] bg-black" />
-      <div className="battle-bar-bottom absolute inset-x-0 bottom-0 h-[11vh] bg-black" />
+      <div className="battle-bar-bottom absolute inset-x-0 bottom-0 h-[clamp(10rem,28vh,16rem)] bg-black" />
 
       {/* Escurecimento (Limit) e clarões */}
       <div className="absolute inset-0 bg-black" style={{ opacity: duel.darkness, transition: 'opacity 0.35s' }} />
@@ -296,7 +296,7 @@ function BattleOverlay({
 
       {/* Menu e status do jogador (estilo RPG clássico) */}
       {!duel.intro && (
-        <div className="absolute inset-x-2 bottom-[12vh] flex items-end gap-2 sm:gap-3 pointer-events-auto">
+        <div className="absolute inset-x-1 bottom-2 flex items-end gap-1 sm:inset-x-2 sm:gap-3 pointer-events-auto">
           {duel.awaitingCommand && (
             <BattleCommandMenu
               duel={duel}
