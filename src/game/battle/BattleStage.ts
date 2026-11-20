@@ -148,6 +148,12 @@ export class BattleStage {
   private spread = 1;
   private orbit: { around: 'center'; radius: number; height: number; speed: number; phase: number } | null = null;
   private guardDomes: Record<Side, THREE.Mesh> | null = null;
+  /** Materiais clonados durante a batalha para desenhar os duelistas acima do cenário. */
+  private readonly fighterRenderStates = new Map<THREE.Mesh, {
+    material: THREE.Material | THREE.Material[];
+    renderOrder: number;
+    clones: THREE.Material[];
+  }>();
   private onPlayerClaw: () => void = () => undefined;
   private onPlayerCheer: () => void = () => undefined;
 
@@ -246,6 +252,45 @@ export class BattleStage {
     });
   }
 
+  /**
+   * Mantém os duelistas legíveis mesmo quando árvores, rochas ou construções
+   * passam entre a câmera e os personagens. Clonamos os materiais para não
+   * alterar materiais compartilhados com os modelos do mundo aberto.
+   */
+  private bringFightersToForeground(): void {
+    for (const side of this.activeSides) {
+      this.fighters[side].root.traverse((object) => {
+        if (!(object instanceof THREE.Mesh) || this.fighterRenderStates.has(object)) return;
+        const original = object.material;
+        const originals = Array.isArray(original) ? original : [original];
+        const clones = originals.map((material) => {
+          const clone = material.clone();
+          clone.depthTest = false;
+          clone.depthWrite = false;
+          clone.needsUpdate = true;
+          return clone;
+        });
+        this.fighterRenderStates.set(object, {
+          material: original,
+          renderOrder: object.renderOrder,
+          clones,
+        });
+        object.material = Array.isArray(original) ? clones : clones[0];
+        object.renderOrder = 9999;
+      });
+    }
+  }
+
+  /** Restaura materiais e ordem originais ao sair da batalha. */
+  private restoreFighterRendering(): void {
+    for (const [mesh, state] of this.fighterRenderStates) {
+      mesh.material = state.material;
+      mesh.renderOrder = state.renderOrder;
+      for (const material of state.clones) material.dispose();
+    }
+    this.fighterRenderStates.clear();
+  }
+
   public begin(opts: {
     playerRoot: THREE.Object3D;
     playerPos: THREE.Vector3;
@@ -317,7 +362,9 @@ export class BattleStage {
     });
     this.fighters.player.home.y = opts.playerPos.y;
 
-    // Mantém a renderização normal do cenário e a profundidade 3D dos duelistas.
+    // O cenário permanece intacto; somente os materiais dos duelistas usam
+    // depthTest desativado durante a batalha para não serem encobertos por props.
+    this.bringFightersToForeground();
 
     // Domos de defesa.
     const domeGeo = new THREE.SphereGeometry(1.15, 20, 14);
@@ -347,6 +394,7 @@ export class BattleStage {
     this.comboBreakerWindow = false;
     this.actionDone = null;
     this.events = [];
+    this.restoreFighterRendering();
     for (const fx of this.effects) {
       this.group.remove(fx.obj);
       fx.dispose();
