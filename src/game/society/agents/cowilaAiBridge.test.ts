@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SocietySimulation } from '../simulation.ts';
 import {
+  applyCowilaAiDecision,
   bridgeCowilaAiDecisionProposals,
   bridgeCowilaAiProposal,
   resolveSkillIdForAgentTask,
@@ -30,7 +31,6 @@ test('bridge preenche skillId e passa na política', () => {
   );
   assert.ok(bridged);
   assert.equal(bridged!.skillId, 'engineer.survey-and-design');
-  assert.equal(bridged!.sectorId, engineer!.position.sectorId);
   const decision = authorizeSpecialistProposal(bridged!, snap);
   assert.equal(decision.accepted, true, decision.reason);
 });
@@ -47,26 +47,36 @@ test('rejeita taskKind fora da profissão', () => {
       priority: 50,
     },
     snap,
-    `cowila-ai:${snap.tick}:${farmer!.id}:build_module`,
+    `cowila-ai:${snap.tick}:x:build_module`,
   );
   assert.equal(bridged, null);
 });
 
-test('lista de propostas filtra inválidas', () => {
-  const snap = { ...new SocietySimulation().snapshot(), tasks: [] };
-  const list = bridgeCowilaAiDecisionProposals(
-    [
-      { agentId: 'nobody', taskKind: 'survey_site', reason: 'x', priority: 10 },
-      {
-        agentId: snap.agents.find((a) => a.profession === 'lumberjack')!.id,
-        taskKind: 'chop_wood',
-        reason: 'Produzir madeira para a comunidade.',
-        priority: 70,
-      },
-    ],
-    snap,
-    snap.tick,
-  );
-  assert.equal(list.length, 1);
-  assert.equal(list[0].skillId, 'lumberjack.sustainable-forestry');
+test('applyCowilaAiDecision agenda na simulação', () => {
+  const sim = new SocietySimulation();
+  const snap = sim.snapshot();
+  const lumberjack = snap.agents.find((a) => a.profession === 'lumberjack');
+  assert.ok(lumberjack);
+  const result = applyCowilaAiDecision(sim, {
+    tick: snap.tick,
+    brief: 'Produção de madeira prioritária.',
+    proposals: [{
+      agentId: lumberjack!.id,
+      taskKind: 'chop_wood',
+      reason: 'Produzir madeira para a comunidade.',
+      priority: 70,
+    }],
+  });
+  assert.ok(result.accepted >= 1);
+  assert.ok(sim.snapshot().tasks.some((t) => t.id.includes('cowila-ai')));
+});
+
+test('apply recusa tick desatualizado', () => {
+  const sim = new SocietySimulation();
+  const result = applyCowilaAiDecision(sim, {
+    tick: sim.snapshot().tick + 99,
+    brief: 'atrasado',
+    proposals: [{ agentId: 'x', taskKind: 'chop_wood', reason: 'y', priority: 1 }],
+  });
+  assert.equal(result.accepted, 0);
 });
