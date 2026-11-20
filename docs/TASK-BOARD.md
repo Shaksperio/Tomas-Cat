@@ -2,7 +2,7 @@
 
 > **Toda IA (Claude, ChatGPT/Codex, Grok ou outra) lê este arquivo antes de começar qualquer trabalho e atualiza no mesmo commit em que reivindica, entrega ou abandona uma tarefa.** Ele existe para que duas IAs nunca façam a mesma coisa nem mexam no trabalho uma da outra.
 >
-> Última revisão: 2026-11-20 (Manus: T-213 integrada na main pela PR #84). Confira de novo antes de agir.
+> Última revisão: 2026-11-20 (Manus: T-214 reservada com autorização de Tom). Confira de novo antes de agir.
 
 ## 1. Regras
 
@@ -40,6 +40,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 ## 3. Em andamento (reservadas)
 
 - [T-001+T-004] Técnicas à venda nas lojas e novos combos desbloqueados por nível (Fúria Apex e Sequência Suprema como comandos ATB próprios) — dono: Claude — branch: `claude/shop-techniques` — reserva: `src/game/progression/`, `src/game/shop/`, `src/game/battle/` (atb.ts, commands.ts, BattleStage.ts só no trecho de combos), `src/game/GameEngine.ts` (apenas battleCommand, teclas de batalha, compra de técnica e snapshot da loja; **não** o trecho `requestCowilaDecision` da T-101), `src/components/GameHUD.tsx` (comandos de batalha e painel da loja), `src/types/game.ts` — desde: 2026-11-20
+- [T-214] Corrigir visibilidade natural dos duelistas, enquadramento e layout legível da HUD de batalha — dono: Manus — branch: `manus/battle-visibility-hud` — reserva: `src/game/battle/BattleStage.ts` (materiais/renderização/restauração e enquadramento; não alterar coreografia de combos), `src/components/GameHUD.tsx` (layout visual do menu/overlay; não alterar comandos/loja), testes de apresentação de batalha, `AGENTS.md` — desde: 2026-11-20 — Autorizado por Tom em 2026-11-20 a corrigir os trechos conflitantes reservados por Claude; implementação não está autorizada para merge/publicação.
 - [T-007] Remover o arquivo de documentação de PR que sobrou — dono: ChatGPT/Codex — branch: `codex/remove-stale-agent-runtime-patch` — PR: #77 — reserva: `src/game/society/agents/GameEngine_agentRuntime.patch` — desde: 2026-11-20
 - [T-101] Ponte Cowila IA → skillId canônico — dono: **Grok** — branch: `grok/cowila-ai-skill-bridge` — PR: **#76** — reserva: `src/game/society/agents/cowilaAiBridge.ts`, `cowilaAiBridge.test.ts`, `GameEngine_cowilaAiBridge.patch`; integração final no `GameEngine.ts` **apenas** o trecho `requestCowilaDecision` (usar `applyCowilaAiDecision`) — desde: 2026-11-20 — nota: módulo + testes na branch; wire no motor ainda pendente de merge/CI
 - [T-102] Aceitar health check ignorado no Agent Gate — dono: ChatGPT/Codex — branch: `codex/agent-gate-post-deploy-check` — PR: #73 — reserva: `scripts/agent-gate/`, `AGENTS.md` (seção do gate)
@@ -85,6 +86,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 - 2026-11-20 — criado por Claude a pedido de Tom.
 - 2026-11-20 — Manus: T-213 reservada para polimento visual felino; Tom autorizou o push da reserva à `main` sabendo que o push pode disparar o deploy automático.
 - 2026-11-20 — Manus: T-213 integrada na `main` após autorização explícita de Tom; PR #84 e CI verde; deploy de produção acionado.
+- 2026-11-20 — Manus: T-214 reservada após autorização explícita de Tom para enviar a reserva à `main` e corrigir os trechos de batalha/HUD em conflito com T-001+T-004; a autorização não inclui merge nem publicação da implementação.
 - 2026-11-20 — ChatGPT/Codex: T-108 integrada pela PR #79 (merge `b77758c`); iniciado T-109 para corrigir a visibilidade dos lutadores sem alterar o trabalho de combos de Claude. Tom autorizou a melhoria nesta conversa; PR #80 aberta em draft.
 - 2026-11-20 — ChatGPT/Codex: CI da PR #80 concluída com sucesso (testes de contrato, TypeScript e build); deploy foi corretamente ignorado por ser PR. Validação visual em navegador real permanece pendente; PR continua em draft.
 - 2026-11-20 — Grok: reserva completa T-101; nota T-107 (portalWorlds na main); achados na seção 5.
