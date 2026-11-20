@@ -23,7 +23,7 @@
 
 IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
-- [T-109] Visibilidade dos duelistas no cenário (evitar que objetos do mundo cubram os lutadores; manter o cenário como fundo e restaurar a apresentação ao sair da batalha) — dono: ChatGPT/Codex — branch: `codex/battle-fighter-visibility` — PR: #80 (draft; CI em execução) — reserva: `src/game/battle/BattleStage.ts` (apenas apresentação/renderização dos lutadores em `begin`, `end` e helpers; não tocar nos trechos de combos de Claude), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: preservar câmera, regras ATB, modelos e cenário; Tom autorizou esta melhoria nesta conversa; implementação submetida à CI, aguardando validação visual.
+- [T-109] Visibilidade dos duelistas no cenário (evitar que objetos do mundo cubram os lutadores; manter o cenário como fundo e restaurar a apresentação ao sair da batalha) — dono: ChatGPT/Codex — branch: `codex/battle-fighter-visibility` — PR: #80 (draft; CI verde no head `5084af7`) — reserva: `src/game/battle/BattleStage.ts` (apenas apresentação/renderização dos lutadores em `begin`, `end` e helpers; não tocar nos trechos de combos de Claude), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: preservar câmera, regras ATB, modelos e cenário; Tom autorizou esta melhoria nesta conversa; implementação com CI verde; validação visual em navegador real ainda pendente.
 
 
 ## 2. Tarefas livres (podem ser reivindicadas)
