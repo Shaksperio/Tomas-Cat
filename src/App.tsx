@@ -10,7 +10,8 @@ import { gameAudio } from './game/audio';
 import { GameEngine } from './game/GameEngine';
 import { firebaseAuth, firebaseConfigured } from './firebase/client';
 import { pickBestSave } from './game/saves/saveSelection';
-import { flushAccountGameSave, loadAccountGameSave, queueAccountGameSave } from './firebase/gameSave';
+import { isRecoverableConnectivityFailure } from './game/offline/connectivity';
+import { flushAccountGameSave, flushPendingAccountGameSave, loadAccountGameSave, queueAccountGameSave, SaveConflictError } from './firebase/gameSave';
 import { EVOLUTION_STAGES, GamePhase, HudSnapshot, LoreLog, MAX_CHANCES, SavedGameState } from './types/game';
 
 const INITIAL_HUD: HudSnapshot = {
@@ -44,6 +45,9 @@ export default function App() {
   const [accountReady, setAccountReady] = useState(false);
   const [accountLoading, setAccountLoading] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [connectionOnline, setConnectionOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+  const [offlineFallback, setOfflineFallback] = useState(false);
+  const [saveConflict, setSaveConflict] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
   const currentUidRef = useRef<string | null>(null);
   const loadedAccountUidRef = useRef<string | null>(null);
@@ -63,6 +67,48 @@ export default function App() {
     setToast({ id: Date.now(), message, tone });
     toastTimerRef.current = window.setTimeout(() => setToast(null), 3400);
   }, []);
+
+  useEffect(() => {
+    if (!authUser || !accountReady || !connectionOnline) return;
+    void flushPendingAccountGameSave(authUser.uid).then(() => {
+      setSaveConflict(false);
+      setOfflineFallback(false);
+    }).catch((error) => {
+      setSaveConflict(error instanceof SaveConflictError);
+      setOfflineFallback(true);
+      showToast(error instanceof SaveConflictError ? 'Conflito de salvamento: sua cópia local foi preservada e a nuvem não foi sobrescrita.' : `Sincronização pendente: ${errorMessage(error)}`, 'warn');
+    });
+  }, [authUser, accountReady, connectionOnline, showToast]);
+
+  useEffect(() => {
+    const handleOffline = () => {
+      setConnectionOnline(false);
+      if (authUser) {
+        setOfflineFallback(true);
+        showToast('Conexão perdida. Tomas continuará usando o salvamento local.', 'warn');
+      }
+    };
+    const handleOnline = () => {
+      setConnectionOnline(true);
+      if (authUser) {
+        engineRef.current?.persistNow();
+        void flushPendingAccountGameSave(authUser.uid).then(() => {
+          setSaveConflict(false);
+          setOfflineFallback(false);
+        }).catch((error) => {
+          setSaveConflict(error instanceof SaveConflictError);
+          setOfflineFallback(true);
+          showToast(error instanceof SaveConflictError ? 'Conflito de salvamento: sua cópia local foi preservada e a nuvem não foi sobrescrita.' : `Sincronização pendente: ${errorMessage(error)}`, 'warn');
+        });
+      }
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [authUser, showToast]);
 
   // Wait for Firebase's persisted browser session and redirect result before
   // exposing the login screen. This prevents an initial null auth snapshot
@@ -124,13 +170,27 @@ export default function App() {
       if (currentUidRef.current !== uid) return;
       loadedAccountUidRef.current = uid;
       setHasSave(Boolean(remoteSave || localSave || legacySave || GameEngine.getBackupSavedGame()));
+      setOfflineFallback(false);
       setAccountReady(true);
     } catch (error) {
-      setAccountError(`Não foi possível validar o salvamento protegido no Firebase. Confira se o Firestore está criado e se as regras firestore.rules foram publicadas. Detalhe: ${errorMessage(error)}`);
+      if (isRecoverableConnectivityFailure(error)) {
+        const localSave = GameEngine.getSavedGame(uid);
+        const legacySave = GameEngine.getLegacySavedGame();
+        const backupSave = GameEngine.getBackupSavedGame();
+        if (currentUidRef.current !== uid) return;
+        loadedAccountUidRef.current = uid;
+        setHasSave(Boolean(localSave || legacySave || backupSave));
+        setOfflineFallback(true);
+        setAccountReady(true);
+        setAccountError(null);
+        showToast('Firebase indisponível. Modo de contingência ativado: seu progresso local continua disponível.', 'warn');
+      } else {
+        setAccountError(`Não foi possível validar o salvamento protegido no Firebase. Confira se o Firestore está criado e se as regras firestore.rules foram publicadas. Detalhe: ${errorMessage(error)}`);
+      }
     } finally {
       setAccountLoading(false);
     }
-  }, [authUser]);
+  }, [authUser, showToast]);
 
   useEffect(() => {
     if (authUser) {
@@ -139,6 +199,8 @@ export default function App() {
       loadedAccountUidRef.current = null;
       setAccountReady(false);
       setHasSave(false);
+      setOfflineFallback(false);
+      setSaveConflict(false);
       setPhase('title');
     }
   }, [authUser, refreshAccount]);
@@ -236,8 +298,12 @@ export default function App() {
       queueAccountGameSave(
         authUser.uid,
         payload,
-        undefined,
-        (error) => showToast(`Falha ao sincronizar seu personagem: ${errorMessage(error)}`, 'warn'),
+        () => setOfflineFallback(false),
+        (error) => {
+          setSaveConflict(error instanceof SaveConflictError);
+          setOfflineFallback(true);
+          showToast(error instanceof SaveConflictError ? 'Conflito de salvamento: a cópia offline está preservada; nenhuma alteração remota foi feita.' : `Falha ao sincronizar seu personagem. O progresso permanece local: ${errorMessage(error)}`, 'warn');
+        },
       );
     },
   }), [authUser, showToast]);
@@ -283,7 +349,27 @@ export default function App() {
       setPhase('playing');
       setHasSave(true);
     } catch (error) {
-      showToast(`Não foi possível recuperar seu personagem: ${errorMessage(error)}`, 'warn');
+      if (isRecoverableConnectivityFailure(error)) {
+        const best = pickBestSave([
+          { origin: 'local', save: GameEngine.getSavedGame(authUser.uid) as SavedGameState },
+          { origin: 'legacy', save: GameEngine.getLegacySavedGame() as SavedGameState },
+          { origin: 'backup', save: GameEngine.getBackupSavedGame() as SavedGameState },
+        ]);
+        if (best) {
+          GameEngine.archiveSave(best.save);
+          engineRef.current.continueSavedGame(best.save);
+          GameEngine.clearLegacySavedGame();
+          showToast(`Personagem recuperado da cópia ${best.origin}. Continuando em modo de contingência.`, 'warn');
+        } else {
+          engineRef.current.startNewGame();
+          showToast('Sem conexão com o Firestore. Novo progresso será mantido localmente até a reconexão.', 'warn');
+        }
+        setOfflineFallback(true);
+        setPhase('playing');
+        setHasSave(true);
+      } else {
+        showToast(`Não foi possível recuperar seu personagem: ${errorMessage(error)}`, 'warn');
+      }
     }
   }, [authUser, showToast]);
 
@@ -346,6 +432,12 @@ export default function App() {
         </div>
         <button type="button" onClick={handleLogout} className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/20">Sair</button>
       </header>
+
+      {(offlineFallback || !connectionOnline || saveConflict) && (
+        <div role={saveConflict ? 'alert' : 'status'} className={`relative z-20 flex shrink-0 items-center justify-center gap-2 border-b px-3 py-1.5 text-center text-[10px] font-medium ${saveConflict ? 'border-rose-300/30 bg-rose-950/90 text-rose-100' : 'border-amber-300/20 bg-amber-950/80 text-amber-100'}`}>
+          <span>{saveConflict ? 'CONFLITO DE SAVE — cópia offline preservada; a nuvem não foi sobrescrita. A sincronização automática está pausada até revisão.' : !connectionOnline ? 'Sem internet' : 'Sincronização pendente'}{!saveConflict && ' — modo de contingência ativo; progresso salvo localmente.'}</span>
+        </div>
+      )}
 
       <div className="relative min-h-0 w-full flex-1 overflow-hidden">
       <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} ownerEmail={authUser.email ?? ''} ownerEmailVerified={authUser.emailVerified} onEngineReady={handleEngineReady} />

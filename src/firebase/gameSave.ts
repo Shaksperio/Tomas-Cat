@@ -1,8 +1,54 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import type { SavedGameState } from '../types/game';
+import { deletePendingGameSave, getPendingGameSave, putPendingGameSave, type PendingGameSave } from '../game/offline/offlineOutbox';
 import { firestore } from './client';
 
-const pending = new Map<string, { payload: SavedGameState; timer: number; onError?: (error: unknown) => void; onSaved?: () => void }>();
+interface QueuedSave extends PendingGameSave {
+  timer: number;
+  persistPromise: Promise<void>;
+  onError?: (error: unknown) => void;
+  onSaved?: () => void;
+}
+
+const pending = new Map<string, QueuedSave>();
+const remoteFingerprints = new Map<string, string | null>();
+const REMOTE_VERSION_PREFIX = 'tomas-remote-version:';
+let revisionCounter = 0;
+
+export class SaveConflictError extends Error {
+  constructor() {
+    super('O salvamento remoto mudou desde a última sincronização. A cópia offline foi preservada para evitar sobrescrever progresso de outro dispositivo.');
+    this.name = 'SaveConflictError';
+  }
+}
+
+async function fingerprint(payload: SavedGameState): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+function cachedRemoteFingerprint(uid: string): string | null | undefined {
+  if (remoteFingerprints.has(uid)) return remoteFingerprints.get(uid);
+  try {
+    const raw = localStorage.getItem(REMOTE_VERSION_PREFIX + encodeURIComponent(uid));
+    if (raw === null) return undefined;
+    const value = raw === '__none__' ? null : raw;
+    remoteFingerprints.set(uid, value);
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberRemoteFingerprint(uid: string, value: string | null): void {
+  remoteFingerprints.set(uid, value);
+  try {
+    localStorage.setItem(REMOTE_VERSION_PREFIX + encodeURIComponent(uid), value ?? '__none__');
+  } catch {
+    // The IndexedDB outbox remains available even if this cache cannot be written.
+  }
+}
 
 function saveDocument(uid: string) {
   if (!firestore) throw new Error('Firebase Firestore não está configurado.');
@@ -20,30 +66,62 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 export async function loadAccountGameSave(uid: string): Promise<SavedGameState | null> {
-  // Sem banco Firestore criado ou sem rede, getDoc pode ficar pendente por tempo
-  // indeterminado; o limite faz o erro aparecer na tela em vez de travar.
   const snapshot = await withTimeout(
     getDoc(saveDocument(uid)),
     12_000,
     'Tempo esgotado ao consultar o Firestore (banco não criado, regras não publicadas ou sem conexão).',
   );
-  if (!snapshot.exists()) return null;
+  if (!snapshot.exists()) {
+    await rememberRemoteFingerprint(uid, null);
+    return null;
+  }
   const data = snapshot.data();
   if (data.ownerUid !== uid || !data.payload || typeof data.payload !== 'object') {
     throw new Error('O salvamento remoto não pertence a esta conta ou está inválido.');
   }
-  return data.payload as SavedGameState;
+  const payload = data.payload as SavedGameState;
+  await rememberRemoteFingerprint(uid, await fingerprint(payload));
+  return payload;
 }
 
-export async function saveAccountGameSave(uid: string, payload: SavedGameState): Promise<void> {
+export async function saveAccountGameSave(
+  uid: string,
+  payload: SavedGameState,
+  expectedFingerprint: string | null,
+): Promise<void> {
   const serialized = JSON.stringify(payload);
   if (serialized.length > 850_000) throw new Error('O salvamento excede o limite seguro de tamanho.');
-  await setDoc(saveDocument(uid), {
-    ownerUid: uid,
-    schemaVersion: 1,
-    payload,
-    updatedAt: serverTimestamp(),
+  const reference = saveDocument(uid);
+  if (!firestore) throw new Error('Firebase Firestore não está configurado.');
+  await runTransaction(firestore, async (transaction) => {
+    const snapshot = await transaction.get(reference);
+    let currentFingerprint: string | null = null;
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data.ownerUid !== uid || !data.payload || typeof data.payload !== 'object') {
+        throw new Error('O salvamento remoto não pertence a esta conta ou está inválido.');
+      }
+      currentFingerprint = await fingerprint(data.payload as SavedGameState);
+    }
+    // A gravação pode ter sido confirmada no servidor e a limpeza local
+    // falhado. Reconheça o mesmo snapshot como sucesso idempotente; isso evita
+    // transformar uma repetição da mesma operação em falso conflito.
+    const nextFingerprint = await fingerprint(payload);
+    if (currentFingerprint === nextFingerprint) return;
+    if (currentFingerprint !== expectedFingerprint) throw new SaveConflictError();
+    transaction.set(reference, {
+      ownerUid: uid,
+      schemaVersion: 1,
+      payload,
+      updatedAt: serverTimestamp(),
+    });
   });
+  rememberRemoteFingerprint(uid, await fingerprint(payload));
+}
+
+function createRevision(): string {
+  revisionCounter += 1;
+  return Date.now().toString(36) + '-' + revisionCounter.toString(36);
 }
 
 export function queueAccountGameSave(
@@ -53,25 +131,86 @@ export function queueAccountGameSave(
   onError?: (error: unknown) => void,
 ): void {
   const previous = pending.get(uid);
-  if (previous) {
-    // Keep only the latest snapshot, but retain the first timer to throttle
-    // the engine's six-second autosave cadence into a cloud write every ~15s.
-    previous.payload = payload;
-    previous.onSaved = onSaved;
-    previous.onError = onError;
-    return;
-  }
-  const timer = window.setTimeout(() => {
-    void flushAccountGameSave(uid).catch(onError);
+  const revision = createRevision();
+  const record: PendingGameSave = {
+    uid,
+    revision,
+    queuedAt: Date.now(),
+    payload,
+    baseFingerprint: cachedRemoteFingerprint(uid),
+  };
+  const persistPromise = putPendingGameSave(record);
+  void persistPromise.catch((error) => onError?.(error));
+  const timer = previous?.timer ?? window.setTimeout(() => {
+    void flushAccountGameSave(uid).catch(() => undefined);
   }, 15_000);
-  pending.set(uid, { payload, timer, onSaved, onError });
+  pending.set(uid, { ...record, timer, persistPromise, onSaved, onError });
 }
 
 export async function flushAccountGameSave(uid: string): Promise<void> {
   const queued = pending.get(uid);
-  if (!queued) return;
-  window.clearTimeout(queued.timer);
-  pending.delete(uid);
-  await saveAccountGameSave(uid, queued.payload);
-  queued.onSaved?.();
+  await queued?.persistPromise;
+  const durable = await getPendingGameSave(uid);
+  const candidate = durable ?? queued;
+  if (!candidate) return;
+  // Se uma versão mais nova chegou enquanto a versão anterior era preparada,
+  // não envie a antiga: o próximo flush usará o snapshot mais recente.
+  let latest = pending.get(uid);
+  if (latest && latest.revision !== candidate.revision) {
+    if (latest.queuedAt > candidate.queuedAt) return;
+    window.clearTimeout(latest.timer);
+    const timer = window.setTimeout(() => {
+      void flushAccountGameSave(uid).catch(() => undefined);
+    }, 0);
+    latest = { ...candidate, timer, persistPromise: Promise.resolve(), onError: latest.onError, onSaved: latest.onSaved };
+    pending.set(uid, latest);
+  }
+
+  try {
+    const baseFingerprint = candidate.baseFingerprint;
+    if (baseFingerprint === undefined) throw new SaveConflictError();
+    await saveAccountGameSave(uid, candidate.payload, baseFingerprint);
+    // Compare-and-delete: nunca apague um snapshot mais novo que chegou durante
+    // a escrita remota.
+    await deletePendingGameSave(uid, candidate.revision);
+    const isCurrentRevision = pending.get(uid)?.revision === candidate.revision;
+    if (isCurrentRevision) {
+      window.clearTimeout(pending.get(uid)!.timer);
+      pending.delete(uid);
+      latest?.onSaved?.();
+    }
+  } catch (error) {
+    const current = pending.get(uid);
+    if (current?.revision === candidate.revision) {
+      window.clearTimeout(current.timer);
+      if (error instanceof SaveConflictError) {
+        pending.set(uid, current);
+      } else {
+        const retryTimer = window.setTimeout(() => {
+          void flushAccountGameSave(uid).catch(() => undefined);
+        }, 15_000);
+        pending.set(uid, { ...current, timer: retryTimer });
+      }
+      current.onError?.(error);
+    } else {
+      queued?.onError?.(error);
+    }
+    throw error;
+  }
+}
+
+/** Reenvia o último snapshot durável da conta após a autenticação/reconexão. */
+export async function flushPendingAccountGameSave(uid: string): Promise<void> {
+  const current = pending.get(uid);
+  if (current) {
+    await flushAccountGameSave(uid);
+    return;
+  }
+  const durable = await getPendingGameSave(uid);
+  if (!durable) return;
+  const timer = window.setTimeout(() => {
+    void flushAccountGameSave(uid).catch(() => undefined);
+  }, 0);
+  pending.set(uid, { ...durable, timer, persistPromise: Promise.resolve() });
+  await flushAccountGameSave(uid);
 }

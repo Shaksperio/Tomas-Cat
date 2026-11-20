@@ -167,6 +167,16 @@ Backend autoritativo de mundo e transações; persistência remota autoritativa/
 - **Somente auditoria, inerte por construção:** não existe variável de ativação, endpoint de merge ou permissão de escrita. O workflow apenas relata a decisão no log; não bloqueia tecnicamente o merge e não altera a proteção da `main`. A lista `AGENT_GATE_AUTHORS` vazia bloqueia a elegibilidade. Qualquer proteção efetiva da `main` é configuração separada, a ser feita e revisada por humano.
 - **Limites conhecidos:** `run.mjs` não foi executado contra a API real (o ambiente de desenvolvimento não alcança `api.github.com` via Node) e o workflow só roda depois de estar na `main`; o nome do check obrigatório é `build` (se o CI mudar, a porta falha fechada); se os agentes abrirem PRs com a conta do próprio dono, não haverá aprovador independente possível, então será preciso uma segunda conta revisora; `deploy-pages.yml` usa `cancel-in-progress`, então CIs de PR podem ser cancelados e a porta espera um novo.
 
+### 4.12 Contingência de conectividade (primeira camada — 2026-11-19)
+- O modo normal continua online, com Firebase Authentication/Firestore e os serviços atuais. A contingência não substitui a arquitetura online nem cria identidade offline.
+- Depois de uma sessão Google/Firebase já autenticada, falhas de transporte/indisponibilidade ou timeout do Firestore permitem abrir o jogo com o save local associado ao mesmo UID; se não houver save local, o jogador autenticado pode iniciar um novo jogo em contingência.
+- Erros de autorização, autenticação ou dados remotos inválidos não são tratados como falha de rede e continuam bloqueando a validação da conta.
+- O navegador monitora os eventos `online` e `offline`. O jogo continua executando no cliente e o GameEngine mantém o save local; ao voltar a conexão, o snapshot atual é enviado novamente ao fluxo normal de salvamento remoto. A faixa de contingência só é removida após uma gravação remota confirmada.
+- A fila pendente de sincronização é persistida no IndexedDB, com fallback em localStorage, vinculada ao UID e mantida até confirmação da gravação remota. Em falhas de transporte, a fila permanece e a tentativa é repetida; ao reconectar ou reabrir a sessão autenticada, o snapshot durável é reenviado.
+- Cada snapshot registra a impressão digital SHA-256 da versão remota em que se baseou. A gravação usa transação Firestore e só é aceita se a versão remota ainda corresponder à versão-base; assim, duas sessões/dispositivos concorrentes não sobrescrevem silenciosamente uma à outra. Em divergência, a cópia offline é preservada e a sincronização automática é pausada.
+- Limite restante: ainda não existe uma interface de resolução/mesclagem para conflitos divergentes. Esses conflitos exigem recuperação/revisão explícita antes de retomar a sincronização; não há merge automático de inventário, moedas ou progresso.
+- Não implementado nesta fase: BLE/Wi-Fi Direct, multiplayer offline, servidor local ou simulação de backend. Não alterar autenticação, regras Firestore, economia autoritativa ou infraestrutura para simular autonomia total.
+
 ## 5. Roteiro e decisões do autor
 
 ### 5.1 Decisões de arquitetura (definidas)
