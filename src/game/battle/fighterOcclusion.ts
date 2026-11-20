@@ -19,11 +19,10 @@ export function isSafeOcclusionHit(hit: OcclusionHit, ignored: (object: THREE.Ob
   const { object, instanceId } = hit;
   if (ignored(object) || !object.visible || !(object instanceof THREE.Mesh)) return false;
 
-  if (object instanceof THREE.InstancedMesh) {
-    if (instanceId === undefined || !Number.isInteger(instanceId) || instanceId < 0 || instanceId >= object.count) return false;
-  } else if (instanceId !== undefined) {
-    return false;
-  }
+  // Não alteramos matrizes individuais de InstancedMesh durante o combate:
+  // alguns mapas usam instâncias compartilhadas e uma falha de restauração
+  // pode deixar partes inteiras do cenário invisíveis.
+  if (object instanceof THREE.InstancedMesh || instanceId !== undefined) return false;
 
   const materials = Array.isArray(object.material) ? object.material : [object.material];
   if (materials.length === 0 || materials.some((material) =>
@@ -35,16 +34,8 @@ export function isSafeOcclusionHit(hit: OcclusionHit, ignored: (object: THREE.Ob
   if (!geometry.boundingSphere) return false;
   let worldRadius: number;
 
-  if (object instanceof THREE.InstancedMesh) {
-    const instanceMatrix = new THREE.Matrix4();
-    object.getMatrixAt(instanceId!, instanceMatrix);
-    const worldMatrix = object.matrixWorld.clone().multiply(instanceMatrix);
-    const sphere = geometry.boundingSphere.clone().applyMatrix4(worldMatrix);
-    worldRadius = sphere.radius;
-  } else {
-    object.getWorldScale(_scale);
-    worldRadius = geometry.boundingSphere.radius * Math.max(_scale.x, _scale.y, _scale.z);
-  }
+  object.getWorldScale(_scale);
+  worldRadius = geometry.boundingSphere.radius * Math.max(_scale.x, _scale.y, _scale.z);
 
   return Number.isFinite(worldRadius) && worldRadius > 0 && worldRadius <= MAX_OCCLUDER_WORLD_RADIUS;
 }
