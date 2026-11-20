@@ -13,7 +13,7 @@ export type FoeSide = 'opponent' | 'opponent2' | 'opponent3' | 'opponent4';
 export type Side = 'player' | FoeSide;
 export const FOE_SIDES: readonly FoeSide[] = ['opponent', 'opponent2', 'opponent3', 'opponent4'];
 export const MAX_FOES = FOE_SIDES.length;
-export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b';
+export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle';
 
 export interface Combatant {
   vigor: number;
@@ -107,6 +107,12 @@ export const PLAYER_TURN_SECONDS = 10;
 export const MAGIC_MANA_COST = 25;
 export const COMBO_UNLOCKS = { combo_a: 25, combo_b: 55 } as const;
 export const COMBO_MANA_COST = { combo_a: 35, combo_b: 70 } as const;
+export const SACRED_SUMMONS = {
+  summon_wolf: { name: 'Lobo Sagrado — Guardião Lunar', manaCost: 40, requiredLevel: 10, damage: 22, healing: 0, guard: true },
+  summon_lion: { name: 'Leão Celestial — Fúria Divina', manaCost: 50, requiredLevel: 30, damage: 42, healing: 0, guard: false },
+  summon_phoenix: { name: 'Fênix Sagrada — Renascimento', manaCost: 45, requiredLevel: 20, damage: 16, healing: 28, guard: false },
+  summon_turtle: { name: 'Tartaruga Ancestral — Proteção Divina', manaCost: 35, requiredLevel: 15, damage: 0, healing: 8, guard: true },
+} as const;
 
 export const COMMAND_LABELS: Record<BattleCommand, string> = {
   attack: 'Arranhar',
@@ -117,6 +123,10 @@ export const COMMAND_LABELS: Record<BattleCommand, string> = {
   magic: 'Magia: Orbe Arcano',
   combo_a: 'Rasante Duplo',
   combo_b: 'Tempestade de Garras',
+  summon_wolf: 'Evocar Lobo Sagrado',
+  summon_lion: 'Evocar Leão Celestial',
+  summon_phoenix: 'Evocar Fênix Sagrada',
+  summon_turtle: 'Evocar Tartaruga Ancestral',
 };
 
 function nextRandom(state: number): { value: number; state: number } {
@@ -254,6 +264,10 @@ export function canUseCommand(state: BattleState, side: Side, command: BattleCom
   if (command === 'item') return side === 'player' && state.playerItems > 0 && state.player.vigor < VIGOR_MAX;
   if (command === 'combo_a') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_a && state.player.limit >= COMBO_MANA_COST.combo_a;
   if (command === 'combo_b') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_b && state.player.limit >= COMBO_MANA_COST.combo_b;
+  if (command in SACRED_SUMMONS) {
+    const summon = SACRED_SUMMONS[command as keyof typeof SACRED_SUMMONS];
+    return side === 'player' && state.playerLevel >= summon.requiredLevel && state.player.limit >= summon.manaCost;
+  }
   return true;
 }
 
@@ -398,6 +412,24 @@ export function resolveCommand(
       me.atb = -10;
       break;
     }
+    case 'summon_wolf':
+    case 'summon_lion':
+    case 'summon_phoenix':
+    case 'summon_turtle': {
+      const summon = SACRED_SUMMONS[command];
+      me.limit -= summon.manaCost;
+      if (summon.damage > 0) {
+        const r = applyHit(state, target, summon.damage + power * 1.5, true);
+        hits.push({ damage: r.damage, crit: r.crit });
+      }
+      if (summon.healing > 0) {
+        healing = Math.min(summon.healing, VIGOR_MAX - state.player.vigor);
+        state.player.vigor = Math.min(VIGOR_MAX, state.player.vigor + healing);
+      }
+      if (summon.guard) state.player.guarding = true;
+      me.atb = -15;
+      break;
+    }
     case 'combo_b': {
       me.limit -= COMBO_MANA_COST.combo_b;
       for (let i = 0; i < 6; i += 1) {
@@ -424,7 +456,7 @@ export function resolveCommand(
   state.ready = null;
   state.playerTurnTimeLeft = 0;
   state.turn += 1;
-  const knockedOut = command !== 'guard' && command !== 'item' && fighter(state, target).vigor <= 0;
+  const knockedOut = command !== 'guard' && command !== 'item' && command !== 'summon_turtle' && fighter(state, target).vigor <= 0;
   const maxTurns = MAX_TURNS + EXTRA_TURNS_PER_FOE * (state.foeCount - 1);
   let finishing = false;
   if (state.player.vigor <= 0) {
