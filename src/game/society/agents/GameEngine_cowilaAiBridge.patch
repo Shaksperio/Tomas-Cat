@@ -1,0 +1,23 @@
+--- a/src/game/GameEngine.ts
++++ b/src/game/GameEngine.ts
+@@ import
+-import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
++import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
++import { applyCowilaAiDecision } from './society/agents/cowilaAiBridge';
+
+@@ no then de requestCowilaDecision (por volta da linha 2724):
+-            let accepted = 0;
+-            for (const proposal of decision.proposals) {
+-              const acceptedProposal = targetSociety.scheduleAiSpecialistTask({ ... sem skillId ... });
+-              if (acceptedProposal) accepted += 1;
+-            }
+-            if (accepted > 0) this.callbacks.onToast(`Cowila IA: ${accepted} nova(s) tarefa(s) estratégica(s). ${decision.brief}`, 'info');
++            const result = applyCowilaAiDecision(targetSociety, decision);
++            if (result.accepted > 0) {
++              this.callbacks.onToast(
++                `Cowila IA: ${result.accepted} nova(s) tarefa(s) estratégica(s). ${result.brief}`,
++                'info',
++              );
++            }
+
+# Não editar: Agent Gate (#73/#74/#75 Claude), offline (#72), engineering agent (#70).

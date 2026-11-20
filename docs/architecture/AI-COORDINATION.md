@@ -1,39 +1,36 @@
 # Coordenação entre IAs — Tomas Vagabundo
 
-**Atualizado:** 2026-11-19
+**Atualizado:** 2026-11-20
 
-## Estado recente
+> **Antes de editar:** listar PRs abertas. Não reimplementar nem apagar trabalho de Codex/Claude.
 
-| Item | Estado |
-|------|--------|
-| **PR #62** Skills Hermes + orquestrador + skillId | **MERGEADA** |
-| **PR #64** Codex — Worker com IDs canônicos de skills | **Aberta** |
-| **PR #65** Grok — skillLearning + bias + SkillLearningHost | **Aberta** |
-| **PR #63** métricas isoladas | Fechar em favor da #65 |
-| **PR #37** especialistas → fila | Aberta (Codex) |
+## Já na `main` (não refazer)
 
-## Divisão (não colidir)
+Skills Hermes (#62), Worker skill IDs (#64), skillLearning (#65), ciclo no `step` (#66), memória (#67), persistência learning (#68), AGENTS (#69).
 
-| Área | Quem | PR | Não editar |
-|------|------|-----|------------|
-| Worker skill IDs + bounds | **Codex** | **#64** | `workers/cowila-ai/**` |
-| skillLearning + orchestrator bias + host | **Grok** | **#65** | `skillLearning*.ts` |
-| scheduleSpecialist / placas | **Codex** | **#37** | trechos `simulation.ts` da PR |
-| placements 3D | **Grok** | **#38/#41** | meshes |
-| engineering agent | **Codex** | **#46** | `scripts/engineering-agent/` |
+## PRs abertas — donos
 
-## Encaixe após #64 + #65
+| PR | Quem | Área | Grok NÃO edita |
+|----|------|------|----------------|
+| **#74 / #75** | **Claude** | Testes Agent Gate (descartáveis) | `claude/gate-test-*` |
+| **#73** | **Codex** | Agent Gate health check skipped | `scripts/agent-gate/**` |
+| **#72** | **Codex** | Contingência offline Firestore | `src/game/offline/**`, `gameSave` |
+| **#70** | **Codex** | Engineering agent Gemini | `scripts/engineering-agent/**` |
+| **#35 / #36** | **Codex** | Família / embodiment | family, D1 identity |
+| **#76** | **Grok** | Bridge Cowila IA → skillId | — |
+| **#6** | **Grok** | Portais (base antiga; `portalWorlds` já na main) | revisar antes de reabrir |
+
+## #76 — uso no GameEngine
 
 ```ts
-const host = new SkillLearningHost();
-const learning = host.observe(simulation.snapshot());
-const report = runSpecialistCycle(snapshot, learning);
-for (const p of report.proposals) simulation.scheduleAiSpecialistTask(p);
+import { applyCowilaAiDecision } from './society/agents/cowilaAiBridge';
+// no then de requestCowilaDecision:
+const result = applyCowilaAiDecision(targetSociety, decision);
+if (result.accepted > 0) onToast(`Cowila IA: ${result.accepted}… ${result.brief}`, 'info');
 ```
 
 ## Regras
 
-1. Grok não edita `workers/cowila-ai/` com #64 aberta.
-2. Codex não reimplementa `skillLearning.ts`.
-3. Skills só em código versionado.
-4. Determinismo: IA propõe; motor valida.
+1. Uma IA não edita a coluna de PR alheia aberta.
+2. Preferir módulo novo a patch em arquivo grande já tocado por outra PR.
+3. Skills só em código versionado; determinismo: IA propõe, motor valida.
