@@ -23,7 +23,8 @@
 
 IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
-- [T-108] Evocação de Animais Sagrados no modo batalha (regras ATB determinísticas, custos/limites, quatro invocações, apresentação 3D e HUD) — dono: ChatGPT/Codex — branch: `codex/sacred-animal-summons` — PR: #79 (draft; CI verde no commit c10d093) — reserva: `src/game/battle/atb.test.ts`; **integração compartilhada autorizada por Tom em 2026-11-20**: `src/game/battle/atb.ts`, `src/game/battle/commands.ts`, `src/game/battle/BattleStage.ts`, `src/game/GameEngine.ts` (somente despacho/teclas/toasts), `src/components/GameHUD.tsx` (somente comandos e apresentação), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: coordenar com Claude/T-001+T-004; não sobrescrever alterações de combos; integrar em commits pequenos após sincronizar a branch dele.
+- [T-109] Visibilidade dos duelistas no cenário (evitar que objetos do mundo cubram os lutadores; manter o cenário como fundo e restaurar a apresentação ao sair da batalha) — dono: ChatGPT/Codex — branch: `codex/battle-fighter-visibility` — PR: pendente — reserva: `src/game/battle/BattleStage.ts` (apenas apresentação/renderização dos lutadores em `begin`, `end` e helpers; não tocar nos trechos de combos de Claude), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: preservar câmera, regras ATB, modelos e cenário; Tom autorizou esta melhoria nesta conversa.
+
 
 ## 2. Tarefas livres (podem ser reivindicadas)
 
@@ -54,6 +55,8 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 4. Concluídas (mais recentes primeiro)
 
+- [T-108] Evocação de Animais Sagrados no modo batalha — ChatGPT/Codex — PR #79 (merge commit `b77758ca292b711d80abc973b52ca12cb6beead3`); CI verde no head da PR; deploy do commit integrado foi iniciado.
+
 - [T-201] Agent Gate: política testada, auditoria somente leitura, exige SHA exato do CI — Claude + Antonio Carlos — PR #45 — CI verde; demonstração com PRs de teste #74/#75 em 2026-11-20 (bloqueios confirmados no Actions)
 - [T-202] Verificação de saúde após publicação no GitHub Pages — ChatGPT/Codex — PR #71
 - [T-203] Atualização do estado real da sociedade e da Cowila no `AGENTS.md` — ChatGPT/Codex — PR #69
@@ -82,5 +85,5 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 ## 6. Histórico de mudanças do quadro
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
-- 2026-11-20 — ChatGPT/Codex: reivindicada T-108; Tom autorizou explicitamente compartilhar os pontos de integração do combate com Claude/T-001+T-004, preservando o trabalho de combos. PR #79 aberta em draft; CI verde no commit c10d093; aguardando coordenação com Claude antes de sair do draft/merge.
+- 2026-11-20 — ChatGPT/Codex: T-108 integrada pela PR #79 (merge `b77758c`); iniciado T-109 para corrigir a visibilidade dos lutadores sem alterar o trabalho de combos de Claude. Tom autorizou a melhoria nesta conversa.
 - 2026-11-20 — Grok: reserva completa T-101; nota T-107 (portalWorlds na main); achados na seção 5.
