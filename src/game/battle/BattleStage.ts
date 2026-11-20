@@ -148,6 +148,8 @@ export class BattleStage {
   private spread = 1;
   private orbit: { around: 'center'; radius: number; height: number; speed: number; phase: number } | null = null;
   private guardDomes: Record<Side, THREE.Mesh> | null = null;
+  /** Materiais originais dos lutadores, restaurados ao sair do combate. */
+  private readonly fighterRenderState = new Map<THREE.Mesh, { material: THREE.Material | THREE.Material[]; renderOrder: number }>();
   private onPlayerClaw: () => void = () => undefined;
   private onPlayerCheer: () => void = () => undefined;
 
@@ -317,6 +319,11 @@ export class BattleStage {
     });
     this.fighters.player.home.y = opts.playerPos.y;
 
+    // A arena mantém o mundo como pano de fundo, mas os duelistas nunca ficam
+    // escondidos atrás de árvores, fachadas, rochas ou outros meshes próximos.
+    // Clonamos os materiais para não alterar materiais compartilhados do mundo.
+    for (const side of this.activeSides) this.prioritizeFighterVisibility(this.fighters[side].root);
+
     // Domos de defesa.
     const domeGeo = new THREE.SphereGeometry(1.15, 20, 14);
     const mkDome = (color: number) => {
@@ -363,6 +370,7 @@ export class BattleStage {
         f.root.rotation.x = 0;
       }
     }
+    this.restoreFighterVisibility();
     this.flashLight.intensity = 0;
     this.darkness = 0;
     this.whiteFlash = 0;
@@ -381,6 +389,40 @@ export class BattleStage {
   // ---------------------------------------------------------------------
   // Utilidades
   // ---------------------------------------------------------------------
+
+  /**
+   * Desenha os meshes dos participantes depois do cenário, sem depth test.
+   * Assim os objetos do mundo continuam visíveis ao fundo, mas não atravessam
+   * visualmente os corpos durante a luta. Os materiais são clones temporários.
+   */
+  private prioritizeFighterVisibility(root: THREE.Object3D): void {
+    root.traverse((object) => {
+      if (!(object instanceof THREE.Mesh) || this.fighterRenderState.has(object)) return;
+      const originalMaterial = object.material;
+      const makeOverlayMaterial = (material: THREE.Material): THREE.Material => {
+        const overlay = material.clone();
+        overlay.depthTest = false;
+        overlay.depthWrite = false;
+        return overlay;
+      };
+      object.material = Array.isArray(originalMaterial)
+        ? originalMaterial.map(makeOverlayMaterial)
+        : makeOverlayMaterial(originalMaterial);
+      this.fighterRenderState.set(object, { material: originalMaterial, renderOrder: object.renderOrder });
+      object.renderOrder = 20;
+    });
+  }
+
+  /** Restaura exatamente materiais e ordem de desenho após vitória, derrota ou desistência. */
+  private restoreFighterVisibility(): void {
+    for (const [mesh, original] of this.fighterRenderState) {
+      const overlayMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const material of overlayMaterials) material.dispose();
+      mesh.material = original.material;
+      mesh.renderOrder = original.renderOrder;
+    }
+    this.fighterRenderState.clear();
+  }
 
   private setBanner(text: string): void {
     this.bannerCounter += 1;
