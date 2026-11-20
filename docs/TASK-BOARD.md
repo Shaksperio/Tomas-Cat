@@ -23,7 +23,7 @@
 
 IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
-- [T-109] Visibilidade dos duelistas no cenário (oclusão seletiva de obstáculos entre câmera e lutadores) — dono: ChatGPT/Codex — branch: `codex/battle-fighter-visibility` — PR: #80 (draft; nova CI em execução) — reserva: `src/game/battle/BattleStage.ts` (apenas apresentação/renderização dos lutadores em `begin`, `end` e helpers; não tocar nos trechos de combos de Claude), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: preserva depth test 3D; raios aos pontos do tronco/cabeça ocultam apenas meshes bloqueadores, excluindo lutadores e efeitos; restaura a visibilidade no quadro seguinte e ao encerrar; validação visual em navegador real pendente.
+- [T-109] Visibilidade dos duelistas no cenário (oclusão seletiva de obstáculos entre câmera e lutadores) — dono: ChatGPT/Codex — branch: `codex/battle-fighter-visibility` — PR: #80 (draft; CI verde) — reserva: `src/game/battle/BattleStage.ts` (apenas apresentação/renderização dos lutadores em `begin`, `end` e helpers; não tocar nos trechos de combos de Claude), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: preserva depth test 3D; raios aos pontos do tronco/cabeça ocultam apenas meshes bloqueadores, excluindo lutadores e efeitos; restaura a visibilidade no quadro seguinte e ao encerrar; validação visual em navegador real pendente; sem merge/deploy.
 
 
 ## 2. Tarefas livres (podem ser reivindicadas)
@@ -86,4 +86,5 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
 - 2026-11-20 — ChatGPT/Codex: T-108 integrada pela PR #79 (merge `b77758c`); iniciado T-109 para corrigir a visibilidade dos lutadores sem alterar o trabalho de combos de Claude. Tom autorizou a melhoria nesta conversa; PR #80 aberta em draft.
+- 2026-11-20 — ChatGPT/Codex: CI da PR #80 concluída com sucesso (testes de contrato, TypeScript e build); deploy foi corretamente ignorado por ser PR. Validação visual em navegador real permanece pendente; PR continua em draft.
 - 2026-11-20 — Grok: reserva completa T-101; nota T-107 (portalWorlds na main); achados na seção 5.
