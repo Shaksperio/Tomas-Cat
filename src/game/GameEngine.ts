@@ -2565,6 +2565,9 @@ export class GameEngine {
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);
+      } else if (this.duelPhase === 'fighting' && ['F1', 'F2', 'F3', 'F4'].includes(code)) {
+        const summons: Record<string, BattleCommand> = { F1: 'summon_wolf', F2: 'summon_turtle', F3: 'summon_phoenix', F4: 'summon_lion' };
+        this.battleCommand(summons[code]);
       } else if (code === 'Digit9' && this.duelPhase === 'fighting') {
         this.activateComboBreaker();
       } else if (code === 'KeyI' && this.duelPhase === 'fighting') {
