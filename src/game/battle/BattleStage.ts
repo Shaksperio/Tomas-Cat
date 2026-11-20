@@ -284,38 +284,50 @@ export class BattleStage {
 
   /** Mantém depth testing normal e remove apenas um bloqueador pequeno por raio. */
   private updateFighterOcclusion(dt: number): void {
+    if (!this.active || !this.fighters) return;
     this.occlusionRefresh -= dt;
     if (this.occlusionRefresh > 0) return;
     this.occlusionRefresh = 0.11;
-    this.fighterOcclusion.restore();
-    this.scene.updateMatrixWorld(true);
 
-    for (const side of this.activeSides) {
-      const root = this.fighters[side].root;
-      this.fighterBounds.setFromObject(root);
-      if (this.fighterBounds.isEmpty()) continue;
-      const height = this.fighterBounds.max.y - this.fighterBounds.min.y;
-      if (height <= 0.05) continue;
+    try {
+      this.fighterOcclusion.restore();
+      this.scene.updateMatrixWorld(true);
 
-      for (const ratio of [0.48, 0.82]) {
-        this.occlusionTarget.set(
-          (this.fighterBounds.min.x + this.fighterBounds.max.x) * 0.5,
-          this.fighterBounds.min.y + height * ratio,
-          (this.fighterBounds.min.z + this.fighterBounds.max.z) * 0.5,
-        );
-        this.occlusionDirection.subVectors(this.occlusionTarget, this.camera.position);
-        const distance = this.occlusionDirection.length();
-        if (distance <= 0.1) continue;
-        this.occlusionDirection.normalize();
-        this.occlusionRaycaster.set(this.camera.position, this.occlusionDirection);
-        this.occlusionRaycaster.far = Math.max(0, distance - 0.22);
-        const hit = this.occlusionRaycaster.intersectObjects(this.scene.children, true).find((intersection) => {
-          const object = intersection.object;
-          if (this.isFighterPart(object) || this.isBattleStageObject(object)) return false;
-          return isSafeOcclusionHit({ object, instanceId: intersection.instanceId }, () => false);
-        });
-        if (hit) this.fighterOcclusion.hide({ object: hit.object, instanceId: hit.instanceId });
+      for (const side of this.activeSides) {
+        const fighter = this.fighters[side];
+        if (!fighter?.root) continue;
+        const root = fighter.root;
+        this.fighterBounds.setFromObject(root);
+        if (this.fighterBounds.isEmpty()) continue;
+        const height = this.fighterBounds.max.y - this.fighterBounds.min.y;
+        if (!Number.isFinite(height) || height <= 0.05) continue;
+
+        for (const ratio of [0.48, 0.82]) {
+          this.occlusionTarget.set(
+            (this.fighterBounds.min.x + this.fighterBounds.max.x) * 0.5,
+            this.fighterBounds.min.y + height * ratio,
+            (this.fighterBounds.min.z + this.fighterBounds.max.z) * 0.5,
+          );
+          this.occlusionDirection.subVectors(this.occlusionTarget, this.camera.position);
+          const distance = this.occlusionDirection.length();
+          if (!Number.isFinite(distance) || distance <= 0.1) continue;
+          this.occlusionDirection.normalize();
+          this.occlusionRaycaster.set(this.camera.position, this.occlusionDirection);
+          this.occlusionRaycaster.far = Math.max(0, distance - 0.22);
+          const hit = this.occlusionRaycaster.intersectObjects(this.scene.children, true).find((intersection) => {
+            const object = intersection.object;
+            if (this.isFighterPart(object) || this.isBattleStageObject(object)) return false;
+            return isSafeOcclusionHit({ object, instanceId: intersection.instanceId }, () => false);
+          });
+          if (hit) this.fighterOcclusion.hide({ object: hit.object, instanceId: hit.instanceId });
+        }
       }
+    } catch (error) {
+      // Raycasting/occlusion é apenas cosmético: nunca pode interromper o
+      // update principal nem deixar meshes ocultos se um objeto da cena falhar.
+      this.fighterOcclusion.restore();
+      this.occlusionRefresh = 1;
+      console.warn('[BattleStage] Oclusão temporária ignorada após erro:', error);
     }
   }
 
@@ -328,6 +340,20 @@ export class BattleStage {
     onPlayerClaw: () => void;
     onPlayerCheer: () => void;
   }): void {
+    // Nunca iniciar a cena com coordenadas inválidas: uma lista vazia de
+    // oponentes produziria divisão por zero e contaminaria câmera/transformações
+    // com NaN, interrompendo o loop de renderização.
+    const isFinitePosition = (position: THREE.Vector3 | null | undefined): position is THREE.Vector3 =>
+      Boolean(position && Number.isFinite(position.x) && Number.isFinite(position.y) && Number.isFinite(position.z));
+    const foes = (Array.isArray(opts.foes) ? opts.foes : [])
+      .filter((foe) => foe?.root instanceof THREE.Object3D && isFinitePosition(foe.pos))
+      .slice(0, FOE_SIDES.length);
+    if (!(opts.playerRoot instanceof THREE.Object3D) || !isFinitePosition(opts.playerPos) || foes.length === 0) {
+      this.end();
+      console.error('[BattleStage] Batalha não iniciada: jogador ou oponentes inválidos.');
+      return;
+    }
+
     this.end();
     this.active = true;
     this.onPlayerClaw = opts.onPlayerClaw;
@@ -342,7 +368,6 @@ export class BattleStage {
     this.whiteFlash = 1;
     this.shake = 0;
 
-    const foes = opts.foes.slice(0, FOE_SIDES.length);
     const n = foes.length;
     this.activeSides = ['player', ...FOE_SIDES.slice(0, n)];
     const fcx = foes.reduce((sum, f) => sum + f.pos.x, 0) / n;
