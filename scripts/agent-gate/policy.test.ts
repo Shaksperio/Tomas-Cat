@@ -34,6 +34,16 @@ test('arquivo fora das pastas permitidas é recusado', () => {
   assert.match(reasonsFor({ files: [{ filename: 'src/components/GameHUD.tsx', additions: 1, deletions: 0 }] }), /fora das pastas/);
 });
 
+test('deploy e health check pós-deploy podem ser ignorados em PRs', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success' },
+    { name: 'deploy', status: 'completed', conclusion: 'skipped' },
+    { name: 'Post-deploy health check', status: 'completed', conclusion: 'skipped' },
+  ];
+  assert.deepEqual(evaluateGate({ ...ok, checks }, config), { allow: true, reasons: [] });
+  assert.match(reasonsFor({ checks: [...checks, { name: 'security-scan', status: 'completed', conclusion: 'skipped' }] }), /security-scan/);
+});
+
 test('checks falhos, cancelados, ignorados, pendentes ou ausentes não liberam', () => {
   const build = (conclusion: string | null, status = 'completed') => [{ name: 'build', status, conclusion }];
   assert.match(reasonsFor({ checks: build('failure') }), /não aprovado/);
