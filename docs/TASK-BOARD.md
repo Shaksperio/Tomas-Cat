@@ -33,13 +33,15 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 - [T-004] Desbloqueio automático por nível de novas sequências e combos secretos — reserva sugerida: `src/game/progression/unlocks.ts`
 - [T-005] Itens de loja como recompensa direta de tarefas (hoje a fonte gratuita são os pickups) — reserva sugerida: `src/game/tasks/`
 - [T-006] Verificação visual no navegador real: painel da loja, construções 3D da sociedade e restauração após fechar/reabrir (hoje só lógica testada) — reserva: nenhuma (só relatório na seção 5)
-- [T-007] Remover o arquivo de documentação de PR que sobrou `src/game/society/agents/GameEngine_agentRuntime.patch` — reserva: esse arquivo
+
 - [T-008] Corrigir a numeração duplicada de seções do `AGENTS.md` (há dois 4.6 e dois 4.7) e atualizar `docs/architecture/AI-SOCIETY.md` (diz "ainda não implantada") — reserva: `AGENTS.md`, `docs/architecture/AI-SOCIETY.md`
 - [T-009] Persistência remota e sincronização (Worker, Durable Objects, D1) com infraestrutura própria — fase 6 do roteiro; confira com a tarefa T-103 antes
 - [T-010] Mundo evoluindo sem jogadores conectados — fase 7; depende de T-009
 - [T-011] Prova de ponta a ponta do Agent Gate com a lista de autores preenchida (caso "liberado") — **depende de ação humana** (`AGENT_GATE_AUTHORS`)
 
 ## 3. Em andamento (reservadas)
+
+- [T-108] Remover patch obsoleto do agente runtime — dono: ChatGPT/Codex — branch: `codex/remove-stale-agent-runtime-patch` — reserva: `src/game/society/agents/GameEngine_agentRuntime.patch` — desde: 2026-11-20
 
 - [T-101] Ponte Cowila IA → skillId canônico — dono: **Grok** — branch: `grok/cowila-ai-skill-bridge` — PR: **#76** — reserva: `src/game/society/agents/cowilaAiBridge.ts`, `cowilaAiBridge.test.ts`, `GameEngine_cowilaAiBridge.patch`; integração final no `GameEngine.ts` **apenas** o trecho `requestCowilaDecision` (usar `applyCowilaAiDecision`) — desde: 2026-11-20 — nota: módulo + testes na branch; wire no motor ainda pendente de merge/CI
 - [T-102] Aceitar health check ignorado no Agent Gate — dono: ChatGPT/Codex — branch: `codex/agent-gate-post-deploy-check` — PR: #73 — reserva: `scripts/agent-gate/`, `AGENTS.md` (seção do gate)
