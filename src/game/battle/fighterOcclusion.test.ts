@@ -48,6 +48,12 @@ test('occlusion never changes InstancedMesh transforms, even for an individual i
   mesh.setMatrixAt(0, original);
   mesh.setMatrixAt(1, other);
   mesh.updateMatrixWorld(true);
+  // InstancedMesh armazena matrizes em Float32Array; compare com o valor
+  // efetivamente armazenado, não com a precisão Float64 da matriz de entrada.
+  const storedOriginal = new THREE.Matrix4();
+  mesh.getMatrixAt(0, storedOriginal);
+  const storedOther = new THREE.Matrix4();
+  mesh.getMatrixAt(1, storedOther);
   const initialBufferVersion = mesh.instanceMatrix.version;
   const occlusion = new FighterOcclusionState();
 
@@ -59,8 +65,8 @@ test('occlusion never changes InstancedMesh transforms, even for an individual i
   const restoredB = new THREE.Matrix4();
   mesh.getMatrixAt(0, restoredA);
   mesh.getMatrixAt(1, restoredB);
-  assert.deepEqual(restoredA.elements, original.elements);
-  assert.deepEqual(restoredB.elements, other.elements);
+  assert.deepEqual(restoredA.elements, storedOriginal.elements);
+  assert.deepEqual(restoredB.elements, storedOther.elements);
   assert.equal(mesh.instanceMatrix.version, initialBufferVersion);
 });
 
