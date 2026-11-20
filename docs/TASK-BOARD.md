@@ -27,10 +27,8 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 > Antes de reivindicar, confirme no código se a tarefa já não foi feita (seção 4 do `AGENTS.md`, `git log`, PRs abertas).
 
-- [T-001] Vender técnicas (especiais, sequências, combos secretos) nas lojas e comandos novos no ATB — reserva sugerida: `src/game/shop/`, `src/game/battle/`
 - [T-002] Posturas bípede/quadrúpede, com animações, modificadores e compatibilidade com natação/escalada (padrão continua quadrúpede) — reserva sugerida: `src/game/GameEngine.ts` (trechos de locomoção), `src/game/catModel.ts`
 - [T-003] Chefes regionais de gangue e expansão dos rivais em territórios, preservando IDs e chefes principais — reserva sugerida: `src/game/worldBuilder.ts`, novo módulo `src/game/territory/`
-- [T-004] Desbloqueio automático por nível de novas sequências e combos secretos — reserva sugerida: `src/game/progression/unlocks.ts`
 - [T-005] Itens de loja como recompensa direta de tarefas (hoje a fonte gratuita são os pickups) — reserva sugerida: `src/game/tasks/`
 - [T-006] Verificação visual no navegador real: painel da loja, construções 3D da sociedade e restauração após fechar/reabrir (hoje só lógica testada) — reserva: nenhuma (só relatório na seção 5)
 
@@ -41,6 +39,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
+- [T-001+T-004] Técnicas à venda nas lojas e novos combos desbloqueados por nível (Fúria Apex e Sequência Suprema como comandos ATB próprios) — dono: Claude — branch: `claude/shop-techniques` — reserva: `src/game/progression/`, `src/game/shop/`, `src/game/battle/` (atb.ts, commands.ts, BattleStage.ts só no trecho de combos), `src/game/GameEngine.ts` (apenas battleCommand, teclas de batalha, compra de técnica e snapshot da loja; **não** o trecho `requestCowilaDecision` da T-101), `src/components/GameHUD.tsx` (comandos de batalha e painel da loja), `src/types/game.ts` — desde: 2026-11-20
 - [T-007] Remover o arquivo de documentação de PR que sobrou — dono: ChatGPT/Codex — branch: `codex/remove-stale-agent-runtime-patch` — reserva: `src/game/society/agents/GameEngine_agentRuntime.patch` — desde: 2026-11-20
 
 - [T-101] Ponte Cowila IA → skillId canônico — dono: **Grok** — branch: `grok/cowila-ai-skill-bridge` — PR: **#76** — reserva: `src/game/society/agents/cowilaAiBridge.ts`, `cowilaAiBridge.test.ts`, `GameEngine_cowilaAiBridge.patch`; integração final no `GameEngine.ts` **apenas** o trecho `requestCowilaDecision` (usar `applyCowilaAiDecision`) — desde: 2026-11-20 — nota: módulo + testes na branch; wire no motor ainda pendente de merge/CI
