@@ -154,7 +154,7 @@ function BattleCommandMenu({
   });
 
   return (
-    <div className="w-[min(68vw,18rem)] sm:w-[min(32vw,20rem)] shrink-0 rounded-lg p-2" style={windowStyle}>
+    <div className="w-[min(62vw,18rem)] sm:w-[min(32vw,20rem)] shrink-0 rounded-lg p-2" style={windowStyle}>
       <div className="mb-1 grid grid-cols-3 gap-1">
         {categories.map((item) => (
           <button
