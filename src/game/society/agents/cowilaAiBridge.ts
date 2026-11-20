@@ -5,12 +5,14 @@
  * O GameEngine ainda monta a proposta manualmente sem skillId; esta ponte
  * preenche skillId, sectorId, prioridade limitada e valida o taskKind
  * contra a skill da profissão do agente.
+ *
+ * Não altera Worker, offline, Agent Gate nem PRs de Claude/Codex abertas.
  */
 
 import type { AgentTask } from '../contracts';
-import type { SocietySimulationSnapshot } from '../simulation';
+import type { SocietySimulation, SocietySimulationSnapshot } from '../simulation';
 import { getSpecialistProfile } from './catalog';
-import type { CowilaAiProposal } from './cowilaAiClient';
+import type { CowilaAiDecision, CowilaAiProposal } from './cowilaAiClient';
 import type { SpecialistTaskProposal } from './policies';
 import { listSocietySkills } from './skills';
 import { clampPriority } from './skillLearning';
@@ -27,10 +29,6 @@ function isTaskKind(value: string): value is AgentTask['kind'] {
   return TASK_KINDS.has(value);
 }
 
-/**
- * Resolve skill canônica pela profissão do agente e taskKind da proposta.
- * Preferência: skill cuja allowedTaskKinds inclui o taskKind.
- */
 export function resolveSkillIdForAgentTask(
   profession: string,
   taskKind: AgentTask['kind'],
@@ -41,10 +39,6 @@ export function resolveSkillIdForAgentTask(
   return match?.id;
 }
 
-/**
- * Constrói proposta local a partir da resposta remota da Cowila.
- * Devolve null se agente, taskKind ou skill forem incompatíveis.
- */
 export function bridgeCowilaAiProposal(
   proposal: CowilaAiProposal,
   snapshot: SocietySimulationSnapshot,
@@ -76,9 +70,6 @@ export function bridgeCowilaAiProposal(
   };
 }
 
-/**
- * Converte a lista de propostas do Worker; ignora entradas inválidas.
- */
 export function bridgeCowilaAiDecisionProposals(
   proposals: readonly CowilaAiProposal[],
   snapshot: SocietySimulationSnapshot,
@@ -91,4 +82,40 @@ export function bridgeCowilaAiDecisionProposals(
     if (bridged) out.push(bridged);
   }
   return out;
+}
+
+export interface ApplyCowilaAiResult {
+  accepted: number;
+  skipped: number;
+  brief: string;
+}
+
+/**
+ * Aplica a decisão remota na simulação autoritativa.
+ * Uso no GameEngine (substitui o loop manual sem skillId):
+ *
+ * ```ts
+ * const result = applyCowilaAiDecision(targetSociety, decision);
+ * if (result.accepted > 0) onToast(`Cowila IA: ${result.accepted}… ${result.brief}`, 'info');
+ * ```
+ */
+export function applyCowilaAiDecision(
+  simulation: SocietySimulation,
+  decision: CowilaAiDecision,
+): ApplyCowilaAiResult {
+  const snapshot = simulation.snapshot();
+  // Só aplica se o tick ainda for o da decisão (evita propostas atrasadas).
+  if (decision.tick !== snapshot.tick) {
+    return { accepted: 0, skipped: decision.proposals.length, brief: decision.brief };
+  }
+  const bridged = bridgeCowilaAiDecisionProposals(decision.proposals, snapshot, decision.tick);
+  let accepted = 0;
+  for (const proposal of bridged) {
+    if (simulation.scheduleAiSpecialistTask(proposal)) accepted += 1;
+  }
+  return {
+    accepted,
+    skipped: Math.max(0, decision.proposals.length - accepted),
+    brief: decision.brief,
+  };
 }
