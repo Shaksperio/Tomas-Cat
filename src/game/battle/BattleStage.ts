@@ -400,6 +400,15 @@ export class BattleStage {
     this.occludedObjects.clear();
   }
 
+  private isBattleStageObject(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (current === this.group) return true;
+      current = current.parent;
+    }
+    return false;
+  }
+
   private isFighterPart(object: THREE.Object3D): boolean {
     let current: THREE.Object3D | null = object;
     while (current) {
@@ -445,7 +454,7 @@ export class BattleStage {
         const intersections = this.occlusionRaycaster.intersectObjects(this.scene.children, true);
         for (const hit of intersections) {
           const object = hit.object;
-          if (!(object instanceof THREE.Mesh) || !object.visible || this.isFighterPart(object)) continue;
+          if (!(object instanceof THREE.Mesh) || !object.visible || this.isFighterPart(object) || this.isBattleStageObject(object)) continue;
           if (object.parent && this.isFighterPart(object.parent)) continue;
           if (!this.occludedObjects.has(object)) this.occludedObjects.set(object, object.visible);
           object.visible = false;
