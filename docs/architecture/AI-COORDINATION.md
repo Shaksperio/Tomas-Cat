@@ -1,39 +1,33 @@
 # Coordenação entre IAs — Tomas Vagabundo
 
-**Atualizado:** 2026-11-19
+**Atualizado:** 2026-11-20
 
-## Estado recente
+## Já mergeado (não reimplementar)
 
-| Item | Estado |
-|------|--------|
-| **PR #62** Skills Hermes + orquestrador + skillId | **MERGEADA** |
-| **PR #64** Codex — Worker com IDs canônicos de skills | **Aberta** |
-| **PR #65** Grok — skillLearning + bias + SkillLearningHost | **Aberta** |
-| **PR #63** métricas isoladas | Fechar em favor da #65 |
-| **PR #37** especialistas → fila | Aberta (Codex) |
+| PR | Conteúdo |
+|----|----------|
+| #62–#69 | Skills Hermes, Worker IDs, skillLearning, ciclo no `step`, memória, persistência learning, AGENTS |
 
-## Divisão (não colidir)
+Na `main`: especialistas + learning no tick; Cowila IA a cada 25 ticks no GameEngine.
 
-| Área | Quem | PR | Não editar |
-|------|------|-----|------------|
-| Worker skill IDs + bounds | **Codex** | **#64** | `workers/cowila-ai/**` |
-| skillLearning + orchestrator bias + host | **Grok** | **#65** | `skillLearning*.ts` |
-| scheduleSpecialist / placas | **Codex** | **#37** | trechos `simulation.ts` da PR |
-| placements 3D | **Grok** | **#38/#41** | meshes |
-| engineering agent | **Codex** | **#46** | `scripts/engineering-agent/` |
+## Aberto
 
-## Encaixe após #64 + #65
+| Área | Quem | PR |
+|------|------|-----|
+| Agent Gate health check | Codex | #73 |
+| Offline contingency | Codex | #72 |
+| Engineering agent v2 | Codex | #70 |
+| Família NPC | Codex | #35 |
+| Embodiment / D1 | Codex draft | #36 |
+| Portais | Grok | #6 |
+| **Bridge Cowila IA → skillId** | **Grok** | `grok/cowila-ai-skill-bridge` |
 
-```ts
-const host = new SkillLearningHost();
-const learning = host.observe(simulation.snapshot());
-const report = runSpecialistCycle(snapshot, learning);
-for (const p of report.proposals) simulation.scheduleAiSpecialistTask(p);
-```
+## Gap desta branch
+
+Propostas remotas no GameEngine iam **sem** `skillId`. `cowilaAiBridge.ts` alinha ao catálogo canônico antes de `scheduleAiSpecialistTask`. Ver `GameEngine_cowilaAiBridge.patch`.
 
 ## Regras
 
-1. Grok não edita `workers/cowila-ai/` com #64 aberta.
-2. Codex não reimplementa `skillLearning.ts`.
-3. Skills só em código versionado.
-4. Determinismo: IA propõe; motor valida.
+1. Não editar PRs abertas de outra IA.
+2. Skills só em código versionado.
+3. Determinismo: IA propõe; motor valida.
