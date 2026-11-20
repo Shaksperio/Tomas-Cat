@@ -86,7 +86,8 @@ export async function getPendingGameSave(uid: string): Promise<PendingGameSave |
 
 export async function deletePendingGameSave(uid: string, revision: string): Promise<void> {
   const fallback = readFallback(uid);
-  if (fallback?.revision === revision) localStorage.removeItem(fallbackKey(uid));
+  const removedFallback = fallback?.revision === revision;
+  if (removedFallback) localStorage.removeItem(fallbackKey(uid));
   try {
     const database = await openDatabase();
     await new Promise<void>((resolve, reject) => {
@@ -99,8 +100,12 @@ export async function deletePendingGameSave(uid: string, revision: string): Prom
       };
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error ?? new Error('Falha ao limpar a fila offline.'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('Limpeza da fila offline cancelada.'));
     });
-  } catch {
-    // A cópia de fallback já foi limpa quando correspondia à revisão enviada.
+  } catch (error) {
+    // Se o IndexedDB não estiver disponível, o fallback local removido já era
+    // a cópia desta revisão. Sem fallback correspondente, propague a falha:
+    // o chamador deve manter a operação pendente e repetir com segurança.
+    if (!removedFallback) throw error;
   }
 }
