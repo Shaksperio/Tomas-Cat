@@ -411,6 +411,19 @@ export class BattleStage {
       this.fighterRenderState.set(object, { material: originalMaterial, renderOrder: object.renderOrder });
       object.renderOrder = 20;
     });
+    this.updateFighterRenderOrder();
+  }
+
+  /**
+   * Como o depth test está desligado só nos participantes, ordenamos suas
+   * peças de trás para frente a cada quadro para preservar a sobreposição
+   * correta entre os próprios lutadores.
+   */
+  private updateFighterRenderOrder(): void {
+    for (const mesh of this.fighterRenderState.keys()) {
+      mesh.getWorldPosition(_v);
+      mesh.renderOrder = 1000 - this.camera.position.distanceTo(_v);
+    }
   }
 
   /** Restaura exatamente materiais e ordem de desenho após vitória, derrota ou desistência. */
@@ -1087,6 +1100,7 @@ export class BattleStage {
       this.camera.lookAt(this.camLook);
       this.camera.fov = this.origFov + (1 - e) * 18;
       this.camera.updateProjectionMatrix();
+      this.updateFighterRenderOrder();
       if (this.introT >= this.introDur) {
         this.wideShot(4);
         this.camPos.copy(this.camera.position);
@@ -1146,6 +1160,7 @@ export class BattleStage {
 
     this.updateEffects(step);
     this.updateCamera(dt);
+    this.updateFighterRenderOrder();
   }
 
   private updateEffects(dt: number): void {
