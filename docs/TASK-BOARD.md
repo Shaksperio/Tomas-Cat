@@ -41,7 +41,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
-- [T-108] Remover patch obsoleto do agente runtime — dono: ChatGPT/Codex — branch: `codex/remove-stale-agent-runtime-patch` — reserva: `src/game/society/agents/GameEngine_agentRuntime.patch` — desde: 2026-11-20
+- [T-007] Remover o arquivo de documentação de PR que sobrou — dono: ChatGPT/Codex — branch: `codex/remove-stale-agent-runtime-patch` — reserva: `src/game/society/agents/GameEngine_agentRuntime.patch` — desde: 2026-11-20
 
 - [T-101] Ponte Cowila IA → skillId canônico — dono: **Grok** — branch: `grok/cowila-ai-skill-bridge` — PR: **#76** — reserva: `src/game/society/agents/cowilaAiBridge.ts`, `cowilaAiBridge.test.ts`, `GameEngine_cowilaAiBridge.patch`; integração final no `GameEngine.ts` **apenas** o trecho `requestCowilaDecision` (usar `applyCowilaAiDecision`) — desde: 2026-11-20 — nota: módulo + testes na branch; wire no motor ainda pendente de merge/CI
 - [T-102] Aceitar health check ignorado no Agent Gate — dono: ChatGPT/Codex — branch: `codex/agent-gate-post-deploy-check` — PR: #73 — reserva: `scripts/agent-gate/`, `AGENTS.md` (seção do gate)
