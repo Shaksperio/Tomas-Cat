@@ -5,7 +5,7 @@ import { FighterOcclusionState, isSafeOcclusionHit } from './fighterOcclusion';
 
 const notIgnored = () => false;
 
-test('safe occlusion rejects full InstancedMesh batches, transparent and oversized world geometry', () => {
+test('safe occlusion rejects InstancedMesh, transparent and oversized world geometry', () => {
   const material = new THREE.MeshBasicMaterial();
   const instanced = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, 8);
   const regular = new THREE.Mesh(new THREE.BoxGeometry(80, 1, 80), material);
@@ -13,10 +13,12 @@ test('safe occlusion rejects full InstancedMesh batches, transparent and oversiz
   const transparent = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5 }));
 
   assert.equal(isSafeOcclusionHit({ object: instanced }, notIgnored), false);
-  assert.equal(isSafeOcclusionHit({ object: instanced, instanceId: 0 }, notIgnored), true);
+  assert.equal(isSafeOcclusionHit({ object: instanced, instanceId: 0 }, notIgnored), false);
   assert.equal(isSafeOcclusionHit({ object: regular }, notIgnored), false);
   assert.equal(isSafeOcclusionHit({ object: largeProp }, notIgnored), false);
   assert.equal(isSafeOcclusionHit({ object: transparent }, notIgnored), false);
+  const small = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  assert.equal(isSafeOcclusionHit({ object: small }, notIgnored), true);
 });
 
 test('occlusion hides and restores only the single mesh hit, preserving an initially hidden mesh', () => {
@@ -35,7 +37,7 @@ test('occlusion hides and restores only the single mesh hit, preserving an initi
   assert.equal(initiallyHidden.visible, false);
 });
 
-test('occlusion changes only the intercepted instance and restores its exact transform', () => {
+test('occlusion never changes InstancedMesh transforms, even for an individual instance', () => {
   const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), 2);
   const original = new THREE.Matrix4().compose(
     new THREE.Vector3(3, 2, -4),
@@ -46,56 +48,52 @@ test('occlusion changes only the intercepted instance and restores its exact tra
   mesh.setMatrixAt(0, original);
   mesh.setMatrixAt(1, other);
   mesh.updateMatrixWorld(true);
+  // InstancedMesh armazena matrizes em Float32Array; compare com o valor
+  // efetivamente armazenado, não com a precisão Float64 da matriz de entrada.
   const storedOriginal = new THREE.Matrix4();
   mesh.getMatrixAt(0, storedOriginal);
+  const storedOther = new THREE.Matrix4();
+  mesh.getMatrixAt(1, storedOther);
   const initialBufferVersion = mesh.instanceMatrix.version;
-
   const occlusion = new FighterOcclusionState();
-  assert.equal(occlusion.hide({ object: mesh, instanceId: 0 }), true);
-  const hidden = new THREE.Matrix4();
-  mesh.getMatrixAt(0, hidden);
-  assert.ok([hidden.elements[0], hidden.elements[1], hidden.elements[2], hidden.elements[4], hidden.elements[5], hidden.elements[6], hidden.elements[8], hidden.elements[9], hidden.elements[10]].every((value) => value === 0));
-  const unchanged = new THREE.Matrix4();
-  mesh.getMatrixAt(1, unchanged);
-  assert.deepEqual(unchanged.elements, other.elements);
 
+  assert.equal(occlusion.hide({ object: mesh, instanceId: 0 }), false);
+  assert.equal(occlusion.hide({ object: mesh, instanceId: 1 }), false);
   occlusion.restore();
-  const restored = new THREE.Matrix4();
-  mesh.getMatrixAt(0, restored);
-  assert.deepEqual(restored.elements, storedOriginal.elements);
-  assert.equal(mesh.instanceMatrix.version, initialBufferVersion + 2);
+
+  const restoredA = new THREE.Matrix4();
+  const restoredB = new THREE.Matrix4();
+  mesh.getMatrixAt(0, restoredA);
+  mesh.getMatrixAt(1, restoredB);
+  assert.deepEqual(restoredA.elements, storedOriginal.elements);
+  assert.deepEqual(restoredB.elements, storedOther.elements);
+  assert.equal(mesh.instanceMatrix.version, initialBufferVersion);
 });
 
-test('restores several blockers and instance hits across repeated occlusion cycles', () => {
+test('restores several individual blockers across repeated occlusion cycles', () => {
   const material = new THREE.MeshBasicMaterial();
   const blockerA = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
   const blockerB = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
   const instanced = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, 2);
   const instanceA = new THREE.Matrix4().makeTranslation(2, 0, 0);
-  const instanceB = new THREE.Matrix4().makeTranslation(-2, 0, 0);
   instanced.setMatrixAt(0, instanceA);
-  instanced.setMatrixAt(1, instanceB);
   const occlusion = new FighterOcclusionState();
 
   assert.equal(occlusion.hide({ object: blockerA }), true);
   assert.equal(occlusion.hide({ object: blockerB }), true);
-  assert.equal(occlusion.hide({ object: instanced, instanceId: 0 }), true);
-  assert.equal(occlusion.hide({ object: instanced, instanceId: 1 }), true);
+  assert.equal(occlusion.hide({ object: instanced, instanceId: 0 }), false);
   occlusion.restore();
 
-  const restoredA = new THREE.Matrix4();
-  const restoredB = new THREE.Matrix4();
-  instanced.getMatrixAt(0, restoredA);
-  instanced.getMatrixAt(1, restoredB);
+  const restored = new THREE.Matrix4();
+  instanced.getMatrixAt(0, restored);
   assert.equal(blockerA.visible, true);
   assert.equal(blockerB.visible, true);
-  assert.deepEqual(restoredA.elements, instanceA.elements);
-  assert.deepEqual(restoredB.elements, instanceB.elements);
+  assert.deepEqual(restored.elements, instanceA.elements);
 
   assert.equal(occlusion.hide({ object: blockerB }), true);
-  assert.equal(occlusion.hide({ object: instanced, instanceId: 1 }), true);
+  assert.equal(occlusion.hide({ object: instanced, instanceId: 0 }), false);
   occlusion.restore();
-  instanced.getMatrixAt(1, restoredB);
+  instanced.getMatrixAt(0, restored);
   assert.equal(blockerB.visible, true);
-  assert.deepEqual(restoredB.elements, instanceB.elements);
+  assert.deepEqual(restored.elements, instanceA.elements);
 });
