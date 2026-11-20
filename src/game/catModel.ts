@@ -34,6 +34,7 @@ export class ArticulatedCat {
   private readonly cyberAccentMat: THREE.MeshStandardMaterial;
   private readonly furMat: THREE.MeshStandardMaterial;
   private readonly furSecondaryMat: THREE.MeshStandardMaterial;
+  private readonly eyes: THREE.Mesh[] = [];
 
   // Combat & Action FX
   private readonly slashArcGroup = new THREE.Group();
@@ -147,9 +148,39 @@ export class ArticulatedCat {
     eyeGeo.scale(0.85, 1.15, 0.6);
     const leftEye = new THREE.Mesh(eyeGeo, this.eyeMat);
     leftEye.position.set(0.068, 0.03, 0.14);
+    leftEye.name = 'TomasEyeLeft';
     const rightEye = new THREE.Mesh(eyeGeo, this.eyeMat);
     rightEye.position.set(-0.068, 0.03, 0.14);
+    rightEye.name = 'TomasEyeRight';
     this.headGroup.add(leftEye, rightEye);
+    this.eyes.push(leftEye, rightEye);
+
+    // Bigodes finos e estilizados ajudam a ler o focinho sem fugir do low-poly.
+    const whiskerMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd8dee9,
+      emissive: 0x151a22,
+      roughness: 0.72,
+      metalness: 0,
+    });
+    const whiskers = new THREE.Group();
+    whiskers.name = 'TomasWhiskers';
+    for (const side of [-1, 1]) {
+      for (let row = -1; row <= 1; row++) {
+        const startY = -0.045 + row * 0.018;
+        const curve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(side * 0.075, startY, 0.16),
+          new THREE.Vector3(side * 0.15, startY + row * 0.006, 0.17),
+          new THREE.Vector3(side * 0.265, startY + row * 0.045, 0.155),
+        ]);
+        const whisker = new THREE.Mesh(
+          new THREE.TubeGeometry(curve, 8, 0.003, 4, false),
+          whiskerMaterial,
+        );
+        whisker.name = `TomasWhisker${side < 0 ? 'Right' : 'Left'}${row + 2}`;
+        whiskers.add(whisker);
+      }
+    }
+    this.headGroup.add(whiskers);
 
     const outerEarGeo = new THREE.ConeGeometry(0.062, 0.14, 4);
     const innerEarGeo = new THREE.ConeGeometry(0.034, 0.09, 4);
@@ -629,8 +660,28 @@ export class ArticulatedCat {
     this.headGroup.rotation.x = THREE.MathUtils.damp(this.headGroup.rotation.x, headPitch, 10, dt);
     this.headGroup.rotation.y = THREE.MathUtils.damp(this.headGroup.rotation.y, headYaw, 6, dt);
 
-    this.leftEar.rotation.z = -0.25 + (Math.sin(elapsed * 5.3) > 0.96 ? 0.14 : 0);
-    this.rightEar.rotation.z = 0.25 - (Math.sin(elapsed * 3.7) > 0.97 ? 0.14 : 0);
+    // Piscada periódica com fechamento breve e reabertura suave.
+    const blinkPhase = elapsed % 5.6;
+    const blinkProgress = THREE.MathUtils.clamp((blinkPhase - 5.43) / 0.17, 0, 1);
+    const blinkAmount = Math.sin(blinkProgress * Math.PI);
+    const eyeOpen = 1 - blinkAmount * 0.9;
+    this.eyes.forEach((eye) => { eye.scale.y = eyeOpen; });
+
+    // Pequenos sobressaltos de orelha agora entram e saem sem um estalo visual.
+    const leftEarFlick = THREE.MathUtils.clamp((Math.sin(elapsed * 5.3) - 0.9) / 0.1, 0, 1);
+    const rightEarFlick = THREE.MathUtils.clamp((Math.sin(elapsed * 3.7) - 0.92) / 0.08, 0, 1);
+    this.leftEar.rotation.z = THREE.MathUtils.damp(
+      this.leftEar.rotation.z,
+      -0.25 + leftEarFlick * 0.14,
+      16,
+      dt,
+    );
+    this.rightEar.rotation.z = THREE.MathUtils.damp(
+      this.rightEar.rotation.z,
+      0.25 - rightEarFlick * 0.14,
+      16,
+      dt,
+    );
 
     this.tailSegments.forEach((seg, idx) => {
       const sleeping = isSleeping && isGrounded && !moving && !isClimbing && this.actionType === 'none';
