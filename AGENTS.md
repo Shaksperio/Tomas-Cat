@@ -30,6 +30,7 @@
 10. **Transparência.** Segredos de mundo podem existir; regras de segurança, probabilidades relevantes e critérios de reconhecimento dos jogadores não podem ser escondidos.
 11. **Não refaça o que já funciona.** Verifique a seção 4 antes de reimplementar algo.
 12. **O roteiro da seção 5 é fixo.** O autor decidiu seguir este roteiro sem alterações; ele só será reavaliado depois que o jogo estiver concluído e tiver sido jogado. Não proponha cortar, trocar ou reordenar fases por conta própria; implemente o que está descrito.
+13. **Quadro de tarefas obrigatório.** Antes de começar, leia `docs/TASK-BOARD.md`; reivindique a tarefa (dono, branch, arquivos reservados) antes de editar, e atualize o quadro ao concluir. Não mexa em tarefa ou arquivo reservado por outra IA: pode revisar e apontar erros no quadro ou na PR, mas assumir ou sobrescrever o trabalho dela exige autorização humana registrada.
 
 ## 3. Como executar e verificar
 

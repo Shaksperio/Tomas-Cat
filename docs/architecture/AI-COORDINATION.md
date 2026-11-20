@@ -1,5 +1,7 @@
 # Coordenação entre IAs — Tomas Vagabundo
 
+> **Substituído em 2026-11-20 por [`docs/TASK-BOARD.md`](../TASK-BOARD.md).** Use o quadro para saber o que está livre, em andamento ou concluído. O conteúdo abaixo é histórico e está desatualizado.
+
 **Atualizado:** 2026-11-19
 
 ## Estado recente
