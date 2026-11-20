@@ -71,6 +71,46 @@ function makeStreakTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c);
 }
 
+
+function makeSacredAnimalSpirit(command: BattleAction['command']): THREE.Group {
+  const colors: Record<string, number> = {
+    summon_wolf: 0x9be7ff,
+    summon_lion: 0xffc857,
+    summon_phoenix: 0xff765e,
+    summon_turtle: 0x72e0b0,
+  };
+  const color = colors[command] ?? 0xffffff;
+  const material = new THREE.MeshStandardMaterial({
+    color, emissive: color, emissiveIntensity: 1.15, transparent: true, opacity: 0.92,
+    roughness: 0.35, metalness: 0.12,
+  });
+  const spirit = new THREE.Group();
+  const orb = (x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), material);
+    mesh.position.set(x, y, z);
+    mesh.scale.set(sx, sy, sz);
+    spirit.add(mesh);
+  };
+  // Silhueta animal procedural e leve: corpo, cabeça, quatro patas e cauda.
+  orb(0, 0.72, 0, 0.72, 0.42, 0.38);
+  orb(0.48, 1.02, 0.04, 0.3, 0.3, 0.29);
+  for (const x of [-0.42, 0.42]) for (const z of [-0.22, 0.22]) orb(x, 0.28, z, 0.12, 0.34, 0.12);
+  orb(-0.78, 0.85, -0.02, 0.34, 0.1, 0.1);
+  if (command === 'summon_lion') orb(0.42, 1.02, 0.02, 0.42, 0.42, 0.4); // juba
+  if (command === 'summon_phoenix') {
+    orb(-0.12, 1.22, -0.52, 0.62, 0.12, 0.28);
+    orb(-0.12, 1.22, 0.52, 0.62, 0.12, 0.28);
+  }
+  if (command === 'summon_turtle') orb(-0.02, 1.04, 0, 0.72, 0.35, 0.48); // casco
+  spirit.traverse((object) => {
+    if (object instanceof THREE.Mesh) {
+      object.castShadow = false;
+      object.receiveShadow = false;
+    }
+  });
+  return spirit;
+}
+
 export class BattleStage {
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
@@ -708,6 +748,50 @@ export class BattleStage {
         this.whiteFlash = 0.18;
       });
       total = 1.0;
+    } else if (action.command.startsWith('summon_')) {
+      const color = action.command === 'summon_wolf' ? 0x9be7ff
+        : action.command === 'summon_lion' ? 0xffc857
+          : action.command === 'summon_phoenix' ? 0xff765e : 0x72e0b0;
+      this.frameAll(5.5, 0, this.origFov - 3);
+      this.darkness = 0.18;
+      const spirit = makeSacredAnimalSpirit(action.command);
+      const spawn = this.worldPos(actor, 0.9);
+      spawn.y = 0;
+      spirit.position.copy(spawn);
+      spirit.scale.setScalar(0.02);
+      this.group.add(spirit);
+      this.glowSprite(this.worldPos(actor, 1.0), color, 3.8, 0.9);
+      this.ring(this.worldPos(actor, 0.05), color, 3.4, 0.9);
+      this.after(0.18, () => { spirit.scale.setScalar(1.0); this.shake = 0.28; });
+      if (action.hits.length > 0) {
+        this.after(1.05, () => {
+          const impactPoint = this.worldPos(action.target, 0.9);
+          this.beam(impactPoint, color, 0.55);
+          this.sparks(impactPoint, color, 24, 3.2);
+          this.impact(action, 0, { big: true, knockback: 0.8 });
+          this.ring(this.worldPos(action.target, 0.05), color, 3.2, 0.7);
+        });
+      }
+      if (action.healing) {
+        this.after(0.82, () => {
+          this.displayVigor.player = Math.min(100, this.displayVigor.player + action.healing!);
+          this.glowSprite(this.worldPos('player', 1.0), color, 3.5, 0.75);
+          this.whiteFlash = 0.16;
+        });
+      }
+      this.after(1.65, () => {
+        this.group.remove(spirit);
+        spirit.traverse((object) => {
+          if (object instanceof THREE.Mesh) {
+            object.geometry.dispose();
+            const mat = object.material;
+            if (Array.isArray(mat)) mat.forEach((item) => item.dispose());
+            else mat.dispose();
+          }
+        });
+        this.wideShot(5);
+      });
+      total = 1.9;
     } else if (action.command === 'attack') {
       this.overShoulder(actor, action.target);
       this.moveTo(actor, stand(-0.45), 0.22);
