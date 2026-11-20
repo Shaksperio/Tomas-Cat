@@ -2,7 +2,7 @@
 
 > **Toda IA (Claude, ChatGPT/Codex, Grok ou outra) lê este arquivo antes de começar qualquer trabalho e atualiza no mesmo commit em que reivindica, entrega ou abandona uma tarefa.** Ele existe para que duas IAs nunca façam a mesma coisa nem mexam no trabalho uma da outra.
 >
-> Última revisão: 2026-11-20 (Grok: reserva T-101 + achados). Confira de novo antes de agir.
+> Última revisão: 2026-11-20 (Manus: reserva T-213 após autorização de Tom). Confira de novo antes de agir.
 
 ## 1. Regras
 
@@ -23,9 +23,6 @@
 
 IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
-- [T-109] Visibilidade dos duelistas no cenário (oclusão seletiva de obstáculos entre câmera e lutadores) — dono: ChatGPT/Codex — branch: `codex/battle-fighter-visibility` — PR: #80 (draft; CI verde) — reserva: `src/game/battle/BattleStage.ts` (apenas apresentação/renderização dos lutadores em `begin`, `end` e helpers; não tocar nos trechos de combos de Claude), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: preserva depth test 3D; raios aos pontos do tronco/cabeça ocultam apenas meshes bloqueadores, excluindo lutadores e efeitos; restaura a visibilidade no quadro seguinte e ao encerrar; validação visual em navegador real pendente; sem merge/deploy.
-
-
 ## 2. Tarefas livres (podem ser reivindicadas)
 
 > Antes de reivindicar, confirme no código se a tarefa já não foi feita (seção 4 do `AGENTS.md`, `git log`, PRs abertas).
@@ -39,11 +36,13 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 - [T-009] Persistência remota e sincronização (Worker, Durable Objects, D1) com infraestrutura própria — fase 6 do roteiro; confira com a tarefa T-103 antes
 - [T-010] Mundo evoluindo sem jogadores conectados — fase 7; depende de T-009
 - [T-011] Prova de ponta a ponta do Agent Gate com a lista de autores preenchida (caso "liberado") — **depende de ação humana** (`AGENT_GATE_AUTHORS`)
+- [T-213] Polimento visual felino: bigodes low-poly, piscadas e sinais de atenção/locomoção mais expressivos — reserva sugerida: `src/game/catModel.ts`, `src/game/style/catModelVisuals.test.ts`
 
 ## 3. Em andamento (reservadas)
 
 - [T-001+T-004] Técnicas à venda nas lojas e novos combos desbloqueados por nível (Fúria Apex e Sequência Suprema como comandos ATB próprios) — dono: Claude — branch: `claude/shop-techniques` — reserva: `src/game/progression/`, `src/game/shop/`, `src/game/battle/` (atb.ts, commands.ts, BattleStage.ts só no trecho de combos), `src/game/GameEngine.ts` (apenas battleCommand, teclas de batalha, compra de técnica e snapshot da loja; **não** o trecho `requestCowilaDecision` da T-101), `src/components/GameHUD.tsx` (comandos de batalha e painel da loja), `src/types/game.ts` — desde: 2026-11-20
 - [T-007] Remover o arquivo de documentação de PR que sobrou — dono: ChatGPT/Codex — branch: `codex/remove-stale-agent-runtime-patch` — PR: #77 — reserva: `src/game/society/agents/GameEngine_agentRuntime.patch` — desde: 2026-11-20
+- [T-213] Polimento visual felino (bigodes, piscadas e microanimações expressivas) — dono: Manus — branch: `codex/cat-visual-polish` — PR: pendente — reserva: `src/game/catModel.ts`, `src/game/style/catModelVisuals.test.ts`, `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: escopo visual isolado; preserva movimento, combate, estados de água/escalada e saves.
 
 - [T-101] Ponte Cowila IA → skillId canônico — dono: **Grok** — branch: `grok/cowila-ai-skill-bridge` — PR: **#76** — reserva: `src/game/society/agents/cowilaAiBridge.ts`, `cowilaAiBridge.test.ts`, `GameEngine_cowilaAiBridge.patch`; integração final no `GameEngine.ts` **apenas** o trecho `requestCowilaDecision` (usar `applyCowilaAiDecision`) — desde: 2026-11-20 — nota: módulo + testes na branch; wire no motor ainda pendente de merge/CI
 - [T-102] Aceitar health check ignorado no Agent Gate — dono: ChatGPT/Codex — branch: `codex/agent-gate-post-deploy-check` — PR: #73 — reserva: `scripts/agent-gate/`, `AGENTS.md` (seção do gate)
@@ -55,6 +54,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 4. Concluídas (mais recentes primeiro)
 
+- [T-109] Visibilidade dos duelistas no cenário (oclusão seletiva) — ChatGPT/Codex — PR #80 (merge em 2026-11-20; commit integrado na main em #83).
 - [T-108] Evocação de Animais Sagrados no modo batalha — ChatGPT/Codex — PR #79 (merge commit `b77758ca292b711d80abc973b52ca12cb6beead3`); CI verde no head da PR; deploy do commit integrado foi iniciado.
 
 - [T-201] Agent Gate: política testada, auditoria somente leitura, exige SHA exato do CI — Claude + Antonio Carlos — PR #45 — CI verde; demonstração com PRs de teste #74/#75 em 2026-11-20 (bloqueios confirmados no Actions)
@@ -85,6 +85,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 ## 6. Histórico de mudanças do quadro
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
+- 2026-11-20 — Manus: T-213 reservada para polimento visual felino; Tom autorizou o push da reserva à `main` sabendo que o push pode disparar o deploy automático.
 - 2026-11-20 — ChatGPT/Codex: T-108 integrada pela PR #79 (merge `b77758c`); iniciado T-109 para corrigir a visibilidade dos lutadores sem alterar o trabalho de combos de Claude. Tom autorizou a melhoria nesta conversa; PR #80 aberta em draft.
 - 2026-11-20 — ChatGPT/Codex: CI da PR #80 concluída com sucesso (testes de contrato, TypeScript e build); deploy foi corretamente ignorado por ser PR. Validação visual em navegador real permanece pendente; PR continua em draft.
 - 2026-11-20 — Grok: reserva completa T-101; nota T-107 (portalWorlds na main); achados na seção 5.
