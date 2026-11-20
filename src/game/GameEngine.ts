@@ -1447,6 +1447,11 @@ export class GameEngine {
       else if (command === 'item') this.callbacks.onToast('O vigor já está cheio.', 'info');
       else if (command === 'combo_a' && this.level < 25) this.callbacks.onToast('Rasante Duplo desbloqueia no nível 25.', 'info');
       else if (command === 'combo_b' && this.level < 55) this.callbacks.onToast('Tempestade de Garras desbloqueia no nível 55.', 'info');
+      else if (command.startsWith('summon_')) {
+        const requiredLevel = ({ summon_wolf: 10, summon_turtle: 15, summon_phoenix: 20, summon_lion: 30 } as const)[command as 'summon_wolf' | 'summon_turtle' | 'summon_phoenix' | 'summon_lion'];
+        if (this.level < requiredLevel) this.callbacks.onToast(`Esta evocação desbloqueia no nível ${requiredLevel}.`, 'info');
+        else this.callbacks.onToast('Maná insuficiente para esta evocação.', 'info');
+      }
       else if (command === 'magic' || command === 'combo_a' || command === 'combo_b') this.callbacks.onToast('Maná insuficiente para esta técnica.', 'info');
       return;
     }
@@ -2565,6 +2570,9 @@ export class GameEngine {
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);
+      } else if (this.duelPhase === 'fighting' && ['F1', 'F2', 'F3', 'F4'].includes(code)) {
+        const summons: Record<string, BattleCommand> = { F1: 'summon_wolf', F2: 'summon_turtle', F3: 'summon_phoenix', F4: 'summon_lion' };
+        this.battleCommand(summons[code]);
       } else if (code === 'Digit9' && this.duelPhase === 'fighting') {
         this.activateComboBreaker();
       } else if (code === 'KeyI' && this.duelPhase === 'fighting') {

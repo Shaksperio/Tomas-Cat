@@ -23,7 +23,7 @@
 
 IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
-- [T-108] Evocação de Animais Sagrados no modo batalha (regras ATB determinísticas, custos/limites, quatro invocações, apresentação 3D e HUD) — dono: ChatGPT/Codex — branch: `codex/sacred-animal-summons` — reserva: `src/game/battle/summons.ts`, `src/game/battle/summons.test.ts`; **integração compartilhada autorizada por Tom em 2026-11-20**: `src/game/battle/atb.ts`, `src/game/battle/commands.ts`, `src/game/battle/BattleStage.ts`, `src/game/GameEngine.ts` (somente despacho/estado da invocação), `src/components/GameHUD.tsx` (somente controles/descrição da invocação), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: coordenar com Claude/T-001+T-004; não sobrescrever alterações de combos; integrar em commits pequenos após sincronizar a branch dele.
+- [T-108] Evocação de Animais Sagrados no modo batalha (regras ATB determinísticas, custos/limites, quatro invocações, apresentação 3D e HUD) — dono: ChatGPT/Codex — branch: `codex/sacred-animal-summons` — PR: #79 (draft; CI verde no commit c10d093) — reserva: `src/game/battle/atb.test.ts`; **integração compartilhada autorizada por Tom em 2026-11-20**: `src/game/battle/atb.ts`, `src/game/battle/commands.ts`, `src/game/battle/BattleStage.ts`, `src/game/GameEngine.ts` (somente despacho/teclas/toasts), `src/components/GameHUD.tsx` (somente comandos e apresentação), `AGENTS.md`, `docs/TASK-BOARD.md` — desde: 2026-11-20 — nota: coordenar com Claude/T-001+T-004; não sobrescrever alterações de combos; integrar em commits pequenos após sincronizar a branch dele.
 
 ## 2. Tarefas livres (podem ser reivindicadas)
 
@@ -82,5 +82,5 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 ## 6. Histórico de mudanças do quadro
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
-- 2026-11-20 — ChatGPT/Codex: reivindicada T-108; Tom autorizou explicitamente compartilhar os pontos de integração do combate com Claude/T-001+T-004, preservando o trabalho de combos.
+- 2026-11-20 — ChatGPT/Codex: reivindicada T-108; Tom autorizou explicitamente compartilhar os pontos de integração do combate com Claude/T-001+T-004, preservando o trabalho de combos. PR #79 aberta em draft; CI verde no commit c10d093; aguardando coordenação com Claude antes de sair do draft/merge.
 - 2026-11-20 — Grok: reserva completa T-101; nota T-107 (portalWorlds na main); achados na seção 5.

@@ -359,3 +359,52 @@ test('Combo Breaker manual derruba o alvo e pode finalizar a batalha', () => {
   assert.equal(s.finished, true);
   assert.equal(s.winner, 'player');
 });
+
+
+test('evocações sagradas respeitam nível, mana e aplicam efeitos determinísticos', () => {
+  const locked = createBattle(901, 2, 9);
+  locked.ready = 'player';
+  locked.player.atb = 100;
+  locked.player.limit = 100;
+  assert.equal(canUseCommand(locked, 'player', 'summon_wolf'), false);
+
+  const wolf = createBattle(902, 2, 10);
+  wolf.ready = 'player';
+  wolf.player.atb = 100;
+  wolf.player.limit = 40;
+  assert.equal(canUseCommand(wolf, 'player', 'summon_wolf'), true);
+  const wolfAction = resolveCommand(wolf, 'player', 'summon_wolf');
+  assert.equal(wolfAction.name, 'Evocar Lobo Sagrado');
+  assert.equal(wolf.player.limit, 0);
+  assert.equal(wolf.player.guarding, true);
+  assert.equal(wolfAction.hits.length, 1);
+
+  const lion = createBattle(903, 2, 30);
+  lion.ready = 'player';
+  lion.player.atb = 100;
+  lion.player.limit = 50;
+  const lionAction = resolveCommand(lion, 'player', 'summon_lion');
+  assert.equal(lionAction.name, 'Evocar Leão Celestial');
+  assert.ok(lionAction.hits[0].damage > 42);
+
+  const phoenix = createBattle(904, 2, 20);
+  phoenix.ready = 'player';
+  phoenix.player.atb = 100;
+  phoenix.player.limit = 45;
+  phoenix.player.vigor = 50;
+  const phoenixAction = resolveCommand(phoenix, 'player', 'summon_phoenix');
+  assert.equal(phoenixAction.healing, 28);
+  assert.equal(phoenix.player.vigor, 78);
+  assert.equal(phoenixAction.hits.length, 1);
+
+  const turtle = createBattle(905, 2, 15);
+  turtle.ready = 'player';
+  turtle.player.atb = 100;
+  turtle.player.limit = 35;
+  turtle.player.vigor = 70;
+  const turtleAction = resolveCommand(turtle, 'player', 'summon_turtle');
+  assert.equal(turtleAction.healing, 8);
+  assert.equal(turtle.player.vigor, 78);
+  assert.equal(turtle.player.guarding, true);
+  assert.equal(turtleAction.hits.length, 0);
+});

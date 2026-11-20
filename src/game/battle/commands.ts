@@ -12,7 +12,7 @@ export interface BattleCommandPresentation {
   animationId: string;
   cameraSequence: CameraPreset[];
   hitTimings: number[];
-  particleProfile: 'claw' | 'flurry' | 'guard' | 'meteor' | 'item' | 'magic' | 'combo';
+  particleProfile: 'claw' | 'flurry' | 'guard' | 'meteor' | 'item' | 'magic' | 'combo' | 'summon';
   trailColor?: string;
 }
 
@@ -25,6 +25,10 @@ export const BATTLE_COMMAND_PRESENTATION: Record<BattleCommand, BattleCommandPre
   magic: { animationId: 'arcane-orb', cameraSequence: ['dramatic_side', 'low_impact', 'wide'], hitTimings: [0.42], particleProfile: 'magic', trailColor: '#a78bfa' },
   combo_a: { animationId: 'rasante-duplo', cameraSequence: ['over_shoulder', 'low_impact', 'dramatic_side', 'wide'], hitTimings: [0.42, 0.66, 0.9, 1.14], particleProfile: 'combo', trailColor: '#c4b5fd' },
   combo_b: { animationId: 'tempestade-garras', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'dramatic_side', 'wide'], hitTimings: [0.38, 0.6, 0.82, 1.04, 1.26, 1.48], particleProfile: 'combo', trailColor: '#f9a8d4' },
+  summon_wolf: { animationId: 'sacred-wolf', cameraSequence: ['wide', 'orbit_special', 'dramatic_side', 'wide'], hitTimings: [1.15], particleProfile: 'summon', trailColor: '#a5f3fc' },
+  summon_lion: { animationId: 'celestial-lion', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'wide'], hitTimings: [1.25], particleProfile: 'summon', trailColor: '#fbbf24' },
+  summon_phoenix: { animationId: 'sacred-phoenix', cameraSequence: ['wide', 'orbit_special', 'dramatic_side', 'wide'], hitTimings: [1.05], particleProfile: 'summon', trailColor: '#fb7185' },
+  summon_turtle: { animationId: 'ancestral-turtle', cameraSequence: ['wide', 'dramatic_side', 'wide'], hitTimings: [], particleProfile: 'summon', trailColor: '#6ee7b7' },
 };
 
 export const BATTLE_ITEM_CATALOG = {
