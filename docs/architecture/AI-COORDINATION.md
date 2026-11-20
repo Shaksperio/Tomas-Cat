@@ -2,32 +2,35 @@
 
 **Atualizado:** 2026-11-20
 
-## Já mergeado (não reimplementar)
+> **Antes de editar:** listar PRs abertas. Não reimplementar nem apagar trabalho de Codex/Claude.
 
-| PR | Conteúdo |
-|----|----------|
-| #62–#69 | Skills Hermes, Worker IDs, skillLearning, ciclo no `step`, memória, persistência learning, AGENTS |
+## Já na `main` (não refazer)
 
-Na `main`: especialistas + learning no tick; Cowila IA a cada 25 ticks no GameEngine.
+Skills Hermes (#62), Worker skill IDs (#64), skillLearning (#65), ciclo no `step` (#66), memória (#67), persistência learning (#68), AGENTS (#69).
 
-## Aberto
+## PRs abertas — donos
 
-| Área | Quem | PR |
-|------|------|-----|
-| Agent Gate health check | Codex | #73 |
-| Offline contingency | Codex | #72 |
-| Engineering agent v2 | Codex | #70 |
-| Família NPC | Codex | #35 |
-| Embodiment / D1 | Codex draft | #36 |
-| Portais | Grok | #6 |
-| **Bridge Cowila IA → skillId** | **Grok** | `grok/cowila-ai-skill-bridge` |
+| PR | Quem | Área | Grok NÃO edita |
+|----|------|------|----------------|
+| **#74 / #75** | **Claude** | Testes Agent Gate (descartáveis) | `claude/gate-test-*` |
+| **#73** | **Codex** | Agent Gate health check skipped | `scripts/agent-gate/**` |
+| **#72** | **Codex** | Contingência offline Firestore | `src/game/offline/**`, `gameSave` |
+| **#70** | **Codex** | Engineering agent Gemini | `scripts/engineering-agent/**` |
+| **#35 / #36** | **Codex** | Família / embodiment | family, D1 identity |
+| **#76** | **Grok** | Bridge Cowila IA → skillId | — |
+| **#6** | **Grok** | Portais (base antiga; `portalWorlds` já na main) | revisar antes de reabrir |
 
-## Gap desta branch
+## #76 — uso no GameEngine
 
-Propostas remotas no GameEngine iam **sem** `skillId`. `cowilaAiBridge.ts` alinha ao catálogo canônico antes de `scheduleAiSpecialistTask`. Ver `GameEngine_cowilaAiBridge.patch`.
+```ts
+import { applyCowilaAiDecision } from './society/agents/cowilaAiBridge';
+// no then de requestCowilaDecision:
+const result = applyCowilaAiDecision(targetSociety, decision);
+if (result.accepted > 0) onToast(`Cowila IA: ${result.accepted}… ${result.brief}`, 'info');
+```
 
 ## Regras
 
-1. Não editar PRs abertas de outra IA.
-2. Skills só em código versionado.
-3. Determinismo: IA propõe; motor valida.
+1. Uma IA não edita a coluna de PR alheia aberta.
+2. Preferir módulo novo a patch em arquivo grande já tocado por outra PR.
+3. Skills só em código versionado; determinismo: IA propõe, motor valida.
