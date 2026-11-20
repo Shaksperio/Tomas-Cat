@@ -127,6 +127,75 @@ const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'it
   { id: 'summon_lion', label: 'Leão Celestial', key: 'F4', requiredLevel: 30, manaCost: 50 },
 ];
 
+type BattleCommandCategory = 'basic' | 'special' | 'summon';
+
+function BattleCommandMenu({
+  duel,
+  limitReady,
+  windowStyle,
+  onCommand,
+}: {
+  duel: DuelHud;
+  limitReady: boolean;
+  windowStyle: React.CSSProperties;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
+}) {
+  const [category, setCategory] = useState<BattleCommandCategory>('basic');
+  const categories: Array<{ id: BattleCommandCategory; label: string }> = [
+    { id: 'basic', label: 'Básicos' },
+    { id: 'special', label: 'Especiais' },
+    { id: 'summon', label: 'Evocações' },
+  ];
+  const commands = BATTLE_COMMANDS.filter((command) => {
+    if (command.requiredLevel && duel.playerLevel < command.requiredLevel) return false;
+    if (category === 'basic') return ['attack', 'flurry', 'guard', 'item'].includes(command.id);
+    if (category === 'special') return ['limit', 'magic', 'combo_a', 'combo_b'].includes(command.id);
+    return command.id.startsWith('summon_');
+  });
+
+  return (
+    <div className="w-44 sm:w-52 shrink-0 rounded-lg p-1.5" style={windowStyle}>
+      <div className="mb-1 grid grid-cols-3 gap-1">
+        {categories.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setCategory(item.id)}
+            aria-pressed={category === item.id}
+            className={`rounded px-1 py-1 text-[10px] sm:text-[11px] font-bold transition-colors ${
+              category === item.id ? 'bg-white/25 text-white' : 'bg-black/20 text-slate-300 hover:bg-white/10'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        {commands.map((command) => {
+          const disabled =
+            (command.id === 'limit' && !limitReady) ||
+            (command.id === 'item' && (duel.playerItems <= 0 || duel.playerVigor >= 100)) ||
+            (command.manaCost !== undefined && duel.playerLimit < command.manaCost);
+          return (
+            <button
+              key={command.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => onCommand(command.id)}
+              className={`min-w-0 rounded px-1.5 py-1 text-left text-[10px] sm:text-xs font-bold leading-tight ${
+                disabled ? 'text-slate-400/60 cursor-not-allowed' : 'text-white hover:bg-white/15 cursor-pointer'
+              } ${command.id === 'limit' && limitReady ? 'battle-limit-ready' : ''}`}
+            >
+              <span className="block truncate">{command.label}</span>
+              <span className="text-[9px] font-mono-tabular opacity-60">[{command.key}] {command.id === 'item' ? `· ${duel.playerItems}` : command.manaCost ? `· ${command.manaCost} MP` : ''}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function BattleOverlay({
   duel,
   onCommand,
@@ -228,26 +297,14 @@ function BattleOverlay({
       {/* Menu e status do jogador (estilo RPG clássico) */}
       {!duel.intro && (
         <div className="absolute inset-x-2 bottom-[12vh] flex items-end gap-2 sm:gap-3 pointer-events-auto">
-          <div className="w-40 sm:w-52 p-2" style={windowStyle}>
-            {BATTLE_COMMANDS.filter((c) => !c.requiredLevel || duel.playerLevel >= c.requiredLevel).map((c) => {
-              const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady) || (c.id === 'item' && duel.playerItems <= 0) || (c.id === 'item' && duel.playerVigor >= 100) || (c.manaCost !== undefined && duel.playerLimit < c.manaCost);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onCommand(c.id)}
-                  className={`flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs sm:text-sm font-bold ${
-                    disabled ? 'text-slate-400/70 cursor-not-allowed' : 'text-white hover:bg-white/15 cursor-pointer'
-                  } ${c.id === 'limit' && limitReady ? 'battle-limit-ready' : ''}`}
-                >
-                  <span className="w-3 text-amber-300">{duel.awaitingCommand && !disabled ? '▶' : ''}</span>
-                  <span className="flex-1 truncate">{c.label}{c.id === 'item' ? ` (${duel.playerItems})` : c.manaCost ? ` (${c.manaCost} MP)` : ''}</span>
-                  <span className="text-[10px] font-mono-tabular opacity-60">[{c.key}]</span>
-                </button>
-              );
-            })}
-          </div>
+          {duel.awaitingCommand && (
+            <BattleCommandMenu
+              duel={duel}
+              limitReady={limitReady}
+              windowStyle={windowStyle}
+              onCommand={onCommand}
+            />
+          )}
 
           <div className="flex-1 min-w-0 p-2" style={windowStyle}>
             <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-white">
