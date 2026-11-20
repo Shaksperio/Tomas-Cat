@@ -11,7 +11,7 @@ import { GameEngine } from './game/GameEngine';
 import { firebaseAuth, firebaseConfigured } from './firebase/client';
 import { pickBestSave } from './game/saves/saveSelection';
 import { isRecoverableConnectivityFailure } from './game/offline/connectivity';
-import { flushAccountGameSave, flushPendingAccountGameSave, loadAccountGameSave, queueAccountGameSave } from './firebase/gameSave';
+import { flushAccountGameSave, flushPendingAccountGameSave, loadAccountGameSave, queueAccountGameSave, SaveConflictError } from './firebase/gameSave';
 import { EVOLUTION_STAGES, GamePhase, HudSnapshot, LoreLog, MAX_CHANCES, SavedGameState } from './types/game';
 
 const INITIAL_HUD: HudSnapshot = {
@@ -47,6 +47,7 @@ export default function App() {
   const [accountError, setAccountError] = useState<string | null>(null);
   const [connectionOnline, setConnectionOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
   const [offlineFallback, setOfflineFallback] = useState(false);
+  const [saveConflict, setSaveConflict] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
   const currentUidRef = useRef<string | null>(null);
   const loadedAccountUidRef = useRef<string | null>(null);
@@ -70,10 +71,12 @@ export default function App() {
   useEffect(() => {
     if (!authUser || !accountReady || !connectionOnline) return;
     void flushPendingAccountGameSave(authUser.uid).then(() => {
+      setSaveConflict(false);
       setOfflineFallback(false);
     }).catch((error) => {
+      setSaveConflict(error instanceof SaveConflictError);
       setOfflineFallback(true);
-      showToast(`Sincronização pendente: ${errorMessage(error)}`, 'warn');
+      showToast(error instanceof SaveConflictError ? 'Conflito de salvamento: sua cópia local foi preservada e a nuvem não foi sobrescrita.' : `Sincronização pendente: ${errorMessage(error)}`, 'warn');
     });
   }, [authUser, accountReady, connectionOnline, showToast]);
 
@@ -90,10 +93,12 @@ export default function App() {
       if (authUser) {
         engineRef.current?.persistNow();
         void flushPendingAccountGameSave(authUser.uid).then(() => {
+          setSaveConflict(false);
           setOfflineFallback(false);
         }).catch((error) => {
+          setSaveConflict(error instanceof SaveConflictError);
           setOfflineFallback(true);
-          showToast(`Sincronização pendente: ${errorMessage(error)}`, 'warn');
+          showToast(error instanceof SaveConflictError ? 'Conflito de salvamento: sua cópia local foi preservada e a nuvem não foi sobrescrita.' : `Sincronização pendente: ${errorMessage(error)}`, 'warn');
         });
       }
     };
@@ -195,6 +200,7 @@ export default function App() {
       setAccountReady(false);
       setHasSave(false);
       setOfflineFallback(false);
+      setSaveConflict(false);
       setPhase('title');
     }
   }, [authUser, refreshAccount]);
@@ -294,8 +300,9 @@ export default function App() {
         payload,
         () => setOfflineFallback(false),
         (error) => {
+          setSaveConflict(error instanceof SaveConflictError);
           setOfflineFallback(true);
-          showToast(`Falha ao sincronizar seu personagem. O progresso permanece local: ${errorMessage(error)}`, 'warn');
+          showToast(error instanceof SaveConflictError ? 'Conflito de salvamento: a cópia offline está preservada; nenhuma alteração remota foi feita.' : `Falha ao sincronizar seu personagem. O progresso permanece local: ${errorMessage(error)}`, 'warn');
         },
       );
     },
@@ -426,9 +433,9 @@ export default function App() {
         <button type="button" onClick={handleLogout} className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/20">Sair</button>
       </header>
 
-      {(offlineFallback || !connectionOnline) && (
-        <div role="status" className="relative z-20 flex shrink-0 items-center justify-center gap-2 border-b border-amber-300/20 bg-amber-950/80 px-3 py-1.5 text-center text-[10px] font-medium text-amber-100">
-          <span>{!connectionOnline ? 'Sem internet' : 'Sincronização pendente'} — modo de contingência ativo; progresso salvo localmente.</span>
+      {(offlineFallback || !connectionOnline || saveConflict) && (
+        <div role={saveConflict ? 'alert' : 'status'} className={`relative z-20 flex shrink-0 items-center justify-center gap-2 border-b px-3 py-1.5 text-center text-[10px] font-medium ${saveConflict ? 'border-rose-300/30 bg-rose-950/90 text-rose-100' : 'border-amber-300/20 bg-amber-950/80 text-amber-100'}`}>
+          <span>{saveConflict ? 'CONFLITO DE SAVE — cópia offline preservada; a nuvem não foi sobrescrita. A sincronização automática está pausada até revisão.' : !connectionOnline ? 'Sem internet' : 'Sincronização pendente'}{!saveConflict && ' — modo de contingência ativo; progresso salvo localmente.'}</span>
         </div>
       )}
 
