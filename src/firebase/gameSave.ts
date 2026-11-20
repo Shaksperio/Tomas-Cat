@@ -103,6 +103,11 @@ export async function saveAccountGameSave(
       }
       currentFingerprint = await fingerprint(data.payload as SavedGameState);
     }
+    // A gravação pode ter sido confirmada no servidor e a limpeza local
+    // falhado. Reconheça o mesmo snapshot como sucesso idempotente; isso evita
+    // transformar uma repetição da mesma operação em falso conflito.
+    const nextFingerprint = await fingerprint(payload);
+    if (currentFingerprint === nextFingerprint) return;
     if (currentFingerprint !== expectedFingerprint) throw new SaveConflictError();
     transaction.set(reference, {
       ownerUid: uid,
