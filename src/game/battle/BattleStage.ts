@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { type BattleAction, FOE_SIDES, type FoeSide, type Side } from './atb';
+import { type BattleAction, type ComboCommand, FOE_SIDES, type FoeSide, type Side, isComboCommand } from './atb';
 
 /**
  * Cena cinematográfica da batalha (estilo RPG clássico): cortes de câmera,
@@ -35,6 +35,14 @@ interface TimedEvent {
   at: number;
   fn: () => void;
 }
+
+/** Aparência e ritmo de cada combo (cor do rastro, duração total, intervalo entre golpes e anel final). */
+const COMBO_LOOK: Record<ComboCommand, { color: number; duration: number; step: number; ring: number }> = {
+  combo_a: { color: 0xc4b5fd, duration: 1.8, step: 0.22, ring: 3.2 },
+  combo_b: { color: 0xf9a8d4, duration: 2.35, step: 0.25, ring: 4.4 },
+  combo_c: { color: 0xfca5a5, duration: 2.6, step: 0.22, ring: 5.0 },
+  combo_d: { color: 0xfde68a, duration: 2.9, step: 0.2, ring: 5.8 },
+};
 
 const _v = new THREE.Vector3();
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -842,15 +850,16 @@ export class BattleStage {
         this.whiteFlash = 0.12;
       });
       total = 1.35;
-    } else if (action.command === 'combo_a' || action.command === 'combo_b') {
-      const color = action.command === 'combo_a' ? 0xc4b5fd : 0xf9a8d4;
-      const duration = action.command === 'combo_a' ? 1.8 : 2.35;
+    } else if (isComboCommand(action.command)) {
+      const look = COMBO_LOOK[action.command];
+      const color = look.color;
+      const duration = look.duration;
       this.overShoulder(actor, action.target);
       this.moveTo(actor, stand(-0.5), 0.18);
       this.after(0.24, () => this.moveTo(actor, stand(reach), 0.16));
       for (let i = 0; i < action.hits.length; i += 1) {
         const last = i === action.hits.length - 1;
-        this.after(0.38 + i * (action.command === 'combo_a' ? 0.22 : 0.25), () => {
+        this.after(0.38 + i * look.step, () => {
           if (i === 0) this.impactShot(action.target, 14);
           if (actor === 'player') this.onPlayerClaw();
           const p = this.worldPos(action.target, 0.8);
@@ -863,7 +872,7 @@ export class BattleStage {
       }
       this.after(duration - 0.15, () => {
         this.moveTo(actor, new THREE.Vector3(), 0.3);
-        this.ring(this.worldPos(action.target, 0.05), color, action.command === 'combo_b' ? 4.4 : 3.2, 0.55);
+        this.ring(this.worldPos(action.target, 0.05), color, look.ring, 0.55);
         this.wideShot(5);
       });
       total = duration;

@@ -18,6 +18,16 @@ export interface ShopDefinition {
   closeHour: number;
   accent: number;
   stock: readonly ShopStockEntry[];
+  /** Técnicas (combos) vendidas; aprendê-las antes do nível natural é o benefício da compra. */
+  techniques?: readonly ShopTechniqueEntry[];
+}
+
+export interface ShopTechniqueEntry {
+  /** ID em `MOVE_UNLOCKS`. */
+  moveId: string;
+  price: number;
+  /** Nível mínimo para comprar; sempre menor que o nível que libera a técnica de graça. */
+  levelRequired: number;
 }
 
 export const SHOPS: readonly ShopDefinition[] = [
@@ -41,6 +51,7 @@ export const SHOPS: readonly ShopDefinition[] = [
       { itemId: 'iron_claw_caps', price: 60 }, { itemId: 'tempered_claws', price: 180, levelRequired: 15 },
       { itemId: 'plated_vest', price: 90, levelRequired: 5 },
     ],
+    techniques: [{ moveId: 'shadow-combo', price: 420, levelRequired: 35 }],
   },
   {
     id: 'telhados', name: 'Mercado dos Telhados', x: 150, z: 40, openHour: 6, closeHour: 21, accent: 0xa78bfa,
@@ -48,6 +59,7 @@ export const SHOPS: readonly ShopDefinition[] = [
       { itemId: 'vitality_potion', price: 26 }, { itemId: 'mana_potion', price: 22 },
       { itemId: 'wool_scarf', price: 40 }, { itemId: 'medicinal_herb', price: 9 },
     ],
+    techniques: [{ moveId: 'lunar-sequence', price: 150, levelRequired: 15 }],
   },
   {
     id: 'posto-sul', name: 'Posto do Sul', x: 20, z: 140, openHour: 6, closeHour: 20, accent: 0x22c55e,
@@ -61,6 +73,10 @@ export const SHOPS: readonly ShopDefinition[] = [
     stock: [
       { itemId: 'mana_potion', price: 16 }, { itemId: 'vitality_potion', price: 20 },
       { itemId: 'wool_scarf', price: 35 }, { itemId: 'sonar_whisker', price: 62, levelRequired: 8 },
+    ],
+    techniques: [
+      { moveId: 'apex-fury', price: 900, levelRequired: 50 },
+      { moveId: 'supreme-sequence', price: 1800, levelRequired: 65 },
     ],
   },
 ];

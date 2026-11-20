@@ -29,6 +29,8 @@ export const BATTLE_COMMAND_PRESENTATION: Record<BattleCommand, BattleCommandPre
   summon_lion: { animationId: 'celestial-lion', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'wide'], hitTimings: [1.25], particleProfile: 'summon', trailColor: '#fbbf24' },
   summon_phoenix: { animationId: 'sacred-phoenix', cameraSequence: ['wide', 'orbit_special', 'dramatic_side', 'wide'], hitTimings: [1.05], particleProfile: 'summon', trailColor: '#fb7185' },
   summon_turtle: { animationId: 'ancestral-turtle', cameraSequence: ['wide', 'dramatic_side', 'wide'], hitTimings: [], particleProfile: 'summon', trailColor: '#6ee7b7' },
+  combo_c: { animationId: 'furia-apex', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'dramatic_side', 'wide'], hitTimings: [0.38, 0.6, 0.82, 1.04, 1.26, 1.48, 1.7, 1.92], particleProfile: 'combo', trailColor: '#fca5a5' },
+  combo_d: { animationId: 'sequencia-suprema', cameraSequence: ['close_face', 'orbit_special', 'low_impact', 'dramatic_side', 'orbit_special', 'wide'], hitTimings: [0.38, 0.58, 0.78, 0.98, 1.18, 1.38, 1.58, 1.78, 1.98, 2.18], particleProfile: 'combo', trailColor: '#fde68a' },
 };
 
 export const BATTLE_ITEM_CATALOG = {

@@ -54,6 +54,7 @@ import type { InventoryState } from './items/inventory';
 import { ITEM_CATALOG, EQUIPMENT_SLOT_LABELS, isInventoryItemId, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from './items/itemCatalog';
 import { getShop, isShopOpen } from './shop/catalog';
 import { purchaseItem } from './shop/purchase';
+import { purchaseTechnique } from './shop/techniquePurchase';
 import { createEquipmentState, getEquipmentBonuses, normalizeEquipment } from './items/equipment';
 import type { EquipmentState } from './items/equipment';
 import { findGridRoute } from './tasks/gridRoute';
@@ -64,7 +65,7 @@ import type { DialogueContext, DialogueEffect, DialogueState } from './dialogue/
 import { isMoonTime, moonProgress, skyColorAt } from './dayCycle';
 import { sampleSkyAtmosphere } from './sky/skyAtmosphere';
 import { SkyVisuals } from './sky/skyVisuals';
-import { getNewlyUnlockedMoves, mergeUnlockedMoves } from './progression/unlocks';
+import { MOVE_UNLOCKS, getLearnedCombos, getNewlyUnlockedMoves, mergeUnlockedMoves } from './progression/unlocks';
 import {
   DEFAULT_COIN_STAKE,
   type DuelFighter,
@@ -84,12 +85,16 @@ import {
   type FoeSide,
   FOE_SIDES,
   type Side,
+  COMBO_UNLOCKS,
+  COMMAND_LABELS,
   canUseCommand,
   chooseOpponentCommand,
   createBattle,
   defaultTarget,
   fighter,
   forfeitBattle,
+  isComboCommand,
+  isComboKnown,
   isFoe,
   livingFoes,
   resolveCommand,
@@ -1408,7 +1413,7 @@ export class GameEngine {
       this.getCurrentAttackDamage() / 12,
       this.level,
       foeLevels[0],
-      { playerMana: this.battleMana, foeLevels, playerItems: this.getBattleItemCount('ration') },
+      { playerMana: this.battleMana, foeLevels, playerItems: this.getBattleItemCount('ration'), learnedCombos: getLearnedCombos(Array.from(this.unlockedMoves)) },
     );
     this.battleTarget = defaultTarget(this.battle);
     this.battleEnding = false;
@@ -1445,14 +1450,13 @@ export class GameEngine {
       if (command === 'limit') this.callbacks.onToast('A barra de maná ainda não está cheia.', 'info');
       else if (command === 'item' && this.battle?.playerItems === 0) this.callbacks.onToast('Você não tem rações de combate.', 'info');
       else if (command === 'item') this.callbacks.onToast('O vigor já está cheio.', 'info');
-      else if (command === 'combo_a' && this.level < 25) this.callbacks.onToast('Rasante Duplo desbloqueia no nível 25.', 'info');
-      else if (command === 'combo_b' && this.level < 55) this.callbacks.onToast('Tempestade de Garras desbloqueia no nível 55.', 'info');
+      else if (isComboCommand(command) && !isComboKnown(this.battle, command)) this.callbacks.onToast(`${COMMAND_LABELS[command]} desbloqueia no nível ${COMBO_UNLOCKS[command]} ou pode ser aprendida numa loja.`, 'info');
       else if (command.startsWith('summon_')) {
         const requiredLevel = ({ summon_wolf: 10, summon_turtle: 15, summon_phoenix: 20, summon_lion: 30 } as const)[command as 'summon_wolf' | 'summon_turtle' | 'summon_phoenix' | 'summon_lion'];
         if (this.level < requiredLevel) this.callbacks.onToast(`Esta evocação desbloqueia no nível ${requiredLevel}.`, 'info');
         else this.callbacks.onToast('Maná insuficiente para esta evocação.', 'info');
       }
-      else if (command === 'magic' || command === 'combo_a' || command === 'combo_b') this.callbacks.onToast('Maná insuficiente para esta técnica.', 'info');
+      else if (command === 'magic' || isComboCommand(command)) this.callbacks.onToast('Maná insuficiente para esta técnica.', 'info');
       return;
     }
     this.runBattleCommand('player', command);
@@ -1665,6 +1669,7 @@ export class GameEngine {
       opponentAtb: first?.atb ?? 0,
       playerLimit: battle?.player.limit ?? 0,
       playerLevel: this.level,
+      learnedCombos: battle ? [...battle.learnedCombos] : [],
       awaitingCommand: Boolean(
         battle && battle.ready === 'player' && !this.battleStage.busy && !this.battleEnding && !battle.finished,
       ),
@@ -2268,6 +2273,31 @@ export class GameEngine {
     this.syncHud();
   }
 
+  public buyShopTechnique(moveId: string): void {
+    if (this.phase !== 'playing' || this.duelPhase === 'fighting' || !this.openShopId) return;
+    const stall = this.world.interactables.find((i) => i.id === `shop-${this.openShopId}`);
+    if (!stall || this.catPos.distanceTo(stall.position) > 8) {
+      this.openShopId = null;
+      this.syncHud();
+      return;
+    }
+    const result = purchaseTechnique({
+      shopId: this.openShopId, moveId, coins: this.coins, level: this.level,
+      timeOfDay: this.timeOfDay, unlockedMoves: Array.from(this.unlockedMoves),
+    });
+    if (!result.ok) {
+      this.callbacks.onToast(result.message, 'warn');
+      return;
+    }
+    this.coins = result.coins;
+    this.unlockedMoves = new Set(result.unlockedMoves);
+    gameAudio.playCollectScrap();
+    const name = MOVE_UNLOCKS.find((m) => m.id === moveId)?.name ?? moveId;
+    this.callbacks.onToast(`${name} aprendida por ${result.price} moedas.`, 'success');
+    this.saveGame();
+    this.syncHud();
+  }
+
   private getShopHud(): ShopHud | null {
     if (!this.openShopId) return null;
     const shop = getShop(this.openShopId);
@@ -2280,6 +2310,11 @@ export class GameEngine {
     return {
       id: shop.id, name: shop.name, open: isShopOpen(shop, this.timeOfDay), hours: `${fmt(shop.openHour)}–${fmt(shop.closeHour)}`,
       stock: shop.stock.map((entry) => ({ itemId: entry.itemId, price: entry.price, levelRequired: entry.levelRequired ?? 0 })),
+      techniques: (shop.techniques ?? []).flatMap((offer) => {
+        const move = MOVE_UNLOCKS.find((m) => m.id === offer.moveId);
+        if (!move) return [];
+        return [{ moveId: move.id, name: move.name, description: move.description, price: offer.price, levelRequired: offer.levelRequired, freeAtLevel: move.requiredLevel, known: this.unlockedMoves.has(move.id) }];
+      }),
     };
   }
 
@@ -2565,8 +2600,8 @@ export class GameEngine {
         this.triggerShelterUpgrade();
       } else if (code === 'KeyJ' || code === 'KeyC') {
         this.triggerClawAttack();
-      } else if (this.duelPhase === 'fighting' && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(code)) {
-        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit', Digit6: 'combo_a', Digit7: 'combo_b', Digit8: 'magic' };
+      } else if (this.duelPhase === 'fighting' && ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit0', 'Minus'].includes(code)) {
+        const map: Record<string, BattleCommand | 'forfeit'> = { Digit1: 'attack', Digit2: 'flurry', Digit3: 'guard', Digit4: 'limit', Digit5: 'forfeit', Digit6: 'combo_a', Digit7: 'combo_b', Digit8: 'magic', Digit0: 'combo_c', Minus: 'combo_d' };
         const cmd = map[code];
         if (cmd === 'forfeit') this.forfeitDuel();
         else this.battleCommand(cmd);

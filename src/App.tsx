@@ -373,6 +373,7 @@ export default function App() {
           onEquipInventoryItem={(itemId) => engineRef.current?.equipInventoryItem(itemId)}
           onUnequipEquipment={(slot) => engineRef.current?.unequipEquipment(slot)}
           onBuyShopItem={(itemId) => engineRef.current?.buyShopItem(itemId)}
+          onBuyShopTechnique={(moveId) => engineRef.current?.buyShopTechnique(moveId)}
           onCloseShop={() => engineRef.current?.closeShop()}
           onDialogueOption={(optionId) => engineRef.current?.chooseDialogueOption(optionId)}
           onDialogueClose={() => engineRef.current?.closeDialogue()}

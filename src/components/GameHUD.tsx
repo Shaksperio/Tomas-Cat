@@ -64,6 +64,7 @@ interface GameHUDProps {
   onEquipInventoryItem: (itemId: EquipmentItemId) => void;
   onUnequipEquipment: (slot: EquipmentSlot) => void;
   onBuyShopItem: (itemId: InventoryItemId) => void;
+  onBuyShopTechnique: (moveId: string) => void;
   onCloseShop: () => void;
   onDialogueOption: (optionId: string) => void;
   onDialogueClose: () => void;
@@ -73,7 +74,7 @@ interface GameHUDProps {
   onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
-  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
+  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'combo_c' | 'combo_d' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
   onComboBreaker: () => void;
   onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
@@ -112,7 +113,7 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'combo_c' | 'combo_d' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
@@ -125,6 +126,8 @@ const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'it
   { id: 'summon_turtle', label: 'Tartaruga Ancestral', key: 'F2', requiredLevel: 15, manaCost: 35 },
   { id: 'summon_phoenix', label: 'Fênix Sagrada', key: 'F3', requiredLevel: 20, manaCost: 45 },
   { id: 'summon_lion', label: 'Leão Celestial', key: 'F4', requiredLevel: 30, manaCost: 50 },
+  { id: 'combo_c', label: 'Fúria Apex', key: '0', requiredLevel: 70, manaCost: 85 },
+  { id: 'combo_d', label: 'Sequência Suprema', key: '-', requiredLevel: 85, manaCost: 100 },
 ];
 
 function BattleOverlay({
@@ -135,7 +138,7 @@ function BattleOverlay({
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'combo_c' | 'combo_d' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
   onComboBreaker: () => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
@@ -229,7 +232,7 @@ function BattleOverlay({
       {!duel.intro && (
         <div className="absolute inset-x-2 bottom-[12vh] flex items-end gap-2 sm:gap-3 pointer-events-auto">
           <div className="w-40 sm:w-52 p-2" style={windowStyle}>
-            {BATTLE_COMMANDS.filter((c) => !c.requiredLevel || duel.playerLevel >= c.requiredLevel).map((c) => {
+            {BATTLE_COMMANDS.filter((c) => !c.requiredLevel || duel.playerLevel >= c.requiredLevel || duel.learnedCombos.includes(c.id)).map((c) => {
               const disabled = !duel.awaitingCommand || (c.id === 'limit' && !limitReady) || (c.id === 'item' && duel.playerItems <= 0) || (c.id === 'item' && duel.playerVigor >= 100) || (c.manaCost !== undefined && duel.playerLimit < c.manaCost);
               return (
                 <button
@@ -309,7 +312,7 @@ function DuelPanel({
   onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onCancel: () => void;
   onForfeit: () => void;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'combo_c' | 'combo_d' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
   onComboBreaker: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
@@ -593,6 +596,7 @@ export function GameHUD({
   onEquipInventoryItem,
   onUnequipEquipment,
   onBuyShopItem,
+  onBuyShopTechnique,
   onCloseShop,
   onDialogueOption,
   onDialogueClose,
@@ -1178,6 +1182,35 @@ export function GameHUD({
                 );
               })}
             </div>
+            {hud.shop.techniques.length > 0 && (
+              <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-violet-200">Técnicas de combate</div>
+                {hud.shop.techniques.map((tech) => {
+                  const lockedByLevel = hud.level < tech.levelRequired;
+                  const freeNow = hud.level >= tech.freeAtLevel;
+                  const disabled = !hud.shop!.open || tech.known || freeNow || lockedByLevel || hud.coins < tech.price;
+                  return (
+                    <div key={tech.moveId} className="flex items-center gap-2 rounded-lg border border-violet-300/15 bg-violet-500/[0.05] p-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-semibold text-slate-100">{tech.name}</div>
+                        <div className="text-[9px] text-slate-400">{tech.description}</div>
+                        <div className={`text-[9px] ${tech.known || freeNow ? 'text-emerald-300' : lockedByLevel ? 'text-red-300' : 'text-slate-500'}`}>
+                          {tech.known || freeNow ? 'Já conhecida' : lockedByLevel ? `Requer nível ${tech.levelRequired}` : `Libera de graça no nível ${tech.freeAtLevel}`}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => onBuyShopTechnique(tech.moveId)}
+                        className="rounded-md border border-violet-300/30 bg-violet-500/15 px-2 py-1.5 text-[10px] font-semibold text-violet-100 disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        {tech.price} 🪙
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="mt-2 text-[9px] text-slate-500">Todo item vendido aqui também pode ser encontrado de graça pelo mapa ou ganho em tarefas.</div>
           </div>
         )}

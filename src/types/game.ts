@@ -266,6 +266,8 @@ export interface DuelHud {
   playerLimit: number;
   /** Nível atual, usado para mostrar técnicas desbloqueadas. */
   playerLevel: number;
+  /** Combos aprendidos por compra (além dos liberados pelo nível). */
+  learnedCombos: string[];
   /** Aguardando o comando do jogador. */
   awaitingCommand: boolean;
   /** Segundos restantes para Tomas escolher uma ação (0–10). */
@@ -300,12 +302,23 @@ export interface ShopHudEntry {
   price: number;
   levelRequired: number;
 }
+export interface ShopTechniqueHudEntry {
+  moveId: string;
+  name: string;
+  description: string;
+  price: number;
+  levelRequired: number;
+  /** Nível em que a técnica é liberada de graça. */
+  freeAtLevel: number;
+  known: boolean;
+}
 export interface ShopHud {
   id: string;
   name: string;
   open: boolean;
   hours: string;
   stock: ShopHudEntry[];
+  techniques: ShopTechniqueHudEntry[];
 }
 
 export interface HudSnapshot {

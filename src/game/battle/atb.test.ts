@@ -408,3 +408,29 @@ test('evocações sagradas respeitam nível, mana e aplicam efeitos determiníst
   assert.equal(turtle.player.guarding, true);
   assert.equal(turtleAction.hits.length, 0);
 });
+
+test('combos novos: nível ou compra liberam, maná é cobrado e o número de golpes segue o perfil', () => {
+  const s = createBattle(21, 2, 10, 10, { playerMana: 100 });
+  s.ready = 'player';
+  assert.equal(canUseCommand(s, 'player', 'combo_c'), false);
+  assert.equal(canUseCommand(s, 'player', 'combo_a'), false);
+  const comprado = createBattle(21, 2, 10, 10, { playerMana: 100, learnedCombos: ['combo_c', 'combo_d', 'invalido'] });
+  comprado.ready = 'player';
+  assert.deepEqual(comprado.learnedCombos, ['combo_c', 'combo_d']);
+  assert.equal(canUseCommand(comprado, 'player', 'combo_c'), true);
+  assert.equal(canUseCommand(comprado, 'player', 'combo_d'), true);
+  const nivel = createBattle(21, 2, 85, 10, { playerMana: 100 });
+  nivel.ready = 'player';
+  assert.equal(canUseCommand(nivel, 'player', 'combo_d'), true);
+  const action = resolveCommand(comprado, "player", "combo_c");
+  assert.equal(action.hits.length, 8);
+  assert.equal(comprado.player.limit, 100 - 85);
+});
+
+test('combo sem maná suficiente ou do lado adversário é recusado', () => {
+  const s = createBattle(22, 2, 99, 10, { playerMana: 99 });
+  s.ready = 'player';
+  assert.equal(canUseCommand(s, 'player', 'combo_d'), false);
+  s.ready = 'opponent';
+  assert.equal(canUseCommand(s, 'opponent', 'combo_a'), false);
+});

@@ -13,7 +13,7 @@ export type FoeSide = 'opponent' | 'opponent2' | 'opponent3' | 'opponent4';
 export type Side = 'player' | FoeSide;
 export const FOE_SIDES: readonly FoeSide[] = ['opponent', 'opponent2', 'opponent3', 'opponent4'];
 export const MAX_FOES = FOE_SIDES.length;
-export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle';
+export type BattleCommand = 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'combo_c' | 'combo_d' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle';
 
 export interface Combatant {
   vigor: number;
@@ -49,6 +49,8 @@ export interface BattleState {
   playerPower: number;
   /** Nível do jogador: define a força da sequência especial. */
   playerLevel: number;
+  /** Combos aprendidos fora do nível (compra em loja); o nível continua liberando por conta própria. */
+  learnedCombos: ComboCommand[];
   /** Nível de cada oponente (mesma ordem de FOE_SIDES). */
   foeLevels: number[];
   /** Compatibilidade: nível do primeiro oponente. */
@@ -105,8 +107,19 @@ export const EXTRA_TURNS_PER_FOE = 30;
 
 export const PLAYER_TURN_SECONDS = 10;
 export const MAGIC_MANA_COST = 25;
-export const COMBO_UNLOCKS = { combo_a: 25, combo_b: 55 } as const;
-export const COMBO_MANA_COST = { combo_a: 35, combo_b: 70 } as const;
+export const COMBO_UNLOCKS = { combo_a: 25, combo_b: 55, combo_c: 70, combo_d: 85 } as const;
+export const COMBO_MANA_COST = { combo_a: 35, combo_b: 70, combo_c: 85, combo_d: 100 } as const;
+/** Golpes, dano base, escala de poder, variação aleatória e recuo de ATB de cada combo. */
+export const COMBO_PROFILE = {
+  combo_a: { hits: 4, base: 7, scale: 1.6, spread: 3, atbAfter: -10 },
+  combo_b: { hits: 6, base: 8, scale: 1.9, spread: 4, atbAfter: -25 },
+  combo_c: { hits: 8, base: 9, scale: 2.1, spread: 4, atbAfter: -35 },
+  combo_d: { hits: 10, base: 10, scale: 2.3, spread: 5, atbAfter: -45 },
+} as const;
+export type ComboCommand = keyof typeof COMBO_PROFILE;
+export function isComboCommand(command: string): command is ComboCommand {
+  return command in COMBO_PROFILE;
+}
 export const SACRED_SUMMONS = {
   summon_wolf: { name: 'Lobo Sagrado — Guardião Lunar', manaCost: 40, requiredLevel: 10, damage: 22, healing: 0, guard: true },
   summon_lion: { name: 'Leão Celestial — Fúria Divina', manaCost: 50, requiredLevel: 30, damage: 42, healing: 0, guard: false },
@@ -127,6 +140,8 @@ export const COMMAND_LABELS: Record<BattleCommand, string> = {
   summon_lion: 'Evocar Leão Celestial',
   summon_phoenix: 'Evocar Fênix Sagrada',
   summon_turtle: 'Evocar Tartaruga Ancestral',
+  combo_c: 'Fúria Apex',
+  combo_d: 'Sequência Suprema',
 };
 
 function nextRandom(state: number): { value: number; state: number } {
@@ -157,6 +172,8 @@ export interface CreateBattleExtra {
   /** Níveis dos oponentes; o tamanho define o grupo (1 a 4). */
   foeLevels?: number[];
   playerItems?: number;
+  /** Combos já aprendidos (ex.: comprados nas lojas). */
+  learnedCombos?: readonly string[];
 }
 
 export function createBattle(
@@ -187,6 +204,7 @@ export function createBattle(
     rngState: seed >>> 0,
     playerPower: Math.max(0.5, Math.min(6, playerPower)),
     playerLevel,
+    learnedCombos: (extra.learnedCombos ?? []).filter(isComboCommand),
     foeLevels,
     opponentLevel: foeLevels[0],
   };
@@ -257,13 +275,17 @@ export function tickPlayerDecisionTimer(state: BattleState, dt: number): boolean
   return state.playerTurnTimeLeft <= 0;
 }
 
+/** Combo liberado pelo nível ou aprendido por compra. */
+export function isComboKnown(state: Pick<BattleState, 'playerLevel' | 'learnedCombos'>, command: ComboCommand): boolean {
+  return state.playerLevel >= COMBO_UNLOCKS[command] || state.learnedCombos.includes(command);
+}
+
 export function canUseCommand(state: BattleState, side: Side, command: BattleCommand): boolean {
   if (state.finished || state.ready !== side) return false;
   if (command === 'limit') return fighter(state, side).limit >= LIMIT_MAX;
   if (command === 'magic') return side === 'player' && fighter(state, side).limit >= MAGIC_MANA_COST;
   if (command === 'item') return side === 'player' && state.playerItems > 0 && state.player.vigor < VIGOR_MAX;
-  if (command === 'combo_a') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_a && state.player.limit >= COMBO_MANA_COST.combo_a;
-  if (command === 'combo_b') return side === 'player' && state.playerLevel >= COMBO_UNLOCKS.combo_b && state.player.limit >= COMBO_MANA_COST.combo_b;
+  if (isComboCommand(command)) return side === 'player' && isComboKnown(state, command) && state.player.limit >= COMBO_MANA_COST[command];
   if (command in SACRED_SUMMONS) {
     const summon = SACRED_SUMMONS[command as keyof typeof SACRED_SUMMONS];
     return side === 'player' && state.playerLevel >= summon.requiredLevel && state.player.limit >= summon.manaCost;
@@ -402,14 +424,18 @@ export function resolveCommand(
       me.atb = 0;
       break;
     }
-    case 'combo_a': {
-      me.limit -= COMBO_MANA_COST.combo_a;
-      for (let i = 0; i < 4; i += 1) {
-        const r = applyHit(state, target, 7 + power * 1.6 + Math.floor(rand(state) * 3), false);
+    case 'combo_a':
+    case 'combo_b':
+    case 'combo_c':
+    case 'combo_d': {
+      const profile = COMBO_PROFILE[command];
+      me.limit -= COMBO_MANA_COST[command];
+      for (let i = 0; i < profile.hits; i += 1) {
+        const r = applyHit(state, target, profile.base + power * profile.scale + Math.floor(rand(state) * profile.spread), false);
         hits.push({ damage: r.damage, crit: r.crit });
         blocked = blocked || r.blocked;
       }
-      me.atb = -10;
+      me.atb = profile.atbAfter;
       break;
     }
     case 'summon_wolf':
@@ -428,16 +454,6 @@ export function resolveCommand(
       }
       if (summon.guard) state.player.guarding = true;
       me.atb = -15;
-      break;
-    }
-    case 'combo_b': {
-      me.limit -= COMBO_MANA_COST.combo_b;
-      for (let i = 0; i < 6; i += 1) {
-        const r = applyHit(state, target, 8 + power * 1.9 + Math.floor(rand(state) * 4), false);
-        hits.push({ damage: r.damage, crit: r.crit });
-        blocked = blocked || r.blocked;
-      }
-      me.atb = -25;
       break;
     }
     case 'limit': {
