@@ -1,4 +1,4 @@
-import type { SavedGameState } from '../types/game';
+import type { SavedGameState } from '../../types/game';
 
 const DATABASE_NAME = 'tomas-vagabundo-offline';
 const DATABASE_VERSION = 1;
@@ -19,7 +19,7 @@ let databasePromise: Promise<IDBDatabase> | null = null;
 function openDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB indisponível neste navegador.'));
   if (databasePromise) return databasePromise;
-  databasePromise = new Promise((resolve, reject) => {
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       const database = request.result;
@@ -32,7 +32,8 @@ function openDatabase(): Promise<IDBDatabase> {
     databasePromise = null;
     throw error;
   });
-  return databasePromise;
+  databasePromise = opening;
+  return opening;
 }
 
 function fallbackKey(uid: string): string {
