@@ -154,7 +154,7 @@ function BattleCommandMenu({
   });
 
   return (
-    <div className="w-44 sm:w-52 shrink-0 rounded-lg p-1.5" style={windowStyle}>
+    <div className="w-[min(68vw,18rem)] sm:w-[min(32vw,20rem)] shrink-0 rounded-lg p-2" style={windowStyle}>
       <div className="mb-1 grid grid-cols-3 gap-1">
         {categories.map((item) => (
           <button
@@ -162,7 +162,7 @@ function BattleCommandMenu({
             type="button"
             onClick={() => setCategory(item.id)}
             aria-pressed={category === item.id}
-            className={`rounded px-1 py-1 text-[10px] sm:text-[11px] font-bold transition-colors ${
+            className={`rounded px-1.5 py-2 text-[11px] sm:text-xs font-bold transition-colors ${
               category === item.id ? 'bg-white/25 text-white' : 'bg-black/20 text-slate-300 hover:bg-white/10'
             }`}
           >
@@ -170,7 +170,7 @@ function BattleCommandMenu({
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-1">
+      <div className="grid grid-cols-2 gap-1.5">
         {commands.map((command) => {
           const disabled =
             (command.id === 'limit' && !limitReady) ||
@@ -182,12 +182,12 @@ function BattleCommandMenu({
               type="button"
               disabled={disabled}
               onClick={() => onCommand(command.id)}
-              className={`min-w-0 rounded px-1.5 py-1 text-left text-[10px] sm:text-xs font-bold leading-tight ${
+              className={`min-w-0 min-h-12 rounded px-2 py-2 text-left text-[13px] sm:text-sm font-bold leading-snug ${
                 disabled ? 'text-slate-400/60 cursor-not-allowed' : 'text-white hover:bg-white/15 cursor-pointer'
               } ${command.id === 'limit' && limitReady ? 'battle-limit-ready' : ''}`}
             >
-              <span className="block truncate">{command.label}</span>
-              <span className="text-[9px] font-mono-tabular opacity-60">[{command.key}] {command.id === 'item' ? `· ${duel.playerItems}` : command.manaCost ? `· ${command.manaCost} MP` : ''}</span>
+              <span className="block whitespace-normal break-words">{command.label}</span>
+              <span className="mt-0.5 block text-[10px] sm:text-[11px] font-mono-tabular opacity-70">[{command.key}] {command.id === 'item' ? `· ${duel.playerItems}` : command.manaCost ? `· ${command.manaCost} MP` : ''}</span>
             </button>
           );
         })}
@@ -306,7 +306,7 @@ function BattleOverlay({
             />
           )}
 
-          <div className="flex-1 min-w-0 p-2" style={windowStyle}>
+          <div className="flex-1 min-w-[6.25rem] p-2" style={windowStyle}>
             <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-white">
               <span>Tomas{duel.playerGuard ? ' 🛡' : ''}</span>
               <span className="font-mono-tabular text-[11px]">
