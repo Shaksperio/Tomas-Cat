@@ -1,0 +1,30 @@
+--- a/src/game/GameEngine.ts
++++ b/src/game/GameEngine.ts
+@@ import cowila
++import { bridgeCowilaAiDecisionProposals } from './society/agents/cowilaAiBridge';
+
+@@ dentro do then de requestCowilaDecision:
+-            let accepted = 0;
+-            for (const proposal of decision.proposals) {
+-              const acceptedProposal = targetSociety.scheduleAiSpecialistTask({
+-                proposalId: `cowila-ai:${requestedTick}:${proposal.agentId}:${proposal.taskKind}`,
+-                agentId: proposal.agentId,
+-                taskKind: proposal.taskKind as import('./society/contracts').AgentTask['kind'],
+-                sectorId: targetSociety.snapshot().agents.find((agent) => agent.id === proposal.agentId)?.position.sectorId ?? '',
+-                target: null,
+-                requiredResources: {},
+-                reason: proposal.reason,
+-                priority: proposal.priority,
+-                createdAtTick: requestedTick,
+-              });
+-              if (acceptedProposal) accepted += 1;
+-            }
++            const snap = targetSociety.snapshot();
++            const bridged = bridgeCowilaAiDecisionProposals(decision.proposals, snap, requestedTick);
++            let accepted = 0;
++            for (const proposal of bridged) {
++              if (targetSociety.scheduleAiSpecialistTask(proposal)) accepted += 1;
++            }
+
+# Efeito: propostas remotas passam a carregar skillId canônico e resources
+# (ex.: craft_planks → wood:7), alinhadas ao Worker #64 e ao orquestrador local.
