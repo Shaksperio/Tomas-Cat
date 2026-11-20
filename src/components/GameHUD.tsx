@@ -73,7 +73,7 @@ interface GameHUDProps {
   onDuelOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onDuelCancel: () => void;
   onDuelForfeit: () => void;
-  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
+  onBattleCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
   onComboBreaker: () => void;
   onBattleTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
   onMeow: () => void;
@@ -112,7 +112,7 @@ function BattleBar({ value, tone, height = 'h-2.5' }: { value: number; tone: str
   );
 }
 
-const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
+const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle'; label: string; key: string; requiredLevel?: number; manaCost?: number }> = [
   { id: 'attack', label: 'Arranhar', key: '1' },
   { id: 'flurry', label: 'Garra Furiosa', key: '2' },
   { id: 'guard', label: 'Defender', key: '3' },
@@ -121,6 +121,10 @@ const BATTLE_COMMANDS: Array<{ id: 'attack' | 'flurry' | 'guard' | 'limit' | 'it
   { id: 'magic', label: 'Orbe Arcano', key: '8', manaCost: 25 },
   { id: 'combo_a', label: 'Rasante Duplo', key: '6', requiredLevel: 25, manaCost: 35 },
   { id: 'combo_b', label: 'Tempestade de Garras', key: '7', requiredLevel: 55, manaCost: 70 },
+  { id: 'summon_wolf', label: 'Lobo Sagrado', key: 'F1', requiredLevel: 10, manaCost: 40 },
+  { id: 'summon_turtle', label: 'Tartaruga Ancestral', key: 'F2', requiredLevel: 15, manaCost: 35 },
+  { id: 'summon_phoenix', label: 'Fênix Sagrada', key: 'F3', requiredLevel: 20, manaCost: 45 },
+  { id: 'summon_lion', label: 'Leão Celestial', key: 'F4', requiredLevel: 30, manaCost: 50 },
 ];
 
 function BattleOverlay({
@@ -131,7 +135,7 @@ function BattleOverlay({
   onTarget,
 }: {
   duel: DuelHud;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
   onComboBreaker: () => void;
   onForfeit: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
@@ -305,7 +309,7 @@ function DuelPanel({
   onOffer: (kind: 'coins' | 'item' | 'vitality' | 'oxygen', amount: number, group: boolean) => void;
   onCancel: () => void;
   onForfeit: () => void;
-  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b') => void;
+  onCommand: (command: 'attack' | 'flurry' | 'guard' | 'limit' | 'item' | 'magic' | 'combo_a' | 'combo_b' | 'summon_wolf' | 'summon_lion' | 'summon_phoenix' | 'summon_turtle') => void;
   onComboBreaker: () => void;
   onTarget: (side: 'opponent' | 'opponent2' | 'opponent3' | 'opponent4') => void;
 }) {
