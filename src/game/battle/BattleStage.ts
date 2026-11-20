@@ -762,6 +762,9 @@ export class BattleStage {
       this.group.add(spirit);
       this.glowSprite(this.worldPos(actor, 1.0), color, 3.8, 0.9);
       this.ring(this.worldPos(actor, 0.05), color, 3.4, 0.9);
+      if ((action.command === 'summon_wolf' || action.command === 'summon_turtle') && this.guardDomes) {
+        (this.guardDomes.player.material as THREE.MeshBasicMaterial).opacity = 0.35;
+      }
       this.after(0.18, () => { spirit.scale.setScalar(1.0); this.shake = 0.28; });
       if (action.hits.length > 0) {
         this.after(1.05, () => {
