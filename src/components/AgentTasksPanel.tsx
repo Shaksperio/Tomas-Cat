@@ -24,7 +24,7 @@ const TASK_LABELS: Record<string, string> = {
   prepare_site: 'Preparar terreno',
   build_module: 'Construir módulo',
   repair_structure: 'Reparar estrutura',
-  mediate_conflict: 'Medir conflito',
+  mediate_conflict: 'Mediar conflito',
   patrol_area: 'Patrulhar região',
   investigate_event: 'Investigar evento',
   cultivate_field: 'Cultivar plantação',
@@ -50,7 +50,7 @@ const STATUS_LABELS: Record<string, string> = {
 export function AgentTasksPanel({ snapshot }: AgentTasksPanelProps) {
   const [expanded, setExpanded] = useState(true);
   const taskById = useMemo(
-    () => new Map(snapshot.tasks.map((task) => [task.id, task])),
+    () => new Map<string, AgentTasksHudSnapshot['tasks'][number]>(snapshot.tasks.map((task) => [task.id, task] as const)),
     [snapshot.tasks],
   );
   const activeTasks = snapshot.tasks.filter((task) => task.status === 'assigned' || task.status === 'in_progress');
