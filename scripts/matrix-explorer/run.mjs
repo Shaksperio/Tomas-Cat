@@ -371,6 +371,15 @@ async function main() {
   const navigationResult = await followRoute(page, plannedRoute.points, routeTarget, mission.constraints);
   const { atInputRelease, afterStop, settled, coastingDistance, settleDrift } = navigationResult;
 
+  // Usa a câmera panorâmica para reduzir oclusões de construções no ponto de
+  // interesse. O fixture começa no preset de terceira pessoa (índice 1);
+  // dois ciclos levam ao preset panorâmico sem tocar no estado do jogo.
+  await page.evaluate(() => {
+    window.__MATRIX_EXPLORER__?.actions.nextCamera();
+    window.__MATRIX_EXPLORER__?.actions.nextCamera();
+  });
+  await page.waitForTimeout(1100);
+
   // Registra a chegada antes de abrir a loja: o overlay de interação não pode
   // encobrir o personagem na evidência visual do destino.
   await page.screenshot({ path: path.join(outputDir, 'world-at-destination.png'), fullPage: true });
