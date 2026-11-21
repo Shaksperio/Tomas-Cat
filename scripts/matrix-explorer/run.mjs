@@ -224,6 +224,60 @@ function renderWorldMap(world, player, route = []) {
   return parts.join('');
 }
 
+
+async function followRoute(page, route, target) {
+  const waypointResults = [];
+  for (let index = 1; index < route.length; index++) {
+    const waypoint = route[index];
+    let bestDistance = Number.POSITIVE_INFINITY;
+    let stagnantChecks = 0;
+    let reached = false;
+    let attempts = 0;
+    for (; attempts < 40; attempts++) {
+      await page.evaluate((point) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, false), waypoint);
+      await page.waitForTimeout(250);
+      const current = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+      if (!current) throw new Error('Snapshot do jogador indisponível durante navegação.');
+      const remaining = Math.hypot(current.catX - waypoint.x, current.catZ - waypoint.z);
+      if (remaining <= 1.0) { reached = true; attempts++; break; }
+      if (remaining < bestDistance - 0.05) {
+        bestDistance = remaining;
+        stagnantChecks = 0;
+      } else {
+        stagnantChecks++;
+      }
+      if (stagnantChecks >= 8) break;
+    }
+    const current = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+    const remaining = current ? Math.hypot(current.catX-waypoint.x,current.catZ-waypoint.z) : Number.POSITIVE_INFINITY;
+    waypointResults.push({ waypoint, attempts, reached, distanceRemaining: remaining });
+    if (!reached) {
+      await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.stop());
+      throw new Error(`Navegação bloqueada no waypoint ${index}/${route.length-1}; distância restante ${remaining.toFixed(2)}.`);
+    }
+  }
+
+  await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.stop());
+  const atInputRelease = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  await page.waitForTimeout(1400);
+  const afterStop = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  await page.waitForTimeout(600);
+  const settled = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  const coastingDistance = atInputRelease && afterStop
+    ? Math.hypot(afterStop.catX-atInputRelease.catX,afterStop.catZ-atInputRelease.catZ)
+    : Number.POSITIVE_INFINITY;
+  const settleDrift = afterStop && settled
+    ? Math.hypot(settled.catX-afterStop.catX,settled.catZ-afterStop.catZ)
+    : Number.POSITIVE_INFINITY;
+  const distanceToTarget = settled
+    ? Math.hypot(settled.catX-target.x,settled.catZ-target.z)
+    : Number.POSITIVE_INFINITY;
+  if (settleDrift > 0.08 || coastingDistance > 1.2 || distanceToTarget > 2.5) {
+    throw new Error(`Chegada não confirmada: alvo=${distanceToTarget.toFixed(2)}, inércia=${coastingDistance.toFixed(3)}, deriva=${settleDrift.toFixed(3)}.`);
+  }
+  return { waypointResults, atInputRelease, afterStop, settled, coastingDistance, settleDrift, distanceToTarget };
+}
+
 async function main() {
   await mkdir(outputDir, { recursive: true });
   if (!process.env.MATRIX_EXPLORER_URL) {
@@ -288,28 +342,8 @@ async function main() {
   if (!routeTarget) throw new Error('Nenhuma loja ativa disponível para a primeira missão de navegação.');
   const plannedRoute = planGridRoute(start, routeTarget, initialWorld.colliders);
   if (plannedRoute.points.length < 2) throw new Error('A* não produziu um próximo waypoint.');
-  const nextWaypoint = plannedRoute.points[1];
-  await page.evaluate((point) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, false), nextWaypoint);
-  await page.waitForTimeout(1800);
-  await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.stop());
-  const atInputRelease = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
-  await page.waitForTimeout(2400);
-  const afterStop = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
-  await page.waitForTimeout(600);
-  const settled = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
-  const coastingDistance = atInputRelease && afterStop
-    ? Math.hypot(afterStop.catX - atInputRelease.catX, afterStop.catZ - atInputRelease.catZ)
-    : Number.POSITIVE_INFINITY;
-  const settleDrift = afterStop && settled
-    ? Math.hypot(settled.catX - afterStop.catX, settled.catZ - afterStop.catZ)
-    : Number.POSITIVE_INFINITY;
-  if (settleDrift > 0.08 || coastingDistance > 1.2) {
-    throw new Error(`A parada não estabilizou: inércia=${coastingDistance.toFixed(3)}, deriva final=${settleDrift.toFixed(3)}.`);
-  }
-  await page.waitForFunction((before) => {
-    const after = window.__MATRIX_EXPLORER__?.getSnapshot();
-    return Boolean(after && Math.hypot(after.catX - before.x, after.catZ - before.z) > 0.25);
-  }, { x: start.catX, z: start.catZ }, { timeout: 8000 });
+  const navigationResult = await followRoute(page, plannedRoute.points, routeTarget);
+  const { atInputRelease, afterStop, settled, coastingDistance, settleDrift } = navigationResult;
   await page.screenshot({ path: path.join(outputDir, 'world-after-movement.png'), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -320,7 +354,7 @@ async function main() {
     throw new Error('A simulação social não avançou durante a observação; snapshot dinâmico não confirmado.');
   }
 
-  const distance = afterStop ? Math.hypot(afterStop.catX - start.catX, afterStop.catZ - start.catZ) : 0;
+  const distance = settled ? Math.hypot(settled.catX - start.catX, settled.catZ - start.catZ) : 0;
   const interactablesByKind = world.interactables.reduce((counts, item) => {
     counts[item.kind] = (counts[item.kind] || 0) + 1;
     return counts;
@@ -351,7 +385,7 @@ async function main() {
     project: 'Tomas Vagabundo / Matrix Explorer',
     generatedAt: new Date().toISOString(),
     commit: process.env.GITHUB_SHA ?? null,
-    status: pageErrors.length === 0 && distance > 0.25 && settleDrift <= 0.08 && coastingDistance <= 1.2 && Boolean(boot.renderer) ? 'passed' : 'failed',
+    status: pageErrors.length === 0 && navigationResult.distanceToTarget <= 2.5 && settleDrift <= 0.08 && coastingDistance <= 1.2 && Boolean(boot.renderer) ? 'passed' : 'failed',
     environment: {
       browser: `Chromium ${browser.version()} via Playwright`,
       viewportDesktop: { width: 1440, height: 900 },
@@ -363,6 +397,10 @@ async function main() {
     navigation: {
       algorithm: 'A* 8-way grid with collision expansion and diagonal corner protection',
       target: { id: routeTarget.id, name: routeTarget.name, x: routeTarget.x, z: routeTarget.z },
+      reached: navigationResult.distanceToTarget <= 2.5,
+      finalPosition: settled ? { x: settled.catX, z: settled.catZ } : null,
+      distanceToTarget: navigationResult.distanceToTarget,
+      waypointResults: navigationResult.waypointResults,
       cellSize: plannedRoute.cellSize,
       pathLength: plannedRoute.length,
       waypointCount: plannedRoute.points.length,
@@ -392,6 +430,7 @@ async function main() {
     `- Posição inicial: x=${start.catX.toFixed(2)}, z=${start.catZ.toFixed(2)}`,
     `- Posição após repouso: x=${afterStop.catX.toFixed(2)}, z=${afterStop.catZ.toFixed(2)}`,
     `- Destino A*: ${routeTarget.name}; rota: ${plannedRoute.length.toFixed(2)} unidades em ${plannedRoute.points.length} waypoints`,
+    `- Chegada ao destino: ${navigationResult.distanceToTarget.toFixed(2)} unidades do ponto de interesse`,
     `- Deslocamento observado: ${distance.toFixed(2)} unidades`,
     `- Deslocamento por inércia: ${coastingDistance.toFixed(3)} unidades`,
     `- Deriva final em 600 ms: ${settleDrift.toFixed(3)} unidades`,
