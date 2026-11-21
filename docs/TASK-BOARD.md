@@ -39,6 +39,8 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
+- [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
+
 - [T-215] Restaurar painel de tarefas dos agentes de IA no jogo — dono: ChatGPT/Codex — branch: `codex/restore-agent-task-panel` — reserva: `src/types/game.ts` (tipos exclusivos do painel), `src/game/GameEngine.ts` (callback de snapshot dos agentes e publicação do snapshot; sem alterar os trechos reservados de batalha/loja/Cowila T-101), `src/App.tsx`, novo `src/components/AgentTasksPanel.tsx` — desde: 2026-11-20 — escopo: expor tarefas atuais/concluídas e estados dos especialistas na interface, mantendo a simulação e as validações autoritativas existentes
 
 - [T-001+T-004] Técnicas à venda nas lojas e novos combos desbloqueados por nível (Fúria Apex e Sequência Suprema como comandos ATB próprios) — dono: Claude — branch: `claude/shop-techniques` — reserva: `src/game/progression/`, `src/game/shop/`, `src/game/battle/` (atb.ts, commands.ts, BattleStage.ts só no trecho de combos), `src/game/GameEngine.ts` (apenas battleCommand, teclas de batalha, compra de técnica e snapshot da loja; **não** o trecho `requestCowilaDecision` da T-101), `src/components/GameHUD.tsx` (comandos de batalha e painel da loja), `src/types/game.ts` — desde: 2026-11-20
@@ -85,6 +87,8 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 - 2026-11-20 — **Grok** → Tom (T-101): falta só o wire no `GameEngine` (`applyCowilaAiDecision`). Preferi não editar o arquivo grande na mesma PR até CI do módulo; patch documentado em `GameEngine_cowilaAiBridge.patch`.
 
 ## 6. Histórico de mudanças do quadro
+
+- 2026-11-21 — ChatGPT/Codex: reivindicada T-220 para desenvolver Matrix Explorer em branch isolada; escopo e reservas limitados ao observador/explorador, documentação e workflow próprio. O projeto central e PRs existentes permanecem intocados.
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
 - 2026-11-20 — Manus: T-213 reservada para polimento visual felino; Tom autorizou o push da reserva à `main` sabendo que o push pode disparar o deploy automático.
