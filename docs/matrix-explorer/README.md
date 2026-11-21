@@ -12,11 +12,24 @@ A imagem registra o que foi renderizado; o snapshot informa o estado conhecido p
 
 ## Primeiro incremento
 
-- `fixture.html` / `fixture.ts`: adaptador local que instancia o GameEngine sem alterar o jogo publicado.
+- `fixture.html` / `fixture.ts`: adaptador local que instancia o GameEngine sem alterar o jogo publicado. O adaptador fornece HUD e inventário estruturado do mundo ativo (interagíveis, predadores, portões, águas, colisores, agentes e tarefas).
 - Usa o UID sintético `matrix-explorer-fixture`, sem Firebase, conta real ou sincronização de saves remotos.
 - A API de automação é uma allowlist: movimento limitado, parar, pular, interagir, atacar, miar, sonar e câmera.
-- `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento e produz relatórios JSON/Markdown.
+- `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento, produz mapa SVG X/Z e relatórios JSON/Markdown com os dados vivos do motor.
 - O workflow próprio valida em PR e armazena evidências; não publica o jogo.
+
+## Segundo incremento — inventário estruturado
+
+O adaptador consulta o objeto de mundo e a simulação social ativos do GameEngine por uma interface interna tipada e validada em runtime. Isso evita duplicar catálogos ou criar uma segunda simulação paralela. Se os membros internos mudarem ou deixarem de cumprir o contrato, a observação falha explicitamente.
+
+O relatório registra:
+- Interagíveis com ID, nome, tipo, posição, estado ativo e temporizador de respawn.
+- Predadores, chefes, rivais territoriais e criaturas amigáveis com posição, vida e fase.
+- Portões de fase, lagos, rios, zonas internas e quantidade de colisores.
+- Habitantes simulados, profissão, posição, status, tarefa ativa, fila de tarefas e recursos comunitários.
+- Mapa SVG X/Z com marcadores e legenda, gerado a partir dos dados observados.
+
+Os dados sociais são um snapshot da simulação local executada pelo GameEngine, não uma prova de persistência entre sessões ou de servidor compartilhado.
 
 ## Limites explícitos
 
@@ -30,10 +43,12 @@ A imagem registra o que foi renderizado; o snapshot informa o estado conhecido p
 
 1. Chromium inicia o fixture sem autenticação Firebase.
 2. GameEngine cria canvas WebGL e fornece snapshot de HUD real.
-3. Movimento altera a posição observada e parar interrompe o movimento.
-4. Capturas desktop, pós-movimento e viewport móvel são produzidas.
-5. Relatório contém ambiente, estados, distância, eventos, erros e nomes das capturas.
-6. CI da PR fica verde e os artefatos podem ser inspecionados.
+3. Movimento altera a posição observada e o comando de parada permite medir a desaceleração até repouso.
+4. Inventário estruturado contém entidades reais do mundo ativo e IDs únicos.
+5. Mapa SVG corresponde às coordenadas observadas e inclui jogador, pontos de interesse, predadores e agentes.
+6. Capturas desktop, pós-movimento e viewport móvel são produzidas.
+7. Relatório contém ambiente, estados, inventário, distância, eventos, erros e nomes das capturas.
+8. CI da PR fica verde e os artefatos podem ser inspecionados.
 
 ## Próximas capacidades
 
