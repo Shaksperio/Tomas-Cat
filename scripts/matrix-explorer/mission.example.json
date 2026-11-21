@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "visit-emporio",
+  "goal": {
+    "type": "visit_shop",
+    "targetKind": "shop",
+    "targetId": "shop-emporio"
+  },
+  "constraints": {
+    "maxDurationSeconds": 60,
+    "maxWaypoints": 40,
+    "sprint": false,
+    "interact": true
+  }
+}
