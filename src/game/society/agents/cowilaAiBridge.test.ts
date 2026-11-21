@@ -68,3 +68,35 @@ test('descarta decisão de tick antigo', () => {
   assert.equal(result.accepted, 0);
   assert.equal(result.skipped, 1);
 });
+
+test('tarefa criada pela Cowila percorre a fila e chega a completed na simulação', () => {
+  const simulation = new SocietySimulation();
+  const snapshot = simulation.snapshot();
+  const guard = snapshot.agents.find((agent) => agent.profession === 'agent');
+  assert.ok(guard);
+
+  const result = applyCowilaAiDecision(simulation, {
+    tick: snapshot.tick,
+    brief: 'Investigar ocorrência registrada no setor.',
+    proposals: [{
+      agentId: guard.id,
+      taskKind: 'investigate_event',
+      reason: 'Verificar o evento antes de qualquer escalonamento.',
+      priority: 75,
+    }],
+  });
+  assert.equal(result.accepted, 1);
+
+  const taskId = `cowila-ai:${snapshot.tick}:${guard.id}:investigate_event`;
+  let completed = false;
+  for (let index = 0; index < 160; index += 1) {
+    const next = simulation.step(1);
+    const task = next.tasks.find((candidate) => candidate.id === taskId);
+    if (task?.status === 'completed') {
+      completed = true;
+      break;
+    }
+  }
+
+  assert.equal(completed, true, 'a tarefa da Cowila deve ser atribuída, executada e concluída');
+});
