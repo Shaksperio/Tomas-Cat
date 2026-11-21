@@ -26,7 +26,7 @@ O relatório registra:
 - Interagíveis com ID, nome, tipo, posição, estado ativo e temporizador de respawn.
 - Predadores, chefes, rivais territoriais e criaturas amigáveis com posição, vida e fase.
 - Portões de fase, lagos, rios, zonas internas e quantidade de colisores.
-- Habitantes simulados, profissão, posição, status, tarefa ativa, fila de tarefas e recursos comunitários.
+- Habitantes simulados, profissão, posição, status, tarefa ativa, fila de tarefas e recursos comunitários; o runner compara o tick social inicial e final para comprovar que a simulação avançou durante a observação.
 - Mapa SVG X/Z com marcadores e legenda, gerado a partir dos dados observados.
 
 Os dados sociais são um snapshot da simulação local executada pelo GameEngine, não uma prova de persistência entre sessões ou de servidor compartilhado.
