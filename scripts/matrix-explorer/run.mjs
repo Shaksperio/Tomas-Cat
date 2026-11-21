@@ -282,11 +282,11 @@ async function main() {
 
   const start = boot.snapshot;
   const initialWorld = boot.worldSnapshot;
-  const routeTarget = world.interactables
+  const routeTarget = initialWorld.interactables
     .filter((item) => item.kind === 'shop' && item.active)
     .sort((a,b) => Math.hypot(a.x-start.catX,a.z-start.catZ) - Math.hypot(b.x-start.catX,b.z-start.catZ))[0];
   if (!routeTarget) throw new Error('Nenhuma loja ativa disponível para a primeira missão de navegação.');
-  const plannedRoute = planGridRoute(start, routeTarget, world.colliders);
+  const plannedRoute = planGridRoute(start, routeTarget, initialWorld.colliders);
   if (plannedRoute.points.length < 2) throw new Error('A* não produziu um próximo waypoint.');
   const nextWaypoint = plannedRoute.points[1];
   await page.evaluate((point) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, false), nextWaypoint);
