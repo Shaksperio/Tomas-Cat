@@ -62,15 +62,26 @@ test('aceita resposta assíncrona recente e revalida contra o estado atual', () 
   const simulation = new SocietySimulation();
   const initial = simulation.snapshot();
   simulation.step(2);
-  const current = simulation.snapshot();
-  const engineer = current.agents.find((agent) => agent.profession === 'engineer');
+  const state = simulation.exportState();
+  const engineerState = state.agents.find((agent) => agent.profession === 'engineer');
+  assert.ok(engineerState);
+  // Libera o especialista no estado de teste para isolar a validação temporal
+  // da decisão, sem confundir atraso de rede com disponibilidade do agente.
+  engineerState.status = 'idle';
+  engineerState.activeTaskId = null;
+  const initialSurvey = state.tasks.find((task) => task.id === 'task-survey-01');
+  assert.ok(initialSurvey);
+  initialSurvey.status = 'completed';
+  initialSurvey.assignedAgentId = null;
+  assert.equal(simulation.restoreState(state), true);
+  const engineer = simulation.snapshot().agents.find((agent) => agent.profession === 'engineer');
   assert.ok(engineer);
   const result = applyCowilaAiDecision(simulation, {
     tick: initial.tick,
     brief: 'Resposta remota chegou com pequeno atraso.',
     proposals: [{
       agentId: engineer.id,
-      taskKind: 'design_project',
+      taskKind: 'repair_structure',
       reason: 'A proposta ainda é válida no estado atual.',
       priority: 70,
     }],
