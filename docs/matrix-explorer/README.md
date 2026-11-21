@@ -32,6 +32,10 @@ O relatório registra:
 
 Os dados sociais são um snapshot da simulação local executada pelo GameEngine, não uma prova de persistência entre sessões ou de servidor compartilhado.
 
+## Protocolo de missões e observações
+
+Missões JSON com limites explícitos são aceitas por `--mission`; o contrato e um exemplo executável estão em `scripts/matrix-explorer/mission.schema.json` e `mission.example.json`. O relatório segue `observation.schema.json`. Consulte `docs/matrix-explorer/PROTOCOL.md` para o contrato de integração de outros agentes e adaptadores.
+
 ## Limites explícitos
 
 - O fixture não contorna o login do jogo publicado. Ele instancia o motor localmente, em ambiente descartável e com identidade sintética.
