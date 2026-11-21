@@ -31,6 +31,7 @@ import { getModuleDef } from './society/constructionCatalog';
 import { parseOracleWorldActions, type OracleWorldAction } from './society/agents/oracleWorldActions';
 import { OraculoActor } from './society/agents/OraculoActor';
 import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
+import { applyCowilaAiDecision } from './society/agents/cowilaAiBridge';
 import { WorldAgentRuntimeRegistry } from './society/agents/worldAgentRuntimeRegistry';
 import { DIALOGUE_DATA } from './dialogue/dialogueData';
 import { acceptPlayerTask, advancePlayerTasks, getPlayerTaskDefinition } from './tasks/playerTasks';
@@ -2761,22 +2762,13 @@ export class GameEngine {
           const requestedTick = frame.snapshot.tick;
           void requestCowilaDecision(frame.snapshot).then((decision) => {
             if (targetSociety.snapshot().tick !== requestedTick || decision.tick !== requestedTick) return;
-            let accepted = 0;
-            for (const proposal of decision.proposals) {
-              const acceptedProposal = targetSociety.scheduleAiSpecialistTask({
-                proposalId: `cowila-ai:${requestedTick}:${proposal.agentId}:${proposal.taskKind}`,
-                agentId: proposal.agentId,
-                taskKind: proposal.taskKind as import('./society/contracts').AgentTask['kind'],
-                sectorId: targetSociety.snapshot().agents.find((agent) => agent.id === proposal.agentId)?.position.sectorId ?? '',
-                target: null,
-                requiredResources: {},
-                reason: proposal.reason,
-                priority: proposal.priority,
-                createdAtTick: requestedTick,
-              });
-              if (acceptedProposal) accepted += 1;
+            const result = applyCowilaAiDecision(targetSociety, decision);
+            if (result.accepted > 0) {
+              this.callbacks.onToast(
+                `Cowila IA: ${result.accepted} nova(s) tarefa(s) estratégica(s). ${result.brief}`,
+                'info',
+              );
             }
-            if (accepted > 0) this.callbacks.onToast(`Cowila IA: ${accepted} nova(s) tarefa(s) estratégica(s). ${decision.brief}`, 'info');
           }).catch(() => {
             // Falha remota não interrompe a simulação determinística.
           }).finally(() => {
