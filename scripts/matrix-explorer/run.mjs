@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { loadMission } from './mission.mjs';
+import { loadMemory, mergeObservation, saveMemory } from './memory.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const outputDir = path.resolve(root, 'scripts/matrix-explorer/.artifacts');
@@ -31,6 +32,14 @@ async function waitForServer(url, child, timeoutMs = 45000) {
 }
 
 
+
+function resolveMemoryPath(args) {
+  const index = args.indexOf('--memory');
+  if (index < 0) return path.join(outputDir, 'memory.json');
+  const file = args[index + 1];
+  if (!file || file.startsWith('--')) throw new Error('Informe o caminho do arquivo após --memory.');
+  return path.resolve(process.cwd(), file);
+}
 
 function xmlEscape(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
@@ -288,7 +297,9 @@ async function followRoute(page, route, target, constraints) {
 }
 
 async function main() {
-  const mission = await loadMission(process.argv.slice(2));
+  const args = process.argv.slice(2);
+  const mission = await loadMission(args);
+  const memoryPath = resolveMemoryPath(args);
   await mkdir(outputDir, { recursive: true });
   if (!process.env.MATRIX_EXPLORER_URL) {
     const viteEntry = path.join(root, 'node_modules/vite/bin/vite.js');
@@ -452,6 +463,21 @@ async function main() {
     screenshots: ['world-initial.png', 'world-after-movement.png', 'world-mobile.png'],
     worldMap: 'world-map.svg',
   };
+  const memory = mergeObservation(await loadMemory(memoryPath), report);
+  await saveMemory(memoryPath, memory);
+  const artifactMemoryPath = path.join(outputDir, 'memory.json');
+  if (path.resolve(memoryPath) !== path.resolve(artifactMemoryPath)) {
+    await saveMemory(artifactMemoryPath, memory);
+  }
+  report.memory = {
+    schemaVersion: memory.schemaVersion,
+    artifactFile: 'memory.json',
+    poiVisitsTracked: Object.keys(memory.poiVisits).length,
+    knownEntities: Object.keys(memory.knownEntities).length,
+    missionsRecorded: memory.missions.length,
+    observationsRecorded: memory.observations.length,
+    updatedAt: memory.updatedAt,
+  };
   await writeFile(path.join(outputDir, 'report.json'), JSON.stringify(report, null, 2) + '\n');
   await writeFile(path.join(outputDir, 'report.md'), [
     '# Matrix Explorer — relatório de observação', '',
@@ -472,6 +498,7 @@ async function main() {
     `- Predadores: ${worldInventory.predators}; chefes: ${worldInventory.bosses}; rivais: ${worldInventory.territoryRivals}`,
     `- Agentes: ${worldInventory.societyAgents}; tarefas: ${worldInventory.societyTasks}; tick social: ${worldInventory.societyTick} (+${report.societyTickProgress} durante a observação)`,
     `- Lagos: ${worldInventory.waterBodies}; rios: ${worldInventory.rivers}; colisores: ${worldInventory.colliders}`,
+    `- Memória: ${report.memory.poiVisitsTracked} locais visitados, ${report.memory.knownEntities} entidades conhecidas, ${report.memory.observationsRecorded} observações`,
     `- Erros fatais de página: ${pageErrors.length}`, '',
     'Capturas, mapa SVG e inventário JSON acompanham este relatório como artefatos.',
     'O fixture usa identidade sintética isolada; não acessa Firebase nem saves reais.', '',
