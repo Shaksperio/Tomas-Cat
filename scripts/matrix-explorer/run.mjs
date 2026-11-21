@@ -155,26 +155,33 @@ async function main() {
   const start = boot.snapshot;
   const world = boot.worldSnapshot;
   await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.move(0, -1, false));
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(1800);
   await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.stop());
+  const atInputRelease = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  await page.waitForTimeout(2400);
+  const afterStop = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  await page.waitForTimeout(600);
+  const settled = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  const coastingDistance = atInputRelease && afterStop
+    ? Math.hypot(afterStop.catX - atInputRelease.catX, afterStop.catZ - atInputRelease.catZ)
+    : Number.POSITIVE_INFINITY;
+  const settleDrift = afterStop && settled
+    ? Math.hypot(settled.catX - afterStop.catX, settled.catZ - afterStop.catZ)
+    : Number.POSITIVE_INFINITY;
+  if (settleDrift > 0.08 || coastingDistance > 1.2) {
+    throw new Error(`A parada não estabilizou: inércia=${coastingDistance.toFixed(3)}, deriva final=${settleDrift.toFixed(3)}.`);
+  }
   await page.waitForFunction((before) => {
     const after = window.__MATRIX_EXPLORER__?.getSnapshot();
     return Boolean(after && Math.hypot(after.catX - before.x, after.catZ - before.z) > 0.25);
   }, { x: start.catX, z: start.catZ }, { timeout: 8000 });
-  const afterMove = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
-  await page.waitForTimeout(1400);
-  const afterStop = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
-  const stopDrift = afterMove && afterStop
-    ? Math.hypot(afterStop.catX - afterMove.catX, afterStop.catZ - afterMove.catZ)
-    : Number.POSITIVE_INFINITY;
-  if (stopDrift > 0.9) throw new Error(`O comando de parada não estabilizou o personagem: ${stopDrift.toFixed(3)} unidades.`);
   await page.screenshot({ path: path.join(outputDir, 'world-after-movement.png'), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(outputDir, 'world-mobile.png'), fullPage: true });
 
-  const distance = afterMove ? Math.hypot(afterMove.catX - start.catX, afterMove.catZ - start.catZ) : 0;
+  const distance = afterStop ? Math.hypot(afterStop.catX - start.catX, afterStop.catZ - start.catZ) : 0;
   const interactablesByKind = world.interactables.reduce((counts, item) => {
     counts[item.kind] = (counts[item.kind] || 0) + 1;
     return counts;
@@ -205,7 +212,7 @@ async function main() {
     project: 'Tomas Vagabundo / Matrix Explorer',
     generatedAt: new Date().toISOString(),
     commit: process.env.GITHUB_SHA ?? null,
-    status: pageErrors.length === 0 && distance > 0.25 && stopDrift <= 0.9 && Boolean(boot.renderer) ? 'passed' : 'failed',
+    status: pageErrors.length === 0 && distance > 0.25 && settleDrift <= 0.08 && coastingDistance <= 1.2 && Boolean(boot.renderer) ? 'passed' : 'failed',
     environment: {
       browser: `Chromium ${browser.version()} via Playwright`,
       viewportDesktop: { width: 1440, height: 900 },
@@ -216,7 +223,7 @@ async function main() {
     worldInventory,
     worldSnapshot: world,
     observations: {
-      initial: start, afterMovement: afterMove, afterStop, movementDistance: distance, stopDrift,
+      initial: start, atInputRelease, afterStop, settled, movementDistance: distance, coastingDistance, settleDrift,
       canvasCount: boot.canvasCount, title: boot.title,
     },
     events: await page.evaluate(() => window.__MATRIX_EXPLORER__?.getEvents() ?? []),
@@ -232,9 +239,10 @@ async function main() {
     `- Renderizador WebGL: ${report.environment.webglRenderer?.unmasked ?? report.environment.webglRenderer?.reported ?? 'não identificado'}`,
     `- Região: ${start.sectorName}`,
     `- Posição inicial: x=${start.catX.toFixed(2)}, z=${start.catZ.toFixed(2)}`,
-    `- Posição após movimento: x=${afterMove.catX.toFixed(2)}, z=${afterMove.catZ.toFixed(2)}`,
+    `- Posição após repouso: x=${afterStop.catX.toFixed(2)}, z=${afterStop.catZ.toFixed(2)}`,
     `- Deslocamento observado: ${distance.toFixed(2)} unidades`,
-    `- Deriva após parada: ${stopDrift.toFixed(3)} unidades`,
+    `- Deslocamento por inércia: ${coastingDistance.toFixed(3)} unidades`,
+    `- Deriva final em 600 ms: ${settleDrift.toFixed(3)} unidades`,
     `- Interagíveis: ${worldInventory.interactables} (${Object.entries(interactablesByKind).map(([kind,count]) => `${kind}: ${count}`).join(', ')})`,
     `- Predadores: ${worldInventory.predators}; chefes: ${worldInventory.bosses}; rivais: ${worldInventory.territoryRivals}`,
     `- Agentes: ${worldInventory.societyAgents}; tarefas: ${worldInventory.societyTasks}; tick social: ${worldInventory.societyTick}`,
