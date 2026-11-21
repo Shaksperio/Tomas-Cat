@@ -15,7 +15,7 @@ A imagem registra o que foi renderizado; o snapshot informa o estado conhecido p
 - `fixture.html` / `fixture.ts`: adaptador local que instancia o GameEngine sem alterar o jogo publicado. O adaptador fornece HUD e inventário estruturado do mundo ativo (interagíveis, predadores, portões, águas, colisores, agentes e tarefas).
 - Usa o UID sintético `matrix-explorer-fixture`, sem Firebase, conta real ou sincronização de saves remotos.
 - A API de automação é uma allowlist: movimento limitado por vetor ou destino X/Z, parar, pular, interagir, atacar, miar, sonar e câmera.
-- O runner usa A* em grade de 2,5 unidades, expandindo colisores e impedindo cortes diagonais por cantos bloqueados; a primeira missão percorre todos os waypoints até a loja ativa mais próxima, verifica chegada em até 2,5 unidades e confirma a abertura da loja pelo estado do motor.
+- O runner usa A* em grade de 1,25 unidade, expandindo colisores e impedindo cortes diagonais por cantos bloqueados; a primeira missão percorre todos os waypoints até a loja ativa mais próxima, verifica chegada em até 2,5 unidades e confirma a abertura da loja pelo estado do motor.
 - `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento, produz mapa SVG X/Z e relatórios JSON/Markdown com os dados vivos do motor.
 - O workflow próprio valida em PR e armazena evidências; não publica o jogo.
 
