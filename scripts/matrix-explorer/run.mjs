@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -29,6 +29,63 @@ async function waitForServer(url, child, timeoutMs = 45000) {
   throw new Error(`Timeout aguardando Vite em ${url}.\n${serverOutput}`);
 }
 
+
+
+function validateMission(input) {
+  const allowed = ['version','id','goal','constraints'];
+  if (!input || typeof input !== 'object' || Array.isArray(input)
+    || Object.keys(input).some((key) => !allowed.includes(key))) {
+    throw new Error('Missão inválida: objeto raiz ou propriedades não permitidas.');
+  }
+  if (input.version !== 1 || typeof input.id !== 'string'
+    || !/^[a-z0-9][a-z0-9._-]{1,63}$/.test(input.id)) {
+    throw new Error('Missão inválida: version deve ser 1 e id deve ser um identificador simples.');
+  }
+  const goal = input.goal;
+  if (!goal || typeof goal !== 'object' || Array.isArray(goal)
+    || Object.keys(goal).some((key) => !['type','targetKind','targetId'].includes(key))
+    || goal.type !== 'visit_shop' || goal.targetKind !== 'shop'
+    || (goal.targetId !== undefined && (typeof goal.targetId !== 'string' || goal.targetId.length > 128))) {
+    throw new Error('Missão inválida: somente goal visit_shop para kind shop é permitido nesta versão.');
+  }
+  const raw = input.constraints ?? {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)
+    || Object.keys(raw).some((key) => !['maxDurationSeconds','maxWaypoints','sprint','interact'].includes(key))) {
+    throw new Error('Missão inválida: constraints contém propriedades não permitidas.');
+  }
+  const constraints = {
+    maxDurationSeconds: raw.maxDurationSeconds ?? 60,
+    maxWaypoints: raw.maxWaypoints ?? 40,
+    sprint: raw.sprint ?? false,
+    interact: raw.interact ?? true,
+  };
+  if (!Number.isInteger(constraints.maxDurationSeconds) || constraints.maxDurationSeconds < 10 || constraints.maxDurationSeconds > 120
+    || !Number.isInteger(constraints.maxWaypoints) || constraints.maxWaypoints < 1 || constraints.maxWaypoints > 80
+    || typeof constraints.sprint !== 'boolean' || typeof constraints.interact !== 'boolean') {
+    throw new Error('Missão inválida: limites fora do intervalo ou tipos incorretos.');
+  }
+  return { version: 1, id: input.id, goal: { ...goal }, constraints };
+}
+
+async function loadMission(args) {
+  const index = args.indexOf('--mission');
+  if (index >= 0) {
+    const file = args[index + 1];
+    if (!file || file.startsWith('--')) throw new Error('Informe o caminho do arquivo após --mission.');
+    const raw = await readFile(path.resolve(process.cwd(), file), 'utf8');
+    return validateMission(JSON.parse(raw));
+  }
+  if (process.env.MATRIX_EXPLORER_MISSION_FILE) {
+    const raw = await readFile(path.resolve(process.cwd(), process.env.MATRIX_EXPLORER_MISSION_FILE), 'utf8');
+    return validateMission(JSON.parse(raw));
+  }
+  return validateMission({
+    version: 1,
+    id: 'ci-nearest-shop',
+    goal: { type: 'visit_shop', targetKind: 'shop' },
+    constraints: { maxDurationSeconds: 60, maxWaypoints: 40, sprint: false, interact: true },
+  });
+}
 
 function xmlEscape(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
@@ -225,8 +282,10 @@ function renderWorldMap(world, player, route = []) {
 }
 
 
-async function followRoute(page, route, target) {
+async function followRoute(page, route, target, constraints) {
   const waypointResults = [];
+  const startedAt = Date.now();
+  const maxAttempts = Math.min(160, Math.ceil(constraints.maxDurationSeconds * 1000 / 250));
   for (let index = 1; index < route.length; index++) {
     const waypoint = route[index];
     const tolerance = index === route.length - 1 ? 0.75 : 0.45;
@@ -234,8 +293,9 @@ async function followRoute(page, route, target) {
     let stagnantChecks = 0;
     let reached = false;
     let attempts = 0;
-    for (; attempts < 40; attempts++) {
-      await page.evaluate((point) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, false), waypoint);
+    for (; attempts < maxAttempts; attempts++) {
+      if (Date.now() - startedAt > constraints.maxDurationSeconds * 1000) break;
+      await page.evaluate((point) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, constraints.sprint), waypoint);
       await page.waitForTimeout(250);
       const current = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
       if (!current) throw new Error('Snapshot do jogador indisponível durante navegação.');
@@ -283,6 +343,7 @@ async function followRoute(page, route, target) {
 }
 
 async function main() {
+  const mission = await loadMission(process.argv.slice(2));
   await mkdir(outputDir, { recursive: true });
   if (!process.env.MATRIX_EXPLORER_URL) {
     const viteEntry = path.join(root, 'node_modules/vite/bin/vite.js');
@@ -340,22 +401,30 @@ async function main() {
 
   const start = boot.snapshot;
   const initialWorld = boot.worldSnapshot;
-  const routeTarget = initialWorld.interactables
-    .filter((item) => item.kind === 'shop' && item.active)
-    .sort((a,b) => Math.hypot(a.x-start.catX,a.z-start.catZ) - Math.hypot(b.x-start.catX,b.z-start.catZ))[0];
-  if (!routeTarget) throw new Error('Nenhuma loja ativa disponível para a primeira missão de navegação.');
+  const shopCandidates = initialWorld.interactables.filter((item) =>
+    item.kind === mission.goal.targetKind && item.active
+    && (!mission.goal.targetId || item.id === mission.goal.targetId));
+  const routeTarget = shopCandidates.sort((a,b) =>
+    Math.hypot(a.x-start.catX,a.z-start.catZ) - Math.hypot(b.x-start.catX,b.z-start.catZ))[0];
+  if (!routeTarget) throw new Error(`Missão ${mission.id}: ponto de interesse ativo não encontrado (${mission.goal.targetId ?? mission.goal.targetKind}).`);
   const plannedRoute = planGridRoute(start, routeTarget, initialWorld.colliders);
   if (plannedRoute.points.length < 2) throw new Error('A* não produziu um próximo waypoint.');
-  const navigationResult = await followRoute(page, plannedRoute.points, routeTarget);
+  if (plannedRoute.points.length > mission.constraints.maxWaypoints) {
+    throw new Error(`Missão excede o limite de ${mission.constraints.maxWaypoints} waypoints.`);
+  }
+  const navigationResult = await followRoute(page, plannedRoute.points, routeTarget, mission.constraints);
   const { atInputRelease, afterStop, settled, coastingDistance, settleDrift } = navigationResult;
   const expectedShopId = routeTarget.id.replace(/^shop-/, '');
-  await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.interact());
-  await page.waitForFunction((expected) => {
-    return window.__MATRIX_EXPLORER__?.getWorldSnapshot()?.openShopId === expected;
-  }, expectedShopId, { timeout: 5000 });
+  if (mission.constraints.interact) {
+    await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.interact());
+    await page.waitForFunction((expected) => {
+      return window.__MATRIX_EXPLORER__?.getWorldSnapshot()?.openShopId === expected;
+    }, expectedShopId, { timeout: 5000 });
+  }
   const interaction = await page.evaluate(() => {
     const world = window.__MATRIX_EXPLORER__?.getWorldSnapshot();
     return {
+      attempted: Boolean(world?.openShopId),
       activeInteractableId: world?.activeInteractableId ?? null,
       openShopId: world?.openShopId ?? null,
     };
@@ -399,9 +468,10 @@ async function main() {
   const report = {
     schemaVersion: 1,
     project: 'Tomas Vagabundo / Matrix Explorer',
+    mission,
     generatedAt: new Date().toISOString(),
     commit: process.env.GITHUB_SHA ?? null,
-    status: pageErrors.length === 0 && navigationResult.distanceToTarget <= 2.5 && interaction.openShopId === expectedShopId && settleDrift <= 0.08 && coastingDistance <= 1.2 && Boolean(boot.renderer) ? 'passed' : 'failed',
+    status: pageErrors.length === 0 && navigationResult.distanceToTarget <= 2.5 && (!mission.constraints.interact || interaction.openShopId === expectedShopId) && settleDrift <= 0.08 && coastingDistance <= 1.2 && Boolean(boot.renderer) ? 'passed' : 'failed',
     environment: {
       browser: `Chromium ${browser.version()} via Playwright`,
       viewportDesktop: { width: 1440, height: 900 },
@@ -441,6 +511,7 @@ async function main() {
   await writeFile(path.join(outputDir, 'report.md'), [
     '# Matrix Explorer — relatório de observação', '',
     `- Estado: **${report.status}**`,
+    `- Missão: ${mission.id} (${mission.goal.type})`,
     `- Data: ${report.generatedAt}`,
     `- Renderizador WebGL: ${report.environment.webglRenderer?.unmasked ?? report.environment.webglRenderer?.reported ?? 'não identificado'}`,
     `- Região: ${start.sectorName}`,
@@ -448,7 +519,7 @@ async function main() {
     `- Posição após repouso: x=${afterStop.catX.toFixed(2)}, z=${afterStop.catZ.toFixed(2)}`,
     `- Destino A*: ${routeTarget.name}; rota: ${plannedRoute.length.toFixed(2)} unidades em ${plannedRoute.points.length} waypoints`,
     `- Chegada ao destino: ${navigationResult.distanceToTarget.toFixed(2)} unidades do ponto de interesse`,
-    `- Interação confirmada: ${interaction.openShopId ?? 'não confirmada'}`,
+    `- Interação confirmada: ${mission.constraints.interact ? (interaction.openShopId ?? 'não confirmada') : 'não solicitada'}`,
     `- Deslocamento observado: ${distance.toFixed(2)} unidades`,
     `- Deslocamento por inércia: ${coastingDistance.toFixed(3)} unidades`,
     `- Deriva final em 600 ms: ${settleDrift.toFixed(3)} unidades`,
