@@ -1,0 +1,45 @@
+name: Matrix Explorer — browser validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/matrix-explorer/**'
+      - 'docs/matrix-explorer/**'
+      - '.github/workflows/matrix-explorer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: matrix-explorer-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium-observer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install game dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install isolated Explorer dependencies
+        run: npm install --prefix scripts/matrix-explorer --no-audit --no-fund
+      - name: Install Chromium
+        run: npm exec --prefix scripts/matrix-explorer -- playwright install --with-deps chromium
+      - name: Run Matrix Explorer observation
+        run: node scripts/matrix-explorer/run.mjs
+      - name: Upload observation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matrix-explorer-observation
+          path: scripts/matrix-explorer/.artifacts/
+          if-no-files-found: warn
+          retention-days: 14

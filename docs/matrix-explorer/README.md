@@ -1,0 +1,52 @@
+# Matrix Explorer — especificação de implementação
+
+## Objetivo
+
+Construir uma ferramenta reutilizável que observe e explore jogos por navegador. O primeiro adaptador é Tomas Vagabundo (React, Three.js e Vite).
+
+O Explorer combina duas fontes:
+1. **Percepção visual:** capturas de Chromium em resoluções desktop e móvel.
+2. **Percepção estruturada:** snapshots expostos pelo adaptador do jogo, com região, posição, fase, condições e eventos.
+
+A imagem registra o que foi renderizado; o snapshot informa o estado conhecido pelo motor. Nenhuma fonte isolada prova que o mundo foi integralmente compreendido.
+
+## Primeiro incremento
+
+- `fixture.html` / `fixture.ts`: adaptador local que instancia o GameEngine sem alterar o jogo publicado.
+- Usa o UID sintético `matrix-explorer-fixture`, sem Firebase, conta real ou sincronização de saves remotos.
+- A API de automação é uma allowlist: movimento limitado, parar, pular, interagir, atacar, miar, sonar e câmera.
+- `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento e produz relatórios JSON/Markdown.
+- O workflow próprio valida em PR e armazena evidências; não publica o jogo.
+
+## Limites explícitos
+
+- O fixture não contorna o login do jogo publicado. Ele instancia o motor localmente, em ambiente descartável e com identidade sintética.
+- O primeiro relatório cobre inicialização, renderização e movimento. Não declara exploração completa, entendimento semântico de imagens, lojas, missões ou autonomia persistente.
+- Chromium com SwiftShader verifica compatibilidade e fluxo, não desempenho real de GPU, toque físico ou experiência em todos os aparelhos.
+- Não cria Worker, Durable Object, D1, Queue, serviço externo ou infraestrutura paga.
+- Nenhum agente altera código ou publica conteúdo automaticamente nesta etapa.
+
+## Critérios de aprovação
+
+1. Chromium inicia o fixture sem autenticação Firebase.
+2. GameEngine cria canvas WebGL e fornece snapshot de HUD real.
+3. Movimento altera a posição observada e parar interrompe o movimento.
+4. Capturas desktop, pós-movimento e viewport móvel são produzidas.
+5. Relatório contém ambiente, estados, distância, eventos, erros e nomes das capturas.
+6. CI da PR fica verde e os artefatos podem ser inspecionados.
+
+## Próximas capacidades
+
+1. Inventário de pontos de interesse e entidades, reconciliado com os catálogos do jogo.
+2. Navegação por objetivos, com limites de tempo e recuperação de obstáculos.
+3. Percepção visual assistida por modelo, ligada às capturas e com confiança explícita.
+4. Memória persistente de locais e descobertas, com IDs estáveis e histórico.
+5. Missões coordenadas pela Cowila, com propostas validadas e relatórios por agente.
+6. Adaptadores para outros jogos por contratos de observação e ações próprios.
+
+## Segurança e integridade
+
+- O adaptador expõe somente ações permitidas; não aceita JavaScript arbitrário de uma missão.
+- Identidade sintética e armazenamento do navegador são descartáveis.
+- Tokens, cookies, sessões e dados pessoais não entram nos relatórios.
+- Adaptação a conta real ou jogo publicado exige autorização e autenticação própria.
