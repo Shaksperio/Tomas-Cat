@@ -344,6 +344,18 @@ async function main() {
   if (plannedRoute.points.length < 2) throw new Error('A* não produziu um próximo waypoint.');
   const navigationResult = await followRoute(page, plannedRoute.points, routeTarget);
   const { atInputRelease, afterStop, settled, coastingDistance, settleDrift } = navigationResult;
+  const expectedShopId = routeTarget.id.replace(/^shop-/, '');
+  await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.interact());
+  await page.waitForFunction((expected) => {
+    return window.__MATRIX_EXPLORER__?.getWorldSnapshot()?.openShopId === expected;
+  }, expectedShopId, { timeout: 5000 });
+  const interaction = await page.evaluate(() => {
+    const world = window.__MATRIX_EXPLORER__?.getWorldSnapshot();
+    return {
+      activeInteractableId: world?.activeInteractableId ?? null,
+      openShopId: world?.openShopId ?? null,
+    };
+  });
   await page.screenshot({ path: path.join(outputDir, 'world-after-movement.png'), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -385,7 +397,7 @@ async function main() {
     project: 'Tomas Vagabundo / Matrix Explorer',
     generatedAt: new Date().toISOString(),
     commit: process.env.GITHUB_SHA ?? null,
-    status: pageErrors.length === 0 && navigationResult.distanceToTarget <= 2.5 && settleDrift <= 0.08 && coastingDistance <= 1.2 && Boolean(boot.renderer) ? 'passed' : 'failed',
+    status: pageErrors.length === 0 && navigationResult.distanceToTarget <= 2.5 && interaction.openShopId === expectedShopId && settleDrift <= 0.08 && coastingDistance <= 1.2 && Boolean(boot.renderer) ? 'passed' : 'failed',
     environment: {
       browser: `Chromium ${browser.version()} via Playwright`,
       viewportDesktop: { width: 1440, height: 900 },
@@ -394,6 +406,7 @@ async function main() {
       fixture: 'GameEngine local com identidade sintética isolada; sem login Firebase e sem saves de produção',
     },
     worldInventory,
+    interaction,
     navigation: {
       algorithm: 'A* 8-way grid with collision expansion and diagonal corner protection',
       target: { id: routeTarget.id, name: routeTarget.name, x: routeTarget.x, z: routeTarget.z },
@@ -431,6 +444,7 @@ async function main() {
     `- Posição após repouso: x=${afterStop.catX.toFixed(2)}, z=${afterStop.catZ.toFixed(2)}`,
     `- Destino A*: ${routeTarget.name}; rota: ${plannedRoute.length.toFixed(2)} unidades em ${plannedRoute.points.length} waypoints`,
     `- Chegada ao destino: ${navigationResult.distanceToTarget.toFixed(2)} unidades do ponto de interesse`,
+    `- Interação confirmada: ${interaction.openShopId ?? 'não confirmada'}`,
     `- Deslocamento observado: ${distance.toFixed(2)} unidades`,
     `- Deslocamento por inércia: ${coastingDistance.toFixed(3)} unidades`,
     `- Deriva final em 600 ms: ${settleDrift.toFixed(3)} unidades`,
