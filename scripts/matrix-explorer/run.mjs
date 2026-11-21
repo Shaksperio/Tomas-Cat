@@ -69,7 +69,7 @@ class MinHeap {
   get size() { return this.items.length; }
 }
 
-function planGridRoute(start, target, colliders, cellSize = 2.5) {
+function planGridRoute(start, target, colliders, cellSize = 1.25) {
   const min = -220, max = 220;
   const cells = Math.round((max - min) / cellSize) + 1;
   const step = (max - min) / (cells - 1);
@@ -83,8 +83,8 @@ function planGridRoute(start, target, colliders, cellSize = 2.5) {
     for (let x = 0; x < cells; x++) {
       const wx = toWorld(x);
       if (colliders.some((box) => box.topY >= 0
-        && wx >= box.minX - 0.55 && wx <= box.maxX + 0.55
-        && wz >= box.minZ - 0.55 && wz <= box.maxZ + 0.55)) {
+        && wx >= box.minX - 0.75 && wx <= box.maxX + 0.75
+        && wz >= box.minZ - 0.75 && wz <= box.maxZ + 0.75)) {
         blocked[indexOf(x, z)] = 1;
       }
     }
@@ -229,6 +229,7 @@ async function followRoute(page, route, target) {
   const waypointResults = [];
   for (let index = 1; index < route.length; index++) {
     const waypoint = route[index];
+    const tolerance = index === route.length - 1 ? 0.75 : 0.45;
     let bestDistance = Number.POSITIVE_INFINITY;
     let stagnantChecks = 0;
     let reached = false;
@@ -239,21 +240,24 @@ async function followRoute(page, route, target) {
       const current = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
       if (!current) throw new Error('Snapshot do jogador indisponível durante navegação.');
       const remaining = Math.hypot(current.catX - waypoint.x, current.catZ - waypoint.z);
-      if (remaining <= 1.0) { reached = true; attempts++; break; }
-      if (remaining < bestDistance - 0.05) {
+      if (remaining <= tolerance) { reached = true; attempts++; break; }
+      if (remaining < bestDistance - 0.03) {
         bestDistance = remaining;
         stagnantChecks = 0;
       } else {
         stagnantChecks++;
       }
-      if (stagnantChecks >= 8) break;
+      if (stagnantChecks >= 12) break;
     }
     const current = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
     const remaining = current ? Math.hypot(current.catX-waypoint.x,current.catZ-waypoint.z) : Number.POSITIVE_INFINITY;
-    waypointResults.push({ waypoint, attempts, reached, distanceRemaining: remaining });
+    waypointResults.push({
+      waypoint, attempts, reached, tolerance, distanceRemaining: remaining,
+      currentPosition: current ? { x: current.catX, z: current.catZ } : null,
+    });
     if (!reached) {
       await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.stop());
-      throw new Error(`Navegação bloqueada no waypoint ${index}/${route.length-1}; distância restante ${remaining.toFixed(2)}.`);
+      throw new Error(`Navegação bloqueada no waypoint ${index}/${route.length-1}; posição=(${current?.catX.toFixed(2)},${current?.catZ.toFixed(2)}), alvo=(${waypoint.x},${waypoint.z}), distância=${remaining.toFixed(2)}.`);
     }
   }
 
@@ -408,7 +412,7 @@ async function main() {
     worldInventory,
     interaction,
     navigation: {
-      algorithm: 'A* 8-way grid with collision expansion and diagonal corner protection',
+      algorithm: 'A* 8-way grid (1.25m) with 0.75m collision expansion and diagonal corner protection',
       target: { id: routeTarget.id, name: routeTarget.name, x: routeTarget.x, z: routeTarget.z },
       reached: navigationResult.distanceToTarget <= 2.5,
       finalPosition: settled ? { x: settled.catX, z: settled.catZ } : null,
