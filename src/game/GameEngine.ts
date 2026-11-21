@@ -2761,7 +2761,7 @@ export class GameEngine {
           const targetSociety = this.society;
           const requestedTick = frame.snapshot.tick;
           void requestCowilaDecision(frame.snapshot).then((decision) => {
-            if (targetSociety.snapshot().tick !== requestedTick || decision.tick !== requestedTick) return;
+            if (targetSociety !== this.society || decision.tick !== requestedTick) return;
             const result = applyCowilaAiDecision(targetSociety, decision);
             if (result.accepted > 0) {
               this.callbacks.onToast(
