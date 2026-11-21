@@ -16,7 +16,7 @@ A imagem registra o que foi renderizado; o snapshot informa o estado conhecido p
 - Usa o UID sintético `matrix-explorer-fixture`, sem Firebase, conta real ou sincronização de saves remotos.
 - A API de automação é uma allowlist: movimento limitado por vetor ou destino X/Z, parar, pular, interagir, atacar, miar, sonar e câmera.
 - O runner usa A* em grade de 1,25 unidade, expandindo colisores e impedindo cortes diagonais por cantos bloqueados; a primeira missão percorre todos os waypoints até a loja ativa mais próxima, verifica chegada em até 2,5 unidades e confirma a abertura da loja pelo estado do motor.
-- `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento, produz mapa SVG X/Z e relatórios JSON/Markdown com os dados vivos do motor.
+- `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento, produz mapa SVG X/Z e relatórios JSON/Markdown com os dados vivos do motor. A captura de chegada desktop e móvel ocorre **antes** de abrir a loja; a tela da loja é registrada separadamente para que o overlay não esconda Tomas na evidência de navegação.
 - O workflow próprio valida em PR e armazena evidências; não publica o jogo.
 
 ## Segundo incremento — inventário estruturado
@@ -56,7 +56,7 @@ Missões JSON com limites explícitos são aceitas por `--mission`; o contrato e
 4. Inventário estruturado contém entidades reais do mundo ativo e IDs únicos.
 5. Planejador A* encontra rota válida em torno dos colisores e o controlador percorre os waypoints com correção de câmera, confirmando chegada e interação com o ponto de interesse.
 5. Mapa SVG corresponde às coordenadas observadas e inclui jogador, pontos de interesse, predadores e agentes.
-6. Capturas desktop, pós-movimento e viewport móvel são produzidas.
+6. Capturas desktop e móvel no destino mostram o mundo antes de qualquer overlay de interação; a loja aberta tem captura separada.
 7. Relatório contém ambiente, estados, inventário, rota, distância, eventos, erros e nomes das capturas.
 8. CI da PR fica verde e os artefatos podem ser inspecionados.
 
