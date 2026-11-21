@@ -7,6 +7,7 @@ import {
   EVOLUTION_STAGES,
   GamePhase,
   HudSnapshot,
+  AgentTasksHudSnapshot,
   ShopHud,
   DuelHud,
   LoreLog,
@@ -128,6 +129,7 @@ const _underwaterColor = new THREE.Color(0x0b5a73);
 
 export interface EngineCallbacks {
   onHudUpdate: (snapshot: HudSnapshot) => void;
+  onAgentTasksUpdate?: (snapshot: AgentTasksHudSnapshot) => void;
   onToast: (message: string, tone: 'info' | 'success' | 'warn') => void;
   onLoreOpen: (lore: LoreLog) => void;
   onPlayerDown: (cause: string, snapshot: HudSnapshot) => void;
@@ -1282,6 +1284,33 @@ export class GameEngine {
       maxHealth: 100,
       oxygen: 100,
       maxOxygen: 100,
+    };
+  }
+
+  private buildAgentTasksSnapshot(): AgentTasksHudSnapshot {
+    const snapshot = this.society.snapshot();
+    return {
+      tick: snapshot.tick,
+      agents: snapshot.agents.map((agent) => ({
+        id: agent.id,
+        name: agent.displayName,
+        profession: agent.profession,
+        status: agent.status,
+        activeTaskId: agent.activeTaskId,
+        energy: agent.energy,
+        health: agent.health,
+      })),
+      tasks: snapshot.tasks
+        .filter((task) => task.status !== 'cancelled')
+        .map((task) => ({
+          id: task.id,
+          kind: task.kind,
+          status: task.status,
+          requiredProfession: task.requiredProfession,
+          assignedAgentId: task.assignedAgentId,
+          updatedAtTick: task.updatedAtTick,
+        })),
+      cowilaBrief: this.agentRuntime.getLastDirective()?.brief ?? null,
     };
   }
 
@@ -2720,6 +2749,7 @@ export class GameEngine {
       this.societyTickTimer += dt;
       while (this.societyTickTimer >= 1) {
         const frame = this.agentRuntime.step(this.society, 1);
+        this.callbacks.onAgentTasksUpdate?.(this.buildAgentTasksSnapshot());
         // A Cowila generativa consulta a sociedade em intervalos de 25 ticks.
         // A rede nunca bloqueia o frame; propostas retornam ao validador local.
         if (isCowilaAiConfigured() && !this.cowilaAiRequestPending
