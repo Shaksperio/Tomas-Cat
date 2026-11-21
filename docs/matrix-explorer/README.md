@@ -15,7 +15,7 @@ A imagem registra o que foi renderizado; o snapshot informa o estado conhecido p
 - `fixture.html` / `fixture.ts`: adaptador local que instancia o GameEngine sem alterar o jogo publicado. O adaptador fornece HUD e inventário estruturado do mundo ativo (interagíveis, predadores, portões, águas, colisores, agentes e tarefas).
 - Usa o UID sintético `matrix-explorer-fixture`, sem Firebase, conta real ou sincronização de saves remotos.
 - A API de automação é uma allowlist: movimento limitado por vetor ou destino X/Z, parar, pular, interagir, atacar, miar, sonar e câmera.
-- O runner usa A* em grade de 2,5 unidades, expandindo colisores e impedindo cortes diagonais por cantos bloqueados; a primeira missão percorre todos os waypoints até a loja ativa mais próxima e verifica chegada em até 2,5 unidades.
+- O runner usa A* em grade de 2,5 unidades, expandindo colisores e impedindo cortes diagonais por cantos bloqueados; a primeira missão percorre todos os waypoints até a loja ativa mais próxima, verifica chegada em até 2,5 unidades e confirma a abertura da loja pelo estado do motor.
 - `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento, produz mapa SVG X/Z e relatórios JSON/Markdown com os dados vivos do motor.
 - O workflow próprio valida em PR e armazena evidências; não publica o jogo.
 
@@ -46,7 +46,7 @@ Os dados sociais são um snapshot da simulação local executada pelo GameEngine
 2. GameEngine cria canvas WebGL e fornece snapshot de HUD real.
 3. Movimento altera a posição observada e o comando de parada permite medir a desaceleração até repouso.
 4. Inventário estruturado contém entidades reais do mundo ativo e IDs únicos.
-5. Planejador A* encontra rota válida em torno dos colisores e o controlador percorre os waypoints com correção de câmera, confirmando chegada ao ponto de interesse.
+5. Planejador A* encontra rota válida em torno dos colisores e o controlador percorre os waypoints com correção de câmera, confirmando chegada e interação com o ponto de interesse.
 5. Mapa SVG corresponde às coordenadas observadas e inclui jogador, pontos de interesse, predadores e agentes.
 6. Capturas desktop, pós-movimento e viewport móvel são produzidas.
 7. Relatório contém ambiente, estados, inventário, rota, distância, eventos, erros e nomes das capturas.
