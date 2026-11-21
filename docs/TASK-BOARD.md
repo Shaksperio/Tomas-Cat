@@ -40,6 +40,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 ## 3. Em andamento (reservadas)
 
 - [T-221] Abertura cinematográfica 3D: chegada da nave, pouso e primeiro contato com organismo nativo — dono: ChatGPT/Codex — branch: `codex/planetary-opening-cinematic` — reserva: `src/components/OpeningCinematic.tsx`, `src/components/TitleScreen.tsx` — desde: 2026-11-21 — escopo: sequência independente em Three.js acionada ao iniciar nova missão; não altera `GameEngine`, `GameCanvas`, HUD ou runtime de batalha; integração de batalha jogável e transformação persistente ficam para etapa posterior após auditoria dos sistemas existentes.
+- [T-222] Pipeline cinematográfico MiniMax H3 — brief, cards, shot table, geração controlada, QC e manifesto versionado — dono: ChatGPT/Codex — branch: `codex/minimax-h3-production` — reserva: `docs/animation/minimax-h3-production.md`, futuros `scripts/minimax-h3/` (somente após contrato oficial verificado) — desde: 2026-11-21 — escopo: especificação e governança de produção; sem chamadas API, secrets, geração ou publicação de vídeo nesta etapa.
 
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 
@@ -90,6 +91,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 
 ## 6. Histórico de mudanças do quadro
 
+- 2026-11-21 — ChatGPT/Codex: T-222 reivindicada em branch própria para especificar pipeline seguro de produção MiniMax H3; sem implementação de API ou geração de clipes até verificação oficial de contrato, licença e custos.
 - 2026-11-21 — ChatGPT/Codex: T-221 reivindicada para a abertura cinematográfica 3D em branch isolada, limitada a `OpeningCinematic.tsx` e `TitleScreen.tsx`; GameEngine e sistemas de batalha permanecem fora do escopo.
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
