@@ -169,6 +169,9 @@ Backend autoritativo de mundo e transações; persistência remota autoritativa/
 - **Somente auditoria, inerte por construção:** não existe variável de ativação, endpoint de merge ou permissão de escrita. O workflow apenas relata a decisão no log; não bloqueia tecnicamente o merge e não altera a proteção da `main`. A lista `AGENT_GATE_AUTHORS` vazia bloqueia a elegibilidade. Qualquer proteção efetiva da `main` é configuração separada, a ser feita e revisada por humano.
 - **Limites conhecidos:** `run.mjs` não foi executado contra a API real (o ambiente de desenvolvimento não alcança `api.github.com` via Node) e o workflow só roda depois de estar na `main`; o nome do check obrigatório é `build` (se o CI mudar, a porta falha fechada); se os agentes abrirem PRs com a conta do próprio dono, não haverá aprovador independente possível, então será preciso uma segunda conta revisora; `deploy-pages.yml` usa `cancel-in-progress`, então CIs de PR podem ser cancelados e a porta espera um novo.
 
+### 4.12 Urbanismo e engenharia (T-217/T-218, 2026-11-21)
+- `src/game/urban/` contém o motor puro de urbanismo (`evaluateProject`), o registro de terrenos, os papéis de desenvolvimento e o diretor de moradia da Cowila, com testes. **Ainda não integrado** ao `GameEngine`, ao mapa, aos saves nem à simulação. Detalhes e próximas etapas: `docs/architecture/URBAN-ENGINEERING.md`.
+
 ## 5. Roteiro e decisões do autor
 
 ### 5.1 Decisões de arquitetura (definidas)
