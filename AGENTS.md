@@ -169,8 +169,8 @@ Backend autoritativo de mundo e transações; persistência remota autoritativa/
 - **Somente auditoria, inerte por construção:** não existe variável de ativação, endpoint de merge ou permissão de escrita. O workflow apenas relata a decisão no log; não bloqueia tecnicamente o merge e não altera a proteção da `main`. A lista `AGENT_GATE_AUTHORS` vazia bloqueia a elegibilidade. Qualquer proteção efetiva da `main` é configuração separada, a ser feita e revisada por humano.
 - **Limites conhecidos:** `run.mjs` não foi executado contra a API real (o ambiente de desenvolvimento não alcança `api.github.com` via Node) e o workflow só roda depois de estar na `main`; o nome do check obrigatório é `build` (se o CI mudar, a porta falha fechada); se os agentes abrirem PRs com a conta do próprio dono, não haverá aprovador independente possível, então será preciso uma segunda conta revisora; `deploy-pages.yml` usa `cancel-in-progress`, então CIs de PR podem ser cancelados e a porta espera um novo.
 
-### 4.14 Conceito registrado: Matrix Explorer (2026-11-21)
-- Concepção declarada por Tom (`Shaksperio`); registro em `docs/concepts/MATRIX-EXPLORER.md`. **Só conceito, sem implementação e fora do roteiro da seção 5**; qualquer trabalho exige decisão do autor e reserva no quadro. Não é registro legal de propriedade intelectual.
+### 4.14 Conceito registrado: Explorador de Mundo Virtual (2026-11-21)
+- Concepção declarada por Tom (`Shaksperio`); registro em `docs/concepts/VIRTUAL-WORLD-EXPLORER.md`. **Só conceito, sem implementação e fora do roteiro da seção 5**; qualquer trabalho exige decisão do autor e reserva no quadro. Não é registro legal de propriedade intelectual.
 
 ## 5. Roteiro e decisões do autor
 

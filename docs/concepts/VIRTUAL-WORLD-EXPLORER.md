@@ -1,4 +1,4 @@
-# Matrix Explorer — registro de concepção
+# Explorador de Mundo Virtual — registro de concepção
 
 | | |
 |---|---|
@@ -8,14 +8,14 @@
 | **Origem** | Conversas de Tom com assistentes de IA (ChatGPT/Codex e Claude) sobre fazer IAs explorarem e testarem o mundo de Tomas Vagabundo e outros ambientes virtuais. |
 
 ## Esclarecimento do autor (2026-11-21)
-O autor cria o jogo do zero, com ideias próprias. "Tipo Matrix" é apenas a expressão que ele usa para descrever o que quer: **um mundo virtual persistente onde jogadores humanos e IAs exploram, vivem e interagem**. Não é cópia nem derivação da franquia Matrix; nada dela (personagens, estética, narrativa, símbolos) deve ser usado. Antes de qualquer uso comercial do nome "Matrix Explorer", verificar com profissional de propriedade intelectual se o termo "Matrix" pode conflitar com marcas de terceiros e considerar um nome próprio.
+O autor cria o jogo do zero, com ideias próprias. O que ele quer é **um mundo virtual persistente onde jogadores humanos e IAs exploram, vivem e interagem**. Não é cópia nem derivação de obra de terceiros. Por decisão do autor (2026-11-21), o nome de franquia que ele usava como comparação foi retirado do projeto para evitar conflito de marcas; o termo adotado é **Mundo Virtual**. Antes de qualquer uso comercial do nome "Explorador de Mundo Virtual", verificar o nome final com profissional de propriedade intelectual.
 
 A capacidade de IAs observarem, agirem e gerarem evidências (seção técnica abaixo) é uma das camadas desse mundo e também ferramenta de teste; não é o único objetivo.
 
 ## Ideia, nas palavras do autor
 Em vez de depender apenas de código, descrições e imagens enviadas por pessoas, IAs poderiam **explorar ambientes virtuais, observar acontecimentos, executar tarefas e produzir evidências**. A Cowila supervisiona; agentes exploradores executam; o resultado são relatórios verificáveis.
 
-Trilha imaginada pelo autor: **Tomas Vagabundo** (primeiro mundo e laboratório de testes) → **Matrix Explorer** (tecnologia de percepção, exploração e interação) → possível **Matrix Platform** (conectar outros jogos e agentes). A parte comercial é só hipótese do autor; não há mercado validado.
+Trilha imaginada pelo autor: **Tomas Vagabundo** (primeiro mundo e laboratório de testes) → **Explorador de Mundo Virtual** (tecnologia de percepção, exploração e interação) → possível **Plataforma de Mundos Virtuais** (conectar outros jogos e agentes). A parte comercial é só hipótese do autor; não há mercado validado.
 
 ## Conceito técnico (rascunho)
 Uma interface comum entre um ambiente virtual e um agente de IA, em três partes:
