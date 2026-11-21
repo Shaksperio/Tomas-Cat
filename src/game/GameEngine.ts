@@ -1167,7 +1167,7 @@ export class GameEngine {
       }
     }
     if (applied > 0) {
-      this.callbacks.onToast('A Oráculo alterou a Matrix: ' + applied + ' ação(ões) aplicada(s).', 'success');
+      this.callbacks.onToast('A Oráculo alterou o Mundo Virtual: ' + applied + ' ação(ões) aplicada(s).', 'success');
       this.syncHud();
     }
     return applied;

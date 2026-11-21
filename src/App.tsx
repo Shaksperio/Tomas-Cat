@@ -360,7 +360,7 @@ export default function App() {
           worldPosition={{ x: hud.catX, z: hud.catZ }}
           onWorldActions={(actions: OracleWorldAction[]) => {
             const applied = engineRef.current?.applyOracleWorldActions(actions) ?? 0;
-            if (applied === 0) showToast('A Matrix recusou a alteração: posição, estrutura ou autorização inválida.', 'warn');
+            if (applied === 0) showToast('O Mundo Virtual recusou a alteração: posição, estrutura ou autorização inválida.', 'warn');
           }}
         />
       )}
