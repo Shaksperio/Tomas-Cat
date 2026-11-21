@@ -1,0 +1,13 @@
+# RASCUNHO — NÃO IMPLANTADO. Recursos próprios do Tomas (não reutilizar Shakstory nem Guardião/Cowila).
+# Nenhum banco D1 está ligado nesta etapa. Publicar exige decisão e configuração de Tom.
+name = "tomas-world-dev"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[[durable_objects.bindings]]
+name = "WORLD"
+class_name = "WorldRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["WorldRoom"]
