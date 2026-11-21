@@ -370,6 +370,16 @@ async function main() {
   }
   const navigationResult = await followRoute(page, plannedRoute.points, routeTarget, mission.constraints);
   const { atInputRelease, afterStop, settled, coastingDistance, settleDrift } = navigationResult;
+
+  // Registra a chegada antes de abrir a loja: o overlay de interação não pode
+  // encobrir o personagem na evidência visual do destino.
+  await page.screenshot({ path: path.join(outputDir, 'world-at-destination.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(outputDir, 'world-mobile-at-destination.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(300);
+
   const expectedShopId = routeTarget.id.replace(/^shop-/, '');
   if (mission.constraints.interact) {
     await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.interact());
@@ -385,11 +395,7 @@ async function main() {
       openShopId: world?.openShopId ?? null,
     };
   });
-  await page.screenshot({ path: path.join(outputDir, 'world-after-movement.png'), fullPage: true });
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(outputDir, 'world-mobile.png'), fullPage: true });
+  await page.screenshot({ path: path.join(outputDir, 'shop-interaction.png'), fullPage: true });
   const world = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getWorldSnapshot() ?? null);
   if (!world || world.society.tick <= initialWorld.society.tick) {
     throw new Error('A simulação social não avançou durante a observação; snapshot dinâmico não confirmado.');
@@ -460,7 +466,7 @@ async function main() {
     },
     events: await page.evaluate(() => window.__MATRIX_EXPLORER__?.getEvents() ?? []),
     pageErrors, consoleErrors,
-    screenshots: ['world-initial.png', 'world-after-movement.png', 'world-mobile.png'],
+    screenshots: ['world-initial.png', 'world-at-destination.png', 'world-mobile-at-destination.png', 'shop-interaction.png'],
     worldMap: 'world-map.svg',
   };
   const memory = mergeObservation(await loadMemory(memoryPath), report);
