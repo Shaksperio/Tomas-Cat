@@ -1,0 +1,12 @@
+{
+  "name": "tomas-matrix-explorer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test mission.test.mjs memory.test.mjs",
+    "test": "npm run test:unit && node run.mjs --mission mission.example.json"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

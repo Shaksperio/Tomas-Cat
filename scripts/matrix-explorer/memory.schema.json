@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Matrix Explorer Memory v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "gameId", "createdAt", "updatedAt",
+    "lastSector", "lastPlayerPosition", "poiVisits", "knownEntities",
+    "missions", "observations"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "gameId": { "const": "tomas-vagabundo" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "lastSector": { "type": ["string", "null"] },
+    "lastPlayerPosition": {
+      "type": ["object", "null"],
+      "properties": { "x": { "type": "number" }, "z": { "type": "number" } },
+      "required": ["x", "z"],
+      "additionalProperties": false
+    },
+    "poiVisits": { "type": "object", "additionalProperties": { "type": "object" } },
+    "knownEntities": { "type": "object", "additionalProperties": { "type": "object" } },
+    "missions": { "type": "array", "maxItems": 100, "items": { "type": "object" } },
+    "observations": { "type": "array", "maxItems": 100, "items": { "type": "object" } }
+  }
+}

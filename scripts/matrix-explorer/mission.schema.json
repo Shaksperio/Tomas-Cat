@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Matrix Explorer Mission v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "goal"],
+  "properties": {
+    "version": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$" },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "targetKind"],
+      "properties": {
+        "type": { "const": "visit_shop" },
+        "targetKind": { "const": "shop" },
+        "targetId": { "type": "string", "maxLength": 128 }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxDurationSeconds": { "type": "integer", "minimum": 10, "maximum": 120, "default": 60 },
+        "maxWaypoints": { "type": "integer", "minimum": 1, "maximum": 80, "default": 40 },
+        "sprint": { "type": "boolean", "default": false },
+        "interact": { "type": "boolean", "default": true }
+      }
+    }
+  }
+}
