@@ -23,6 +23,7 @@ interface ExplorerWorldSnapshot {
   waterBodies: BuiltWorld['waterBodies'];
   rivers: BuiltWorld['rivers'];
   indoorZones: BuiltWorld['indoorZones'];
+  colliders: BuiltWorld['colliders'];
   colliderCount: number;
   society: {
     tick: number;
@@ -37,6 +38,8 @@ interface ExplorerWorldSnapshot {
 interface EngineInspection {
   world: BuiltWorld;
   society: Pick<SocietySimulation, 'snapshot'>;
+  catPos: { x: number; z: number };
+  camYaw: number;
 }
 
 interface ExplorerApi {
@@ -47,6 +50,7 @@ interface ExplorerApi {
   getEvents: () => string[];
   actions: {
     move: (x: number, z: number, sprint?: boolean) => void;
+    moveToward: (x: number, z: number, sprint?: boolean) => void;
     stop: () => void;
     jump: () => void;
     interact: () => void;
@@ -105,6 +109,7 @@ function worldSnapshot(): ExplorerWorldSnapshot {
     waterBodies: world.waterBodies.map((body) => ({ ...body })),
     rivers: world.rivers.map((river) => ({ ...river })),
     indoorZones: world.indoorZones.map((zone) => ({ ...zone })),
+    colliders: world.colliders.map((collider) => ({ ...collider })),
     colliderCount: world.colliders.length,
     society: {
       tick: society.tick,
@@ -159,6 +164,20 @@ try {
         Number.isFinite(z) ? Math.max(-1, Math.min(1, z)) : 0,
         Boolean(sprint),
       ),
+      moveToward: (x, z, sprint = false) => {
+        const state = activeEngine as unknown as EngineInspection;
+        const dx = x - state.catPos.x;
+        const dz = z - state.catPos.z;
+        const distance = Math.hypot(dx, dz);
+        if (!Number.isFinite(distance) || distance < 0.15) {
+          activeEngine.setVirtualInput(0, 0, false);
+          return;
+        }
+        const yaw = state.camYaw;
+        const inputX = (Math.cos(yaw) * dx - Math.sin(yaw) * dz) / distance;
+        const inputZ = (Math.sin(yaw) * dx + Math.cos(yaw) * dz) / distance;
+        activeEngine.setVirtualInput(inputX, inputZ, Boolean(sprint));
+      },
       stop: () => activeEngine.setVirtualInput(0, 0, false),
       jump: () => activeEngine.triggerJump(),
       interact: () => activeEngine.triggerInteract(),
