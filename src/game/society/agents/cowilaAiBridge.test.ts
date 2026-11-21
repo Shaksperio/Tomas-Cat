@@ -58,6 +58,49 @@ test('aplica decisão atual e agenda tarefa autorizada sem duplicar tarefa inici
   assert.ok(simulation.snapshot().tasks.some((task) => task.id.includes('cowila-ai')));
 });
 
+test('aceita resposta assíncrona recente e revalida contra o estado atual', () => {
+  const simulation = new SocietySimulation();
+  const initial = simulation.snapshot();
+  simulation.step(2);
+  const state = simulation.exportState();
+  const engineerState = state.agents.find((agent) => agent.profession === 'engineer');
+  assert.ok(engineerState);
+  // Libera o especialista no estado de teste para isolar a validação temporal
+  // da decisão, sem confundir atraso de rede com disponibilidade do agente.
+  engineerState.status = 'idle';
+  engineerState.activeTaskId = null;
+  const initialSurvey = state.tasks.find((task) => task.id === 'task-survey-01');
+  assert.ok(initialSurvey);
+  initialSurvey.status = 'completed';
+  initialSurvey.assignedAgentId = null;
+  assert.equal(simulation.restoreState(state), true);
+  const engineer = simulation.snapshot().agents.find((agent) => agent.profession === 'engineer');
+  assert.ok(engineer);
+  const result = applyCowilaAiDecision(simulation, {
+    tick: initial.tick,
+    brief: 'Resposta remota chegou com pequeno atraso.',
+    proposals: [{
+      agentId: engineer.id,
+      taskKind: 'repair_structure',
+      reason: 'A proposta ainda é válida no estado atual.',
+      priority: 70,
+    }],
+  });
+  assert.equal(result.accepted, 1);
+  assert.ok(simulation.snapshot().tasks.some((task) => task.id.includes('cowila-ai')));
+});
+
+test('descarta decisão remota com mais de 25 ticks de atraso', () => {
+  const simulation = new SocietySimulation();
+  const result = applyCowilaAiDecision(simulation, {
+    tick: simulation.snapshot().tick - 26,
+    brief: 'Resposta muito antiga.',
+    proposals: [{ agentId: 'x', taskKind: 'chop_wood', reason: 'y', priority: 1 }],
+  });
+  assert.equal(result.accepted, 0);
+  assert.equal(result.skipped, 1);
+});
+
 test('descarta decisão de tick antigo', () => {
   const simulation = new SocietySimulation();
   const result = applyCowilaAiDecision(simulation, {
