@@ -134,6 +134,26 @@ Antes de escrever adaptador ou workflow:
 
 Até essa verificação, **não inventar URL, nomes de campos, payload, SDK ou estados da API**. O nome `MINIMAX_API_KEY` é a convenção adotada para o secret; seu cadastro foi informado pelo responsável, mas não foi verificado por ferramenta.
 
+### Evidência adicional encontrada no repositório oficial (2026-11-21)
+
+Foi feita leitura dos exemplos oficiais do repositório `MiniMax-AI/MiniMax-H3`, em especial:
+- `scripts/readme/full-2k-i2va-reference-768p-result-by-directly-calling-open-platform-api.sh`
+- `scripts/readme/full-2k-i2va-reference-2k-result-by-directly-calling-open-platform-api.sh`
+- `README.md`
+
+Os exemplos de chamada direta à Open Platform documentam parcialmente o contrato:
+- criação: `POST $MINIMAX_API_BASE/v2/video_generation`;
+- cabeçalho: `Authorization: Bearer $TOKEN` e `Content-Type: application/json`;
+- modelo: `MiniMax-H3`;
+- corpo ilustrativo: `content` com itens de texto/imagem, além de `resolution`, `duration` e `ratio`;
+- resposta: extração de `.task_id`;
+- consulta: `GET $MINIMAX_API_BASE/v2/query/video_generation/{task_id}`;
+- resultado: consulta de `.task.status` e URL de saída em `.task.content.url`, seguida de download do MP4.
+
+O README oficial aponta a documentação global para `https://platform.minimax.io/docs/api-reference/video-generation-v2-create` e a documentação CN para `https://platform.minimaxi.com/docs/api-reference/video-generation-v2-create`. Os scripts usam `MINIMAX_API_BASE` e `TOKEN` como variáveis de ambiente, mas não definem neste trecho o host-base nem demonstram que o nome do secret GitHub `MINIMAX_API_KEY` já está mapeado para `TOKEN`.
+
+**Conclusão:** endpoint relativo, padrão Bearer, criação, consulta e download estão evidenciados pelos exemplos oficiais. Permanecem pendentes a confirmação do host global/regional adequado à conta, o mapeamento seguro do secret, o contrato completo de erros/estados/limites, preços e disponibilidade regional. Os exemplos consultados são documentação de contrato, não teste executado contra a conta do projeto.
+
 ## 8. Critérios de aceite
 
 - [ ] Character cards e scene cards aprovados.
@@ -163,5 +183,5 @@ Até essa verificação, **não inventar URL, nomes de campos, payload, SDK ou e
 - Verificação independente do cadastro: pendente; a integração GitHub disponível não permite consultar valores/estado de secrets.
 - Teste de autenticação: não executado.
 - Geração e consumo de créditos: não autorizados nem executados.
-- Próximo bloqueio: confirmar na documentação oficial o contrato da API e a disponibilidade do H3 para a conta/região; depois implementar um workflow manual protegido, com aprovação explícita antes de qualquer operação faturável.
+- Próximo bloqueio: confirmar host global/regional, mapeamento seguro de `MINIMAX_API_KEY` para a variável de autenticação do exemplo, contrato completo de erros/estados/limites, preços e disponibilidade do H3 para a conta/região; depois implementar um workflow manual protegido, com aprovação explícita antes de qualquer operação faturável.
 - Uma checagem que apenas confirme que o secret existe não prova que a chave é válida. Não registrar o valor nem mesmo parcialmente nos logs.
