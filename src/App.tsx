@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserPopupRedirectResolver, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { OracleDialogue } from './components/OracleDialogue';
+import { AgentTasksPanel } from './components/AgentTasksPanel';
 import type { OracleWorldAction } from './game/society/agents/oracleWorldActions';
 import { GameHUD } from './components/GameHUD';
 import { LoginScreen } from './components/LoginScreen';
@@ -11,7 +12,7 @@ import { GameEngine } from './game/GameEngine';
 import { firebaseAuth, firebaseConfigured } from './firebase/client';
 import { pickBestSave } from './game/saves/saveSelection';
 import { flushAccountGameSave, loadAccountGameSave, queueAccountGameSave } from './firebase/gameSave';
-import { EVOLUTION_STAGES, GamePhase, HudSnapshot, LoreLog, MAX_CHANCES, SavedGameState } from './types/game';
+import { EVOLUTION_STAGES, GamePhase, HudSnapshot, LoreLog, MAX_CHANCES, SavedGameState, AgentTasksHudSnapshot } from './types/game';
 
 const INITIAL_HUD: HudSnapshot = {
   health: EVOLUTION_STAGES[0].maxHealth, maxHealth: EVOLUTION_STAGES[0].maxHealth,
@@ -50,6 +51,7 @@ export default function App() {
   const inIframe = typeof window !== 'undefined' && window.self !== window.top;
   const [phase, setPhase] = useState<GamePhase>('title');
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
+  const [agentTasks, setAgentTasks] = useState<AgentTasksHudSnapshot | null>(null);
   const [muted, setMuted] = useState(false);
   const [hasSave, setHasSave] = useState(false);
   const [toast, setToast] = useState<{ id: number; message: string; tone: 'info' | 'success' | 'warn' } | null>(null);
@@ -209,6 +211,7 @@ export default function App() {
 
   const callbacks = useMemo(() => ({
     onHudUpdate: (snapshot: HudSnapshot) => setHud(snapshot),
+    onAgentTasksUpdate: (snapshot: AgentTasksHudSnapshot) => setAgentTasks(snapshot),
     onToast: showToast,
     onLoreOpen: (lore: LoreLog) => {
       setActiveLore(lore);
@@ -349,6 +352,7 @@ export default function App() {
 
       <div className="relative min-h-0 w-full flex-1 overflow-hidden">
       <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} ownerEmail={authUser.email ?? ''} ownerEmailVerified={authUser.emailVerified} onEngineReady={handleEngineReady} />
+      {phase === 'playing' && agentTasks && <AgentTasksPanel snapshot={agentTasks} />}
 
       {oracleOpen && authUser?.emailVerified && authUser.email?.trim().toLowerCase() === 'antonyopintor@gmail.com' && (
         <OracleDialogue
