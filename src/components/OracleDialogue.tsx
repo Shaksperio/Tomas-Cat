@@ -17,7 +17,7 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
 
   useEffect(() => {
     const latest = messages[messages.length - 1];
-    if (voiceEnabled && messages.length > 1 && latest?.role === 'cowila') speakCharacter(latest.text, 'cowila');
+    if (voiceEnabled && messages.length > 1 && latest?.role === 'cowila') speakCharacter(latest.text, 'resident');
     return () => stopCharacterVoice();
   }, [messages, voiceEnabled]);
 
@@ -67,8 +67,8 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
               setVoiceEnabled((enabled) => {
                 if (enabled) stopCharacterVoice();
                 else {
-                  const latest = [...messages].reverse().find((message) => message.role === 'cowila');
-                  if (latest) speakCharacter(latest.text, 'cowila');
+                  const latest = [...messages].reverse().find((message) => message.role === 'resident');
+                  if (latest) speakCharacter(latest.text, 'resident');
                 }
                 return !enabled;
               });
@@ -78,7 +78,7 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
         </header>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
           {messages.map((message, index) => (
-            <div key={index} className={message.role === 'oracle' ? 'mr-8 rounded-xl border border-cyan-300/15 bg-cyan-950/35 px-3 py-2.5' : 'ml-8 rounded-xl border border-violet-300/15 bg-violet-950/30 px-3 py-2.5'}>
+            <div key={index} className={message.role === 'cowila' ? 'mr-8 rounded-xl border border-cyan-300/15 bg-cyan-950/35 px-3 py-2.5' : 'ml-8 rounded-xl border border-violet-300/15 bg-violet-950/30 px-3 py-2.5'}>
               <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300">{message.role === 'cowila' ? 'Cowila' : 'Tomas'}</p>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100">{message.text}</p>
             </div>
