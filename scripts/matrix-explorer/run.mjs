@@ -377,6 +377,7 @@ async function main() {
   await page.evaluate(() => {
     window.__MATRIX_EXPLORER__?.actions.nextCamera();
     window.__MATRIX_EXPLORER__?.actions.nextCamera();
+    window.__MATRIX_EXPLORER__?.actions.nextCamera();
   });
   await page.waitForTimeout(1100);
 
