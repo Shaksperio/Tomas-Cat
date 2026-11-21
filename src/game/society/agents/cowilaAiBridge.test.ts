@@ -39,18 +39,18 @@ test('rejeita tarefa incompatível com a profissão', () => {
   }, snapshot, `cowila-ai:${snapshot.tick}:farmer:build_module`), null);
 });
 
-test('aplica decisão atual e agenda tarefa na simulação', () => {
+test('aplica decisão atual e agenda tarefa autorizada sem duplicar tarefa inicial', () => {
   const simulation = new SocietySimulation();
   const snapshot = simulation.snapshot();
-  const lumberjack = snapshot.agents.find((agent) => agent.profession === 'lumberjack');
-  assert.ok(lumberjack);
+  const engineer = snapshot.agents.find((agent) => agent.profession === 'engineer');
+  assert.ok(engineer);
   const result = applyCowilaAiDecision(simulation, {
     tick: snapshot.tick,
-    brief: 'Produção de madeira prioritária.',
+    brief: 'Planejar expansão comunitária.',
     proposals: [{
-      agentId: lumberjack.id,
-      taskKind: 'chop_wood',
-      reason: 'Produzir madeira para a comunidade.',
+      agentId: engineer.id,
+      taskKind: 'design_project',
+      reason: 'Planejar a expansão após o levantamento inicial.',
       priority: 70,
     }],
   });
