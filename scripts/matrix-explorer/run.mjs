@@ -57,6 +57,7 @@ async function main() {
   await page.goto(fixtureUrl, { waitUntil: 'networkidle', timeout: 45000 });
   await page.waitForFunction(
     () => Boolean(window.__MATRIX_EXPLORER__?.ready || window.__MATRIX_EXPLORER_ERROR__),
+    undefined,
     { timeout: 45000 },
   );
   const boot = await page.evaluate(() => ({
@@ -85,6 +86,12 @@ async function main() {
     return Boolean(after && Math.hypot(after.catX - before.x, after.catZ - before.z) > 0.25);
   }, { x: start.catX, z: start.catZ }, { timeout: 8000 });
   const afterMove = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  await page.waitForTimeout(500);
+  const afterStop = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
+  const stopDrift = afterMove && afterStop
+    ? Math.hypot(afterStop.catX - afterMove.catX, afterStop.catZ - afterMove.catZ)
+    : Number.POSITIVE_INFINITY;
+  if (stopDrift > 0.15) throw new Error(`O comando de parada não estabilizou o personagem: ${stopDrift.toFixed(3)} unidades.`);
   await page.screenshot({ path: path.join(outputDir, 'world-after-movement.png'), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -97,7 +104,7 @@ async function main() {
     project: 'Tomas Vagabundo / Matrix Explorer',
     generatedAt: new Date().toISOString(),
     commit: process.env.GITHUB_SHA ?? null,
-    status: pageErrors.length === 0 ? 'passed' : 'failed',
+    status: pageErrors.length === 0 && distance > 0.25 && stopDrift <= 0.15 && Boolean(boot.renderer) ? 'passed' : 'failed',
     environment: {
       browser: 'Chromium via Playwright',
       viewportDesktop: { width: 1440, height: 900 },
@@ -106,7 +113,7 @@ async function main() {
       fixture: 'GameEngine local com identidade sintética isolada; sem login Firebase e sem saves de produção',
     },
     observations: {
-      initial: start, afterMovement: afterMove, movementDistance: distance,
+      initial: start, afterMovement: afterMove, afterStop, movementDistance: distance, stopDrift,
       canvasCount: boot.canvasCount, title: boot.title,
     },
     events: await page.evaluate(() => window.__MATRIX_EXPLORER__?.getEvents() ?? []),
@@ -123,6 +130,7 @@ async function main() {
     `- Posição inicial: x=${start.catX.toFixed(2)}, z=${start.catZ.toFixed(2)}`,
     `- Posição após movimento: x=${afterMove.catX.toFixed(2)}, z=${afterMove.catZ.toFixed(2)}`,
     `- Deslocamento observado: ${distance.toFixed(2)} unidades`,
+    `- Deriva após parada: ${stopDrift.toFixed(3)} unidades`,
     `- Erros fatais de página: ${pageErrors.length}`, '',
     'Capturas e JSON estruturado acompanham este relatório como artefatos.',
     'O fixture usa identidade sintética isolada; não acessa Firebase nem saves reais.', '',
