@@ -8,15 +8,30 @@ Este documento descreve sistemas de jogo e simulação. Não pressupõe que a re
 
 ## Camadas do Mundo Virtual
 
-1. **Planeta e ambiente:** regiões, setores, relevo, clima, atmosfera, água, minerais, riscos ambientais, fauna e condições de habitabilidade.
-2. **Exploração e sensores:** mapa progressivamente revelado por sondas, sensores da nave, equipamentos e expedições. Diferenciar dados observados, estimativas e áreas desconhecidas.
-3. **Nave e infraestrutura:** energia, suporte à vida, armazenamento, oficina, laboratório, comunicações, módulos habitacionais, sondas e veículos. A nave começa como abrigo e centro de operações.
-4. **Recursos e produção:** coleta, extração, transporte, transformação, armazenamento, consumo, manutenção e custos energéticos.
-5. **Pesquisa e tecnologia:** amostras, experimentos, projetos, requisitos, desbloqueios e validação de resultados. Pesquisa não deve conceder recursos ou construções sem custos.
-6. **Construção e ecossistemas:** projetos tipados, terrenos aprovados, módulos autorizados, etapas de obra, cultivo, restauração ambiental e habitats.
-7. **Agentes e automação:** especialistas com funções, ferramentas e permissões delimitadas. Eles observam e propõem; regras determinísticas validam e executam tarefas.
-8. **Memória e persistência:** estado por mundo, eventos idempotentes, snapshots versionados e recuperação após desconexão.
-9. **Percepção e interface:** painéis da nave, mapa, sensores, inventário, estado dos agentes, projetos e alertas da missão.
+1. **Planeta e ambiente:** regiões, setores, relevo, clima, atmosfera, água, minerais, riscos ambientais, fauna, habitats, territórios nativos e condições de habitabilidade.
+2. **Identidade adaptativa de Tomas:** protagonista androide híbrido que chega em sua forma sintética e pode mapear organismos vivos para assumir formas orgânicas compatíveis. A primeira forma mapeada é a do gato nativo encontrado no início da aventura; essa forma corresponde ao modelo felino atual do jogo.
+3. **Exploração e sensores:** mapa progressivamente revelado por sondas, sensores da nave, equipamentos e expedições. Diferenciar dados observados, estimativas e áreas desconhecidas.
+4. **Nave e infraestrutura:** energia, suporte à vida, armazenamento, oficina, laboratório, comunicações, módulos habitacionais, sondas e veículos. A nave começa como abrigo e centro de operações.
+5. **Recursos e produção:** coleta, extração, transporte, transformação, armazenamento, consumo, manutenção e custos energéticos.
+6. **Pesquisa e tecnologia:** amostras, experimentos, projetos, requisitos, desbloqueios e validação de resultados. Pesquisa não deve conceder recursos ou construções sem custos.
+7. **Construção e ecossistemas:** projetos tipados, terrenos aprovados, módulos autorizados, etapas de obra, cultivo, restauração ambiental e habitats.
+8. **Agentes e automação:** especialistas com funções, ferramentas e permissões delimitadas. Eles observam e propõem; regras determinísticas validam e executam tarefas.
+9. **Memória e persistência:** estado por mundo, eventos idempotentes, snapshots versionados e recuperação após desconexão.
+10. **Percepção e interface:** painéis da nave, mapa, sensores, inventário, estado dos agentes, projetos e alertas da missão.
+
+## Mapeamento orgânico e transformação de Tomas
+
+Tomas é um androide híbrido cuja forma original é sintética. O mapeamento de um organismo vivo deve ser uma mecânica explícita, com etapas verificáveis: aquisição de amostra ou leitura biométrica autorizada, análise, verificação de compatibilidade, registro no catálogo de formas e ativação da transformação. O sistema não copia consciência, memória ou personalidade do organismo.
+
+O primeiro encontro narrativo ocorre após o pouso: Tomas enfrenta um gato nativo e, ao vencer, completa o mapeamento que permite assumir a forma felina já utilizada pelo personagem no jogo. A transformação deve preservar identidade, inventário, progressão e save do jogador. O modelo felino atual é a representação visual dessa primeira forma adaptativa, não a forma original do androide.
+
+Cada forma futura deve ter requisitos e limitações próprios e passar por validação do motor. A forma felina oferece discrição e acesso mais seguro a áreas habitadas, mas não torna Tomas invisível nem garante aceitação pelos nativos.
+
+## Habitats, territórios e combate
+
+Os habitantes nativos possuem habitats e territórios próprios. A IA de cada espécie ou grupo deve avaliar distância, comportamento de Tomas, ameaças ao habitat, disputa por recursos e histórico local. A reação pode variar entre observação, alerta, fuga, defesa ou confronto, conforme regras determinísticas e dados do mundo.
+
+O modo de batalha existente continua sendo usado quando houver oponentes que efetivamente lutarão para defender um território específico. A entrada em batalha deve preservar o fluxo ATB, comandos, câmera, animações, recompensas e consequências já implementados. O conflito precisa manter vínculo com a região e o estado do habitat; não converter toda fauna em inimigos obrigatórios.
 
 ## Ciclo de uma missão de exploração
 
@@ -69,6 +84,10 @@ A IA generativa não controla movimentos nem decide cada frame. Se o provedor es
 Cada `worldId` deve manter relógio, recursos, projetos, construções, eventos e estado persistente próprios. Transições entre regiões ou mundos não podem misturar estados por acidente.
 
 A região próxima pode usar simulação detalhada; regiões distantes podem avançar em passos abstratos, determinísticos e limitados. O avanço offline precisa de limites explícitos para impedir saltos ilimitados ou consumo retroativo inesperado.
+
+## Compatibilidade com o jogo existente
+
+Esta mudança redefine o contexto da aventura, não apaga os sistemas existentes. Preservar o modo de batalha e seu acionamento em conflitos territoriais, o modelo felino atual de Tomas, tarefas, itens, inventário, GPS, progressão, construção, portais, agentes e sistemas de sociedade já implementados. A primeira transformação explica por que Tomas aparece como o gato atual. Adaptar a apresentação e a progressão de forma incremental, sem quebrar IDs de saves ou contratos existentes.
 
 ## Estado conhecido e limites
 
