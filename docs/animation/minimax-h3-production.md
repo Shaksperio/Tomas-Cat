@@ -1,6 +1,6 @@
 # Pipeline cinematográfico MiniMax H3 — Tomas Vagabundo
 
-> **Estado:** especificação técnica inicial; ainda não há geração de vídeo, chamada à API MiniMax, chave configurada, upload para R2 ou integração no runtime.
+> **Estado (2026-11-21):** especificação técnica; nenhuma geração de vídeo, chamada autenticada à API, upload para R2 ou integração no runtime. O responsável informou que cadastrou `MINIMAX_API_KEY` nos GitHub Actions Secrets; o valor e a existência do secret não são verificáveis por esta documentação/conector e não devem ser expostos.
 >
 > **Tarefa:** T-222. Esta especificação é independente da implementação da abertura em Three.js (T-221). A cena em tempo real permanece como fallback obrigatório.
 
@@ -129,8 +129,10 @@ Antes de escrever adaptador ou workflow:
 - confirmar licença e permissão de uso comercial dos resultados, incluindo personagens, vozes e trilhas;
 - confirmar preços, limites e mecanismo de cancelamento para evitar gastos inesperados;
 - registrar a versão/data da documentação consultada e testes de contrato.
+- O README oficial `MiniMax-AI/MiniMax-H3` aponta para o endpoint global `https://platform.minimax.io/docs/api-reference/video-generation-v2-create`; isso identifica a página de referência, mas não confirma por si só o esquema de autenticação, payload, modelo ou fluxo de polling.
+- O responsável informou que cadastrou o secret de repositório `MINIMAX_API_KEY` em GitHub Actions. Isso é um relato do operador, não uma verificação técnica do secret. O valor nunca deve ser lido em logs, impresso, copiado para arquivos ou enviado ao cliente.
 
-Até essa verificação, **não inventar URL, nomes de campos, payload, SDK ou estados da API**. O nome `MINIMAX_API_KEY` é apenas uma convenção proposta para o secret; não indica que já exista configuração.
+Até essa verificação, **não inventar URL, nomes de campos, payload, SDK ou estados da API**. O nome `MINIMAX_API_KEY` é a convenção adotada para o secret; seu cadastro foi informado pelo responsável, mas não foi verificado por ferramenta.
 
 ## 8. Critérios de aceite
 
@@ -153,3 +155,13 @@ Até essa verificação, **não inventar URL, nomes de campos, payload, SDK ou e
 - Integrar chamadas MiniMax no navegador ou Worker.
 - Gerar ou publicar vídeos sem credencial, aprovação, revisão de termos e QC.
 - Substituir ou remover a cinemática Three.js de T-221.
+
+
+## 10. Estado operacional do acesso MiniMax
+
+- Secret esperado: `MINIMAX_API_KEY`, cadastrado manualmente pelo responsável segundo confirmação no chat.
+- Verificação independente do cadastro: pendente; a integração GitHub disponível não permite consultar valores/estado de secrets.
+- Teste de autenticação: não executado.
+- Geração e consumo de créditos: não autorizados nem executados.
+- Próximo bloqueio: confirmar na documentação oficial o contrato da API e a disponibilidade do H3 para a conta/região; depois implementar um workflow manual protegido, com aprovação explícita antes de qualquer operação faturável.
+- Uma checagem que apenas confirme que o secret existe não prova que a chave é válida. Não registrar o valor nem mesmo parcialmente nos logs.
