@@ -91,7 +91,7 @@ async function main() {
   const stopDrift = afterMove && afterStop
     ? Math.hypot(afterStop.catX - afterMove.catX, afterStop.catZ - afterMove.catZ)
     : Number.POSITIVE_INFINITY;
-  if (stopDrift > 0.9 throw new Error(`O comando de parada não estabilizou o personagem: ${stopDrift.toFixed(3)} unidades.`);
+  if (stopDrift > 0.9) throw new Error(`O comando de parada não estabilizou o personagem: ${stopDrift.toFixed(3)} unidades.`);
   await page.screenshot({ path: path.join(outputDir, 'world-after-movement.png'), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
