@@ -36,7 +36,131 @@ function xmlEscape(value) {
   })[char]);
 }
 
-function renderWorldMap(world, player) {
+
+class MinHeap {
+  constructor() { this.items = []; }
+  push(item) {
+    const a = this.items; a.push(item);
+    let i = a.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (a[p].f <= a[i].f) break;
+      [a[p], a[i]] = [a[i], a[p]]; i = p;
+    }
+  }
+  pop() {
+    const a = this.items;
+    if (!a.length) return null;
+    const first = a[0], last = a.pop();
+    if (a.length) {
+      a[0] = last;
+      let i = 0;
+      while (true) {
+        const left = i * 2 + 1, right = left + 1;
+        let smallest = i;
+        if (left < a.length && a[left].f < a[smallest].f) smallest = left;
+        if (right < a.length && a[right].f < a[smallest].f) smallest = right;
+        if (smallest === i) break;
+        [a[i], a[smallest]] = [a[smallest], a[i]]; i = smallest;
+      }
+    }
+    return first;
+  }
+  get size() { return this.items.length; }
+}
+
+function planGridRoute(start, target, colliders, cellSize = 2.5) {
+  const min = -220, max = 220;
+  const cells = Math.round((max - min) / cellSize) + 1;
+  const step = (max - min) / (cells - 1);
+  const toCell = (value) => Math.max(0, Math.min(cells - 1, Math.round((value - min) / step)));
+  const toWorld = (value) => min + value * step;
+  const indexOf = (x, z) => z * cells + x;
+  const blocked = new Uint8Array(cells * cells);
+
+  for (let z = 0; z < cells; z++) {
+    const wz = toWorld(z);
+    for (let x = 0; x < cells; x++) {
+      const wx = toWorld(x);
+      if (colliders.some((box) => box.topY >= 0
+        && wx >= box.minX - 0.55 && wx <= box.maxX + 0.55
+        && wz >= box.minZ - 0.55 && wz <= box.maxZ + 0.55)) {
+        blocked[indexOf(x, z)] = 1;
+      }
+    }
+  }
+
+  const nearestFree = (cell) => {
+    if (!blocked[indexOf(cell.x, cell.z)]) return cell;
+    for (let radius = 1; radius <= 12; radius++) {
+      for (let dz = -radius; dz <= radius; dz++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dz)) !== radius) continue;
+          const x = cell.x + dx, z = cell.z + dz;
+          if (x < 0 || z < 0 || x >= cells || z >= cells) continue;
+          if (!blocked[indexOf(x, z)]) return { x, z };
+        }
+      }
+    }
+    return null;
+  };
+
+  const startCell = nearestFree({ x: toCell(start.catX), z: toCell(start.catZ) });
+  const goalCell = nearestFree({ x: toCell(target.x), z: toCell(target.z) });
+  if (!startCell || !goalCell) throw new Error('A* não encontrou célula navegável para início ou destino.');
+
+  const total = cells * cells;
+  const scores = new Float64Array(total); scores.fill(Number.POSITIVE_INFINITY);
+  const parents = new Int32Array(total); parents.fill(-1);
+  const closed = new Uint8Array(total);
+  const startIndex = indexOf(startCell.x, startCell.z);
+  const goalIndex = indexOf(goalCell.x, goalCell.z);
+  const heuristic = (x, z) => Math.hypot(goalCell.x - x, goalCell.z - z);
+  const heap = new MinHeap();
+  scores[startIndex] = 0;
+  heap.push({ index: startIndex, x: startCell.x, z: startCell.z, f: heuristic(startCell.x, startCell.z) });
+  const directions = [
+    [-1,0,1],[1,0,1],[0,-1,1],[0,1,1],
+    [-1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[1,-1,Math.SQRT2],[1,1,Math.SQRT2],
+  ];
+  let expansions = 0;
+  while (heap.size && expansions < 30000) {
+    const current = heap.pop();
+    if (!current || closed[current.index]) continue;
+    if (current.index === goalIndex) break;
+    closed[current.index] = 1; expansions++;
+    for (const [dx,dz,cost] of directions) {
+      const x = current.x + dx, z = current.z + dz;
+      if (x < 0 || z < 0 || x >= cells || z >= cells) continue;
+      const nextIndex = indexOf(x,z);
+      if (blocked[nextIndex] || closed[nextIndex]) continue;
+      if (dx !== 0 && dz !== 0
+        && (blocked[indexOf(current.x + dx,current.z)] || blocked[indexOf(current.x,current.z + dz)])) continue;
+      const tentative = scores[current.index] + cost;
+      if (tentative >= scores[nextIndex]) continue;
+      scores[nextIndex] = tentative;
+      parents[nextIndex] = current.index;
+      heap.push({ index: nextIndex, x, z, f: tentative + heuristic(x,z) });
+    }
+  }
+  if (startIndex !== goalIndex && parents[goalIndex] < 0) {
+    throw new Error(`A* não encontrou rota para ${target.name} após ${expansions} expansões.`);
+  }
+  const indices = [];
+  for (let cursor = goalIndex; cursor >= 0; cursor = parents[cursor]) {
+    indices.push(cursor);
+    if (cursor === startIndex) break;
+  }
+  indices.reverse();
+  const points = indices.map((index) => ({
+    x: toWorld(index % cells), z: toWorld(Math.floor(index / cells)),
+  }));
+  let length = 0;
+  for (let i = 1; i < points.length; i++) length += Math.hypot(points[i].x-points[i-1].x, points[i].z-points[i-1].z);
+  return { points, length, cellSize: step, expansions, resolvedTarget: points.at(-1) };
+}
+
+function renderWorldMap(world, player, route = []) {
   const size = 900;
   const pad = 54;
   const span = 440;
@@ -57,6 +181,10 @@ function renderWorldMap(world, player) {
   }
   parts.push(`<rect x="${pad}" y="${pad}" width="${size-pad*2}" height="${size-pad*2}" fill="none" stroke="#64748b"/>`);
 
+  if (route.length > 1) {
+    const routePoints = route.map((point) => `${px(point.x)},${py(point.z)}`).join(' ');
+    parts.push(`<polyline points="${routePoints}" fill="none" stroke="#fde047" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5"><title>Rota A* planejada</title></polyline>`);
+  }
   for (const river of world.rivers) {
     parts.push(`<line x1="${px(river.ax)}" y1="${py(river.az)}" x2="${px(river.bx)}" y2="${py(river.bz)}" stroke="#0ea5e9" stroke-width="${Math.max(2, river.halfWidth*2*(size-pad*2)/span)}" stroke-linecap="round" stroke-opacity=".35"><title>${xmlEscape(river.name)}</title></line>`);
   }
@@ -154,7 +282,14 @@ async function main() {
 
   const start = boot.snapshot;
   const initialWorld = boot.worldSnapshot;
-  await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.move(0, -1, false));
+  const routeTarget = world.interactables
+    .filter((item) => item.kind === 'shop' && item.active)
+    .sort((a,b) => Math.hypot(a.x-start.catX,a.z-start.catZ) - Math.hypot(b.x-start.catX,b.z-start.catZ))[0];
+  if (!routeTarget) throw new Error('Nenhuma loja ativa disponível para a primeira missão de navegação.');
+  const plannedRoute = planGridRoute(start, routeTarget, world.colliders);
+  if (plannedRoute.points.length < 2) throw new Error('A* não produziu um próximo waypoint.');
+  const nextWaypoint = plannedRoute.points[1];
+  await page.evaluate((point) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, false), nextWaypoint);
   await page.waitForTimeout(1800);
   await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.stop());
   const atInputRelease = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
@@ -209,7 +344,7 @@ async function main() {
     societyTasks: world.society.tasks.length,
     societyResources: world.society.resources,
   };
-  await writeFile(path.join(outputDir, 'world-map.svg'), renderWorldMap(world, start));
+  await writeFile(path.join(outputDir, 'world-map.svg'), renderWorldMap(world, start, plannedRoute.points));
 
   const report = {
     schemaVersion: 1,
@@ -225,6 +360,16 @@ async function main() {
       fixture: 'GameEngine local com identidade sintética isolada; sem login Firebase e sem saves de produção',
     },
     worldInventory,
+    navigation: {
+      algorithm: 'A* 8-way grid with collision expansion and diagonal corner protection',
+      target: { id: routeTarget.id, name: routeTarget.name, x: routeTarget.x, z: routeTarget.z },
+      cellSize: plannedRoute.cellSize,
+      pathLength: plannedRoute.length,
+      waypointCount: plannedRoute.points.length,
+      expansions: plannedRoute.expansions,
+      nextWaypoint,
+      path: plannedRoute.points,
+    },
     initialWorldSnapshot: initialWorld,
     worldSnapshot: world,
     societyTickProgress: world.society.tick - initialWorld.society.tick,
@@ -246,6 +391,7 @@ async function main() {
     `- Região: ${start.sectorName}`,
     `- Posição inicial: x=${start.catX.toFixed(2)}, z=${start.catZ.toFixed(2)}`,
     `- Posição após repouso: x=${afterStop.catX.toFixed(2)}, z=${afterStop.catZ.toFixed(2)}`,
+    `- Destino A*: ${routeTarget.name}; rota: ${plannedRoute.length.toFixed(2)} unidades em ${plannedRoute.points.length} waypoints`,
     `- Deslocamento observado: ${distance.toFixed(2)} unidades`,
     `- Deslocamento por inércia: ${coastingDistance.toFixed(3)} unidades`,
     `- Deriva final em 600 ms: ${settleDrift.toFixed(3)} unidades`,
