@@ -69,7 +69,12 @@ async function main() {
     renderer: (() => {
       const canvas = document.querySelector('canvas');
       const gl = canvas?.getContext('webgl2') || canvas?.getContext('webgl');
-      return gl ? gl.getParameter(gl.RENDERER) : null;
+      if (!gl) return null;
+      const debug = gl.getExtension('WEBGL_debug_renderer_info');
+      return {
+        reported: gl.getParameter(gl.RENDERER),
+        unmasked: debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : null,
+      };
     })(),
   }));
   if (!boot.ready || !boot.snapshot || boot.canvasCount < 1) {
@@ -106,7 +111,7 @@ async function main() {
     commit: process.env.GITHUB_SHA ?? null,
     status: pageErrors.length === 0 && distance > 0.25 && stopDrift <= 0.9 && Boolean(boot.renderer) ? 'passed' : 'failed',
     environment: {
-      browser: 'Chromium via Playwright',
+      browser: `Chromium ${browser.version()} via Playwright`,
       viewportDesktop: { width: 1440, height: 900 },
       viewportMobile: { width: 390, height: 844 },
       webglRenderer: boot.renderer,
@@ -125,7 +130,7 @@ async function main() {
     '# Matrix Explorer — relatório de observação', '',
     `- Estado: **${report.status}**`,
     `- Data: ${report.generatedAt}`,
-    `- Renderizador WebGL: ${report.environment.webglRenderer ?? 'não identificado'}`,
+    `- Renderizador WebGL: ${report.environment.webglRenderer?.unmasked ?? report.environment.webglRenderer?.reported ?? 'não identificado'}`,
     `- Região: ${start.sectorName}`,
     `- Posição inicial: x=${start.catX.toFixed(2)}, z=${start.catZ.toFixed(2)}`,
     `- Posição após movimento: x=${afterMove.catX.toFixed(2)}, z=${afterMove.catZ.toFixed(2)}`,
