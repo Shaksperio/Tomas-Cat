@@ -8,7 +8,7 @@ const ENDPOINT = 'https://tomas-cowila-ai.antonyopintor.workers.dev';
 
 export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onClose: () => void; onWorldActions: (actions: OracleWorldAction[]) => void; worldPosition: { x: number; z: number } }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'cowila', text: 'Olá, Tomas. Sou Cowila. Posso ajudar você a compreender as comunidades, registrar descobertas e planejar maneiras de recuperar este lugar. Por onde começamos?' },
+    { role: 'cowila', text: 'Olá, Tomas. Sou Cowila, a inteligência artificial da nave. Os sensores já podem iniciar o levantamento desta região. Posso ajudar a analisar o ambiente, planejar pesquisas e organizar a construção do nosso novo lar. Qual será nosso primeiro objetivo?' },
   ]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
       const response = await fetch(`${ENDPOINT}/v1/oracle-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'Accept': 'application/json' },
-        body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'viajante e participante das comunidades', setting: 'Mundo Virtual de Tomas Vagabundo', position: worldPosition, bounds: 180 } }),
+        body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'explorador espacial e responsável pela missão de colonização', setting: 'Planeta inabitável em processo de exploração e transformação no Mundo Virtual de Tomas Vagabundo', companion: 'Cowila, inteligência artificial central da nave', position: worldPosition, bounds: 180 } }),
       });
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) throw new Error(`Cowila retornou uma resposta inesperada (HTTP ${response.status}).`);
@@ -59,15 +59,15 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
         <header className="flex items-center justify-between border-b border-cyan-200/15 px-4 py-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-300">O Mundo Virtual de Tomas</p>
-            <h2 className="text-lg font-semibold text-slate-50">Cowila · Guia das Comunidades</h2>
-            <p className="text-xs text-slate-400">Uma inteligência dedicada ao conhecimento e à cooperação</p>
+            <h2 className="text-lg font-semibold text-slate-50">Cowila · IA da Nave</h2>
+            <p className="text-xs text-slate-400">Exploração planetária, ciência e construção do nosso novo lar</p>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => {
               setVoiceEnabled((enabled) => {
                 if (enabled) stopCharacterVoice();
                 else {
-                  const latest = [...messages].reverse().find((message) => message.role === 'resident');
+                  const latest = [...messages].reverse().find((message) => message.role === 'cowila');
                   if (latest) speakCharacter(latest.text, 'resident');
                 }
                 return !enabled;
@@ -79,15 +79,15 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
           {messages.map((message, index) => (
             <div key={index} className={message.role === 'cowila' ? 'mr-8 rounded-xl border border-cyan-300/15 bg-cyan-950/35 px-3 py-2.5' : 'ml-8 rounded-xl border border-violet-300/15 bg-violet-950/30 px-3 py-2.5'}>
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300">{message.role === 'cowila' ? 'Cowila' : 'Tomas'}</p>
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-cyan-300">{message.role === 'cowila' ? 'Cowila · IA da Nave' : 'Tomas'}</p>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100">{message.text}</p>
             </div>
           ))}
-          {busy && <p className="text-xs text-cyan-200 animate-pulse">Cowila está organizando as informações…</p>}
+          {busy && <p className="text-xs text-cyan-200 animate-pulse">Cowila está analisando os dados da missão…</p>}
         </div>
         {error && <p role="alert" className="px-4 pb-2 text-xs text-amber-300">{error}</p>}
         <form onSubmit={send} className="flex gap-2 border-t border-cyan-200/15 p-3">
-          <input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={1000} placeholder="Converse com Cowila…" disabled={busy} className="min-w-0 flex-1 rounded-xl border border-white/15 bg-slate-950/70 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/60" />
+          <input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={1000} placeholder="Fale com a IA da nave…" disabled={busy} className="min-w-0 flex-1 rounded-xl border border-white/15 bg-slate-950/70 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/60" />
           <button type="submit" disabled={busy || !draft.trim()} className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40">{busy ? '…' : 'Enviar'}</button>
         </form>
       </div>
