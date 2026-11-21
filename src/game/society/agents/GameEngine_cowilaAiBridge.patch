@@ -1,0 +1,21 @@
+--- a/src/game/GameEngine.ts
++++ b/src/game/GameEngine.ts
+@@ import
+-import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
++import { isCowilaAiConfigured, requestCowilaDecision } from './society/agents/cowilaAiClient';
++import { applyCowilaAiDecision } from './society/agents/cowilaAiBridge';
+
+@@ no then de requestCowilaDecision:
+-            let accepted = 0;
+-            for (const proposal of decision.proposals) { ... sem skillId ... }
+-            if (accepted > 0) this.callbacks.onToast(...);
++            const result = applyCowilaAiDecision(targetSociety, decision);
++            if (result.accepted > 0) {
++              this.callbacks.onToast(
++                `Cowila IA: ${result.accepted} nova(s) tarefa(s) estratégica(s). ${result.brief}`,
++                'info',
++              );
++            }
+
+# NÃO commitar GameEngine.ts inteiro nesta PR (arquivo grande).
+# Aplicar este patch após merge do módulo ou em commit separado humano.
