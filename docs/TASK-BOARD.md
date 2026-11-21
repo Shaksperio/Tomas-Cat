@@ -39,6 +39,8 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
+- [T-221] Abertura cinematográfica 3D: chegada da nave, pouso e primeiro contato com organismo nativo — dono: ChatGPT/Codex — branch: `codex/planetary-opening-cinematic` — reserva: `src/components/OpeningCinematic.tsx`, `src/components/TitleScreen.tsx` — desde: 2026-11-21 — escopo: sequência independente em Three.js acionada ao iniciar nova missão; não altera `GameEngine`, `GameCanvas`, HUD ou runtime de batalha; integração de batalha jogável e transformação persistente ficam para etapa posterior após auditoria dos sistemas existentes.
+
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 
 - [T-215] Restaurar painel de tarefas dos agentes de IA no jogo — dono: ChatGPT/Codex — branch: `codex/restore-agent-task-panel` — reserva: `src/types/game.ts` (tipos exclusivos do painel), `src/game/GameEngine.ts` (callback de snapshot dos agentes e publicação do snapshot; sem alterar os trechos reservados de batalha/loja/Cowila T-101), `src/App.tsx`, novo `src/components/AgentTasksPanel.tsx` — desde: 2026-11-20 — escopo: expor tarefas atuais/concluídas e estados dos especialistas na interface, mantendo a simulação e as validações autoritativas existentes
@@ -88,7 +90,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 
 ## 6. Histórico de mudanças do quadro
 
-- 2026-11-21 — ChatGPT/Codex: reivindicada T-220 para desenvolver Matrix Explorer em branch isolada; escopo e reservas limitados ao observador/explorador, documentação e workflow próprio. O projeto central e PRs existentes permanecem intocados.
+- 2026-11-21 — ChatGPT/Codex: T-221 reivindicada para a abertura cinematográfica 3D em branch isolada, limitada a `OpeningCinematic.tsx` e `TitleScreen.tsx`; GameEngine e sistemas de batalha permanecem fora do escopo.
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
 - 2026-11-20 — Manus: T-213 reservada para polimento visual felino; Tom autorizou o push da reserva à `main` sabendo que o push pode disparar o deploy automático.
