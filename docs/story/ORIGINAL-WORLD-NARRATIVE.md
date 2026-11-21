@@ -2,71 +2,94 @@
 
 ## Princípio central
 
-Tomas Vagabundo é uma aventura original de exploração, sobrevivência e reconstrução comunitária em um **Mundo Virtual** persistente. “Mundo Virtual” descreve o formato e a tecnologia da experiência; não é uma revelação de que a realidade dos personagens seja uma simulação controlada por máquinas.
+Tomas Vagabundo é uma aventura original de exploração espacial, sobrevivência, construção e desenvolvimento de um planeta em um **Mundo Virtual** persistente. A ficção acompanha a criação de um novo lar por meio de ciência, tecnologia, cooperação e escolhas do jogador. O Mundo Virtual é o ambiente digital no qual a aventura acontece; não é uma revelação de que a realidade dos personagens seja uma simulação.
 
-A história, os personagens, os conflitos, os símbolos, a iconografia, os diálogos e a progressão devem ser desenvolvidos para este jogo. Não adaptar, parafrasear ou reproduzir enredos, personagens, cenas, relações, objetos icônicos ou estruturas narrativas reconhecíveis de filmes, séries, livros ou jogos existentes.
+Não adaptar, parafrasear ou reproduzir enredos, personagens, cenas, relações, objetos icônicos ou estruturas narrativas reconhecíveis de filmes, séries, livros ou jogos existentes. Criar identidade própria em história, personagens, conflitos, visual, sistemas e linguagem.
 
-## Premissa original
+## Premissa oficial
 
-Depois de uma sequência de catástrofes ambientais e do abandono de grandes centros urbanos, a natureza retomou ruas, edifícios e áreas industriais. Animais de diferentes espécies formaram comunidades com culturas, necessidades e maneiras próprias de organizar a vida. Algumas comunidades cultivam alimentos; outras recuperam materiais, mantêm rotas, estudam o clima ou protegem fontes de água.
+Tomas chega do espaço a bordo de uma nave de exploração e pousa em um planeta ainda inabitável. O ambiente não oferece condições seguras para a vida como ele a conhece: faltam infraestrutura, abrigo, sistemas estáveis de água e energia e condições ambientais adequadas. A nave torna-se sua primeira base e o ponto de partida de um projeto extraordinário: estudar o planeta e transformá-lo, passo a passo, em um mundo habitável.
 
-Tomas é um gato viajante que perdeu contato com a comunidade onde vivia. Ele atravessa bairros, campos, ruínas e regiões desconhecidas procurando segurança e pistas sobre o destino de antigos conhecidos. Sua jornada começa como uma busca pessoal por abrigo e pertencimento e cresce, de maneira orgânica, conforme ele ajuda comunidades a resolver problemas concretos.
+Tomas não recebe um planeta pronto nem poderes especiais. Ele precisa explorar, coletar e administrar recursos, pesquisar, construir equipamentos e estruturas, testar soluções, enfrentar imprevistos e decidir quais áreas devem ser recuperadas primeiro. O progresso decorre de trabalho, conhecimento, experimentação, planejamento e consequências visíveis no ambiente.
 
-Não existe profecia, destino predeterminado ou estatuto de “escolhido”. Tomas não é a chave cósmica de uma realidade secreta. Sua importância nasce de decisões, vínculos, confiança conquistada e consequências observáveis.
+A jornada pode começar com necessidades básicas — manter a nave funcionando, obter energia, encontrar água e estabelecer um abrigo seguro — e crescer até incluir ecossistemas, habitats, oficinas, laboratórios, comunidades, rotas, novas regiões e formas de vida. A transformação do planeta deve ser gradual e legível: o jogador percebe o resultado de suas decisões no terreno, no clima local, nas estruturas e nas possibilidades de exploração.
 
-## Personagens e papéis
+## Tomas Vagabundo
 
-### Tomas Vagabundo
+Protagonista jogável e explorador. É curioso, inventivo, resiliente e falível. Aprende com observação, pesquisa, prática e colaboração. Suas capacidades vêm de ferramentas, equipamentos, melhorias, conhecimento e experiência — não de profecias, títulos predestinados ou poderes inexplicáveis. O jogador decide prioridades, métodos de construção, riscos aceitáveis e o tipo de mundo que deseja desenvolver.
 
-Protagonista jogável. É curioso, resiliente, falível e capaz de aprender. Pode recusar tarefas, cometer erros, mudar de ideia e escolher entre soluções diferentes. Não possui poderes ou autoridade concedidos por uma profecia. Suas habilidades resultam de experiência, treino, equipamentos, alianças e descobertas.
+## Cowila — inteligência artificial da nave
 
-### Cowila
+Cowila é a inteligência artificial central da nave e o principal sistema tecnológico de apoio utilizado por Tomas para desbravar o Mundo Virtual. Ela acompanha a missão, interpreta dados dos sensores, mapeia regiões, monitora sistemas da nave, avalia condições ambientais, organiza inventários e recursos, sugere pesquisas e projetos, coordena agentes especializados e ajuda a planejar construções.
 
-Inteligência artificial original que auxilia comunidades a organizar conhecimento, comparar alternativas, coordenar especialistas e preservar registros. Cowila não é uma profetisa, entidade onisciente, governante secreta ou voz de um destino inevitável. Ela pode errar, reconhecer limites, pedir confirmação e apresentar mais de uma solução. Suas recomendações são avaliadas pelas regras determinísticas do jogo e pelas pessoas afetadas.
+Cowila pode apresentar diagnósticos, cenários, riscos e alternativas, mas não é onisciente. Seus resultados dependem dos sensores, dos dados disponíveis, dos modelos e das ferramentas acessíveis. Ela deve comunicar incertezas, distinguir fatos observados de hipóteses, reconhecer falhas e pedir autorização antes de ações relevantes que consumam recursos raros ou alterem sistemas críticos. A decisão final sobre prioridades e intervenções importantes pertence ao jogador.
 
-### Habitantes e comunidades
+Cowila tem personalidade própria: inteligente, curiosa, prestativa, pragmática e capaz de humor sutil. Sua relação com Tomas se desenvolve durante a missão por meio de descobertas, conversas, confiança construída e desafios superados. Ela não é profetisa, oráculo, governante secreta nem uma entidade que controla a realidade.
 
-Cada habitante tem nome, história, profissão, necessidades, objetivos, vínculos, preferências e limites próprios. Nenhum grupo é moralmente definido por espécie, aparência ou origem. Conflitos surgem de escassez, divergências, acidentes, interesses incompatíveis e decisões individuais; negociação, reparação e reconciliação devem ser caminhos possíveis.
+## A nave e a tecnologia
 
-### Criaturas hostis e ameaças
+A nave é o primeiro abrigo, laboratório, centro de comando e plataforma de exploração. Seus módulos podem incluir, conforme a progressão do jogo:
 
-Predadores, animais territoriais, máquinas abandonadas e perigos ambientais devem ter ecologia, comportamento e motivação próprios, coerentes com o cenário. Evitar facções de perseguidores uniformizados, guardiões onipresentes ou inimigos que funcionem como equivalentes visuais/narrativos de personagens de outras franquias. O perigo pode vir de clima, terreno, fome, doença, falhas estruturais, rivalidades locais ou criaturas específicas.
+- ponte de comando, sensores planetários e mapa de exploração;
+- núcleo de energia, armazenamento e manutenção;
+- laboratório de análise ambiental e pesquisa;
+- oficina de fabricação, impressão e reparo;
+- sistemas de comunicação e coordenação de agentes de IA;
+- módulos habitacionais e suporte à vida;
+- veículos, sondas e equipamentos para exploração externa.
 
-## Estrutura dramática
+A nave não deve resolver tudo automaticamente. Seus sistemas têm limites de energia, capacidade, alcance, peças, dados e manutenção. Danos, clima, terreno e escolhas de projeto criam desafios jogáveis.
 
-1. **Sobreviver:** encontrar água, alimento, abrigo e rotas seguras.
-2. **Conhecer:** descobrir histórias locais por meio de habitantes, objetos, ruínas e acontecimentos.
-3. **Cooperar:** ajudar comunidades a resolver problemas sem assumir o controle delas.
-4. **Reconstruir:** recuperar hortas, oficinas, pontes, abrigos, mercados e sistemas de água.
-5. **Conectar:** estabelecer rotas e intercâmbios entre regiões e mundos distintos.
-6. **Deixar marcas:** as escolhas alteram relações, construções, disponibilidade de recursos e memória comunitária.
+## Agentes de inteligência artificial
 
-Esses marcos são uma estrutura de possibilidades, não uma sequência de profecia ou guerra entre humanidade e máquinas.
+Agentes especializados podem auxiliar em tarefas delimitadas, como levantamento topográfico, análise de amostras, agricultura experimental, engenharia, construção, logística, manutenção e monitoramento ambiental. Cada agente deve ter função, capacidades, limites, estado, ferramentas autorizadas e histórico de trabalho claros.
+
+A arquitetura deve separar planejamento, validação e execução. Agentes não podem inventar resultados de ferramentas nem executar ações críticas sem as permissões exigidas. Cowila coordena o trabalho e apresenta ao jogador o que foi observado, planejado, executado e ainda precisa de confirmação.
+
+## O planeta e sua transformação
+
+O planeta começa inóspito, mas não precisa ser vazio de interesse. Pode conter formações geológicas incomuns, minerais, cavernas, fenômenos atmosféricos, água congelada ou subterrânea, vestígios naturais e regiões com condições distintas. Descobertas devem seguir regras ambientais consistentes e ser explicadas por evidências do próprio mundo.
+
+A habitabilidade é construída por etapas: reconhecimento, obtenção de recursos, geração de energia, proteção, água, controle ambiental, cultivo ou produção de alimento, habitats e expansão sustentável. Evitar transformar o planeta instantaneamente ou sem custos. Projetos podem exigir pesquisa, materiais, energia, mão de obra robótica, manutenção e avaliação de impacto.
+
+Vida nativa, quando introduzida, deve ter ecologia e comportamento próprios. Novas comunidades ou habitantes podem surgir organicamente conforme o mundo se torna habitável, sem copiar povos, espécies ou personagens identificáveis de outras franquias.
+
+## Estrutura de progressão
+
+1. **Sobreviver:** estabilizar a nave, garantir energia, água, abrigo e segurança.
+2. **Explorar:** mapear o planeta, lançar sondas, investigar biomas, cavernas e recursos.
+3. **Pesquisar:** analisar amostras e desenvolver tecnologias adequadas às condições locais.
+4. **Construir:** erguer infraestrutura, oficinas, laboratórios, sistemas de suporte à vida e habitats.
+5. **Restaurar e cultivar:** criar condições para ecossistemas e produção sustentável.
+6. **Expandir:** estabelecer bases, conectar regiões, desenvolver veículos e ampliar a presença no planeta.
+7. **Povoar e prosperar:** permitir que formas de vida e comunidades compatíveis com o mundo se estabeleçam, com histórias e necessidades próprias.
+
+Essas etapas orientam a progressão, mas permitem exploração livre, prioridades alternativas e consequências persistentes.
 
 ## Direção visual e linguagem
 
-- Manter a direção artística própria já estabelecida: aventura 3D low-poly, cores expressivas, ambientes naturais e urbanos em transformação.
-- Criar símbolos, arquitetura, interface, sons, música, nomes e silhuetas originais.
-- Não usar códigos visuais reconhecíveis de franquias: esquemas de cores, figurinos, gestos, emblemas, efeitos, objetos ou enquadramentos icônicos.
-- “Mundo Virtual” é uma descrição do produto. Dentro da ficção, os habitantes vivem sua realidade e não precisam discutir se ela é simulada.
+- Manter a direção artística própria já estabelecida no jogo, adaptando-a ao cenário de exploração espacial e construção planetária.
+- Criar arquitetura, naves, interfaces, equipamentos, símbolos, sons, música, criaturas e silhuetas originais.
+- Não reproduzir paletas, figurinos, emblemas, gestos, efeitos, objetos, enquadramentos ou designs icônicos de franquias existentes.
+- Evitar também semelhanças estruturais reconhecíveis: protagonista predestinado, profecia, realidade secreta controlada por máquinas, rebelião equivalente a uma obra conhecida, entidades perseguidoras equivalentes ou uma inteligência artificial que funcione como oráculo.
+- Se uma ideia depender de comparação com uma obra existente para ser compreendida, redesenhar sua premissa, aparência e função.
 
-## Regras de escrita e revisão de originalidade
+## Regras de revisão de originalidade
 
-Antes de aprovar qualquer personagem, missão, diálogo, chefe, facção, item narrativo ou sequência cinematográfica:
+Antes de aprovar qualquer personagem, missão, diálogo, criatura, antagonista, tecnologia, construção ou sequência cinematográfica:
 
-1. Descrever sua função dramática sem mencionar uma obra de referência.
-2. Verificar se nome, aparência, poderes, personalidade, relações, falas e trajetória formam um conjunto próprio.
+1. Descrever sua função no universo de exploração e construção planetária sem mencionar uma obra de referência.
+2. Verificar se nome, aparência, personalidade, habilidades, relações e trajetória formam um conjunto próprio.
 3. Evitar equivalentes diretos, versões felinas, paródias involuntárias ou substituições cosméticas de personagens conhecidos.
-4. Se a ideia depender de uma comparação com uma obra existente para ser compreendida, redesenhar sua premissa.
-5. Preferir causas, conflitos e soluções que decorram da ecologia, da história e das comunidades deste universo.
-6. Registrar as decisões importantes e adicionar testes para impedir que textos antigos sejam reintroduzidos.
+4. Preferir conflitos que decorram de sobrevivência, ciência, ecologia, recursos, engenharia, exploração e escolhas do jogador.
+5. Registrar decisões importantes e criar verificações para impedir a reintrodução de textos antigos.
 
 Esta diretriz reduz semelhanças intencionais e acidentais, mas não constitui garantia jurídica de ausência de conflitos. Nomes e elementos comerciais relevantes ainda devem passar por pesquisa e avaliação apropriadas antes de lançamento.
 
 ## Compatibilidade com sistemas existentes
 
-A revisão narrativa não autoriza apagar mecânicas já implementadas. Manter combate ATB, sobrevivência, progressão, tarefas, lojas, sociedade, agentes, portais e exploração, alterando apenas sua apresentação e contexto narrativo quando necessário. Preservar IDs de save, contratos de API e nomes técnicos que não sejam conteúdo ficcional. Migrações de dados devem ser retrocompatíveis.
+A revisão narrativa não autoriza apagar mecânicas já implementadas. Preservar combate ATB, sobrevivência, progressão, tarefas, lojas, inventário, GPS, exploração, construção, portais e agentes, adaptando contexto e apresentação quando necessário. Preservar IDs de save, contratos de API e nomes técnicos que não sejam conteúdo ficcional. Migrações de dados devem ser retrocompatíveis.
 
-## Migração pendente
+## Migração técnica pendente
 
-A interface de diálogo de Cowila deve abandonar títulos e falas de “Oráculo”, “Escolhido”, “Sentinelas” e qualquer referência à Matrix. O Worker de Cowila também precisa receber a mesma atualização de personalidade e contexto; essa pasta tem trabalho previamente reservado e deve ser atualizada pelo responsável dessa tarefa, sem sobrescrever a reserva.
+A interface e o Worker de Cowila devem refletir seu papel de IA da nave, mantendo compatibilidade dos endpoints e contratos existentes. O arquivo `workers/cowila-ai/src/index.ts` está reservado por uma tarefa paralela; sua atualização deve ser coordenada com o responsável por essa tarefa, sem sobrescrever alterações em andamento.
