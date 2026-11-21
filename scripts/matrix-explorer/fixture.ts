@@ -25,6 +25,8 @@ interface ExplorerWorldSnapshot {
   indoorZones: BuiltWorld['indoorZones'];
   colliders: BuiltWorld['colliders'];
   colliderCount: number;
+  activeInteractableId: string | null;
+  openShopId: string | null;
   society: {
     tick: number;
     agents: SocietySimulationSnapshot['agents'];
@@ -40,6 +42,8 @@ interface EngineInspection {
   society: Pick<SocietySimulation, 'snapshot'>;
   catPos: { x: number; z: number };
   camYaw: number;
+  activeInteractableId: string | null;
+  openShopId: string | null;
 }
 
 interface ExplorerApi {
@@ -111,6 +115,8 @@ function worldSnapshot(): ExplorerWorldSnapshot {
     indoorZones: world.indoorZones.map((zone) => ({ ...zone })),
     colliders: world.colliders.map((collider) => ({ ...collider })),
     colliderCount: world.colliders.length,
+    activeInteractableId: internal.activeInteractableId,
+    openShopId: internal.openShopId,
     society: {
       tick: society.tick,
       agents: society.agents.map((agent) => ({
