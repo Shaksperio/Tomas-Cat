@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { type BattleAction, FOE_SIDES, type FoeSide, type Side } from './atb';
-import { FighterOcclusionState, isSafeOcclusionHit } from './fighterOcclusion';
+import { FighterOcclusionState, collectOcclusionCandidates } from './fighterOcclusion';
 
 /**
  * Cena cinematográfica da batalha (estilo RPG clássico): cortes de câmera,
@@ -166,6 +166,8 @@ export class BattleStage {
   private readonly occlusionTarget = new THREE.Vector3();
   private readonly occlusionDirection = new THREE.Vector3();
   private occlusionRefresh = 0;
+  private occlusionCandidates: THREE.Mesh[] = [];
+  private occlusionCandidatesAge = Infinity;
   private onPlayerClaw: () => void = () => undefined;
   private onPlayerCheer: () => void = () => undefined;
 
@@ -185,6 +187,8 @@ export class BattleStage {
   constructor(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
     this.scene = scene;
     this.camera = camera;
+    // Sprites exigem a câmera no raycaster; sem ela o three.js lança TypeError.
+    this.occlusionRaycaster.camera = camera;
     this.origFov = camera.fov;
     this.fovTarget = camera.fov;
     this.scene.add(this.group);
@@ -292,6 +296,11 @@ export class BattleStage {
     try {
       this.fighterOcclusion.restore();
       this.scene.updateMatrixWorld(true);
+      this.occlusionCandidatesAge += 0.11;
+      if (this.occlusionCandidatesAge >= 1.5) {
+        this.occlusionCandidates = collectOcclusionCandidates(this.scene, (object) => this.isFighterPart(object) || this.isBattleStageObject(object));
+        this.occlusionCandidatesAge = 0;
+      }
 
       for (const side of this.activeSides) {
         const fighter = this.fighters[side];
@@ -314,12 +323,8 @@ export class BattleStage {
           this.occlusionDirection.normalize();
           this.occlusionRaycaster.set(this.camera.position, this.occlusionDirection);
           this.occlusionRaycaster.far = Math.max(0, distance - 0.22);
-          const hit = this.occlusionRaycaster.intersectObjects(this.scene.children, true).find((intersection) => {
-            const object = intersection.object;
-            if (this.isFighterPart(object) || this.isBattleStageObject(object)) return false;
-            return isSafeOcclusionHit({ object, instanceId: intersection.instanceId }, () => false);
-          });
-          if (hit) this.fighterOcclusion.hide({ object: hit.object, instanceId: hit.instanceId });
+          const hit = this.occlusionRaycaster.intersectObjects(this.occlusionCandidates, false)[0];
+          if (hit) this.fighterOcclusion.hide({ object: hit.object });
         }
       }
     } catch (error) {
@@ -362,6 +367,7 @@ export class BattleStage {
     this.introT = 0;
     this.events = [];
     this.occlusionRefresh = 0;
+    this.occlusionCandidatesAge = Infinity;
     for (const k of Object.keys(this.displayVigor) as Side[]) this.displayVigor[k] = 100;
     this.fallen.clear();
     this.darkness = 0;
@@ -445,6 +451,7 @@ export class BattleStage {
     this.actionDone = null;
     this.events = [];
     this.fighterOcclusion.restore();
+    this.occlusionCandidates = [];
     for (const fx of this.effects) {
       this.group.remove(fx.obj);
       fx.dispose();
