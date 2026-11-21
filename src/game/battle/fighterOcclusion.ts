@@ -32,6 +32,21 @@ export function isSafeOcclusionHit(hit: OcclusionHit, ignored: (object: THREE.Ob
   return Number.isFinite(worldRadius) && worldRadius > 0 && worldRadius <= MAX_OCCLUDER_WORLD_RADIUS;
 }
 
+/**
+ * Lista, uma vez por intervalo, só os meshes pequenos e opacos que podem ser ocultados.
+ * O raio de oclusão é lançado SOMENTE contra essa lista: nunca contra Sprites (placas de
+ * nome, números de dano), InstancedMesh (milhares de instâncias) nem objetos sem
+ * `raycast` seguro. Raycast contra Sprite sem `Raycaster.camera` lança TypeError, e uma
+ * exceção no laço de quadros derruba a renderização.
+ */
+export function collectOcclusionCandidates(root: THREE.Object3D, ignored: (object: THREE.Object3D) => boolean): THREE.Mesh[] {
+  const candidates: THREE.Mesh[] = [];
+  root.traverseVisible((object) => {
+    if (object instanceof THREE.Mesh && isSafeOcclusionHit({ object }, ignored)) candidates.push(object);
+  });
+  return candidates;
+}
+
 /** Guarda e reverte somente alterações de visibilidade em meshes individuais. */
 export class FighterOcclusionState {
   private readonly hiddenMeshes = new Map<THREE.Mesh, boolean>();
