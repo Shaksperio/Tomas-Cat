@@ -14,7 +14,8 @@ A imagem registra o que foi renderizado; o snapshot informa o estado conhecido p
 
 - `fixture.html` / `fixture.ts`: adaptador local que instancia o GameEngine sem alterar o jogo publicado. O adaptador fornece HUD e inventário estruturado do mundo ativo (interagíveis, predadores, portões, águas, colisores, agentes e tarefas).
 - Usa o UID sintético `matrix-explorer-fixture`, sem Firebase, conta real ou sincronização de saves remotos.
-- A API de automação é uma allowlist: movimento limitado, parar, pular, interagir, atacar, miar, sonar e câmera.
+- A API de automação é uma allowlist: movimento limitado por vetor ou destino X/Z, parar, pular, interagir, atacar, miar, sonar e câmera.
+- O runner usa A* em grade de 2,5 unidades, expandindo colisores e impedindo cortes diagonais por cantos bloqueados; a primeira missão segue um waypoint em direção à loja ativa mais próxima.
 - `run.mjs`: inicia Vite e Chromium, captura telas, verifica deslocamento, produz mapa SVG X/Z e relatórios JSON/Markdown com os dados vivos do motor.
 - O workflow próprio valida em PR e armazena evidências; não publica o jogo.
 
@@ -27,7 +28,7 @@ O relatório registra:
 - Predadores, chefes, rivais territoriais e criaturas amigáveis com posição, vida e fase.
 - Portões de fase, lagos, rios, zonas internas e quantidade de colisores.
 - Habitantes simulados, profissão, posição, status, tarefa ativa, fila de tarefas e recursos comunitários; o runner compara o tick social inicial e final para comprovar que a simulação avançou durante a observação.
-- Mapa SVG X/Z com marcadores e legenda, gerado a partir dos dados observados.
+- Mapa SVG X/Z com marcadores e legenda, gerado a partir dos dados observados, incluindo a rota A* planejada.
 
 Os dados sociais são um snapshot da simulação local executada pelo GameEngine, não uma prova de persistência entre sessões ou de servidor compartilhado.
 
@@ -45,9 +46,10 @@ Os dados sociais são um snapshot da simulação local executada pelo GameEngine
 2. GameEngine cria canvas WebGL e fornece snapshot de HUD real.
 3. Movimento altera a posição observada e o comando de parada permite medir a desaceleração até repouso.
 4. Inventário estruturado contém entidades reais do mundo ativo e IDs únicos.
+5. Planejador A* encontra rota válida em torno dos colisores e o controlador segue o primeiro waypoint com correção de câmera.
 5. Mapa SVG corresponde às coordenadas observadas e inclui jogador, pontos de interesse, predadores e agentes.
 6. Capturas desktop, pós-movimento e viewport móvel são produzidas.
-7. Relatório contém ambiente, estados, inventário, distância, eventos, erros e nomes das capturas.
+7. Relatório contém ambiente, estados, inventário, rota, distância, eventos, erros e nomes das capturas.
 8. CI da PR fica verde e os artefatos podem ser inspecionados.
 
 ## Próximas capacidades
