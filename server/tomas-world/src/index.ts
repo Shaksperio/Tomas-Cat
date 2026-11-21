@@ -1,7 +1,7 @@
 /**
  * RASCUNHO NÃO EXECUTADO (T-219): esqueleto do Worker + Durable Object do mundo compartilhado.
- * Não foi compilado com wrangler nem implantado; não há D1 nem produção. Este arquivo fica
- * fora do `tsconfig` do jogo. Toda a lógica de regras está em `src/game/net/` (testada).
+ * Não foi compilado com wrangler nem implantado; não há D1 nem produção. O `lint` do projeto o
+ * compila usando `workers-env.d.ts` (tipos mínimos). Toda a lógica de regras está em `src/game/net/` (testada).
  *
  * Segurança: a autenticação FALHA FECHADA. Sem verificador real de token Firebase, só aceita
  * tokens `dev:<uid>` quando `ALLOW_INSECURE_DEV_TOKENS === 'true'` (apenas desenvolvimento local).
