@@ -2,7 +2,7 @@
 
 ## Diretriz do produto
 
-Tomas Vagabundo deve funcionar como uma realidade simulada coerente, com habitantes e sistemas que continuam tendo uma vida operacional mesmo quando o jogador não está observando. “Tipo Matrix” descreve essa ambição de simulação; não significa reproduzir a franquia cinematográfica, seus personagens, estética, símbolos ou narrativa.
+Tomas Vagabundo deve funcionar como uma realidade simulada coerente, com habitantes e sistemas que continuam tendo uma vida operacional mesmo quando o jogador não está observando. A expressão “mundo virtual” descreve essa ambição de simulação; não significa reproduzir obras de terceiros, seus personagens, estética, símbolos ou narrativa.
 
 O jogador é um participante da realidade, não o centro que liga e desliga todos os acontecimentos.
 

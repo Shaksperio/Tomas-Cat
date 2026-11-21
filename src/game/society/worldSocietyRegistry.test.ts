@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { WorldSocietyRegistry } from './worldSocietyRegistry';
 
-test('registers independent society simulations for multiple Matrix worlds', () => {
+test('registers independent society simulations for multiple virtual worlds', () => {
   const registry = new WorldSocietyRegistry(['quarantine-city', 'undergrid']);
   assert.deepEqual(registry.registeredWorldIds, ['quarantine-city', 'undergrid']);
   assert.equal(registry.snapshot('quarantine-city').tick, 0);

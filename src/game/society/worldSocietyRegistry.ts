@@ -5,7 +5,7 @@ const WORLD_ID_PATTERN = /^[a-z0-9][a-z0-9:_-]{0,63}$/i;
 /**
  * Keeps an isolated deterministic society simulation for each registered world.
  *
- * This is an in-memory runtime foundation for the Matrix-style world model:
+ * This is an in-memory runtime foundation for the simulated virtual-world model:
  * each world has its own agents, tasks, relationships, resources and logical
  * clock. It does not imply persistence, networking, background execution or
  * a connection to the Three.js scene.

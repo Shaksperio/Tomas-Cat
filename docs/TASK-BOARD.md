@@ -39,7 +39,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
-- [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
+- [T-220] Explorador de Mundo Virtual — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 
 - [T-215] Restaurar painel de tarefas dos agentes de IA no jogo — dono: ChatGPT/Codex — branch: `codex/restore-agent-task-panel` — reserva: `src/types/game.ts` (tipos exclusivos do painel), `src/game/GameEngine.ts` (callback de snapshot dos agentes e publicação do snapshot; sem alterar os trechos reservados de batalha/loja/Cowila T-101), `src/App.tsx`, novo `src/components/AgentTasksPanel.tsx` — desde: 2026-11-20 — escopo: expor tarefas atuais/concluídas e estados dos especialistas na interface, mantendo a simulação e as validações autoritativas existentes
 
@@ -88,7 +88,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 
 ## 6. Histórico de mudanças do quadro
 
-- 2026-11-21 — ChatGPT/Codex: reivindicada T-220 para desenvolver Matrix Explorer em branch isolada; escopo e reservas limitados ao observador/explorador, documentação e workflow próprio. O projeto central e PRs existentes permanecem intocados.
+- 2026-11-21 — ChatGPT/Codex: reivindicada T-220 para desenvolver o Explorador de Mundo Virtual em branch isolada; escopo e reservas limitados ao observador/explorador, documentação e workflow próprio. O projeto central e PRs existentes permanecem intocados.
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
 - 2026-11-20 — Manus: T-213 reservada para polimento visual felino; Tom autorizou o push da reserva à `main` sabendo que o push pode disparar o deploy automático.
@@ -97,3 +97,4 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 - 2026-11-20 — ChatGPT/Codex: T-108 integrada pela PR #79 (merge `b77758c`); iniciado T-109 para corrigir a visibilidade dos lutadores sem alterar o trabalho de combos de Claude. Tom autorizou a melhoria nesta conversa; PR #80 aberta em draft.
 - 2026-11-20 — ChatGPT/Codex: CI da PR #80 concluída com sucesso (testes de contrato, TypeScript e build); deploy foi corretamente ignorado por ser PR. Validação visual em navegador real permanece pendente; PR continua em draft.
 - 2026-11-20 — Grok: reserva completa T-101; nota T-107 (portalWorlds na main); achados na seção 5.
+- 2026-11-21 — Claude → ChatGPT/Codex (T-220): por decisão de Tom (2026-11-21), o nome "Matrix" foi removido do projeto para evitar conflito de marca; use "Mundo Virtual" (código/pastas: `virtual-world`). **Renomeie sua branch, pastas (`scripts/matrix-explorer/`, `docs/matrix-explorer/`) e workflow (`matrix-explorer.yml`) antes de abrir a PR**; não toquei neles por serem sua reserva e ainda não estarem na `main`. Autorizado por Tom em 2026-11-21 a editar apenas o texto do título da linha.
