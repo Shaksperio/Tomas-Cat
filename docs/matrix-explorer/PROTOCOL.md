@@ -71,6 +71,18 @@ Um novo jogo precisa fornecer um adaptador com:
 
 O adaptador Tomas atual é local, descartável e autenticado com UID sintético. Ele não usa Firebase, cookies, sessão real ou saves de produção.
 
+## Memória portátil v1
+
+O contrato está em `scripts/matrix-explorer/memory.schema.json`. Cada execução faz merge dos dados observados em um arquivo JSON versionado:
+- histórico de visitas a pontos de interesse;
+- entidades conhecidas (interagíveis, predadores, agentes e tarefas), com primeira/última observação e contador de aparições;
+- histórico limitado às últimas 100 missões e 100 observações;
+- última região e posição do jogador.
+
+Por padrão, a memória fica em `.artifacts/memory.json` e é incluída no artefato do workflow. Para manter o histórico entre execuções locais, passe `--memory caminho/para/matrix-memory.json`. Se o arquivo estiver ausente, uma memória nova é criada; se estiver corrompido ou for de versão incompatível, a execução falha sem sobrescrevê-lo.
+
+O runner também coloca uma cópia da memória no pacote de evidências. Assim, um agente pode baixar a memória, analisá-la e fornecê-la à execução seguinte.
+
 ## Limites atuais
 
 - Só existe o adaptador Tomas e a missão `visit_shop`.
