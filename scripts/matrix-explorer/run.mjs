@@ -295,7 +295,7 @@ async function followRoute(page, route, target, constraints) {
     let attempts = 0;
     for (; attempts < maxAttempts; attempts++) {
       if (Date.now() - startedAt > constraints.maxDurationSeconds * 1000) break;
-      await page.evaluate((point) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, constraints.sprint), waypoint);
+      await page.evaluate(({ point, sprint }) => window.__MATRIX_EXPLORER__?.actions.moveToward(point.x, point.z, sprint), { point: waypoint, sprint: constraints.sprint });
       await page.waitForTimeout(250);
       const current = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getSnapshot() ?? null);
       if (!current) throw new Error('Snapshot do jogador indisponível durante navegação.');
