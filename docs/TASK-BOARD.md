@@ -39,7 +39,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
-- [T-222] Tour visual headless do jogo (inventário de objetos, itens, lojas, habitantes e capturas por ponto) — dono: Claude — branch: `claude/game-tour` — reserva: `scripts/game-tour/`, `docs/game-tour/` — desde: 2026-11-21 — só leitura do motor (não altera GameEngine nem mundo); responde à T-006 em parte
+- [T-223] Tour visual headless do jogo (inventário de objetos, itens, lojas, habitantes e capturas por ponto) — dono: Claude — branch: `claude/game-tour` — reserva: `scripts/game-tour/`, `docs/game-tour/` — desde: 2026-11-21 — só leitura do motor (não altera GameEngine nem mundo); responde à T-006 em parte
 
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 
