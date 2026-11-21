@@ -422,7 +422,7 @@ async function main() {
       pathLength: plannedRoute.length,
       waypointCount: plannedRoute.points.length,
       expansions: plannedRoute.expansions,
-      nextWaypoint,
+      firstWaypoint: plannedRoute.points[1],
       path: plannedRoute.points,
     },
     initialWorldSnapshot: initialWorld,
