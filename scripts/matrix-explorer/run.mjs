@@ -153,7 +153,7 @@ async function main() {
   await page.screenshot({ path: path.join(outputDir, 'world-initial.png'), fullPage: true });
 
   const start = boot.snapshot;
-  const world = boot.worldSnapshot;
+  const initialWorld = boot.worldSnapshot;
   await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.move(0, -1, false));
   await page.waitForTimeout(1800);
   await page.evaluate(() => window.__MATRIX_EXPLORER__?.actions.stop());
@@ -180,6 +180,10 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(outputDir, 'world-mobile.png'), fullPage: true });
+  const world = await page.evaluate(() => window.__MATRIX_EXPLORER__?.getWorldSnapshot() ?? null);
+  if (!world || world.society.tick <= initialWorld.society.tick) {
+    throw new Error('A simulação social não avançou durante a observação; snapshot dinâmico não confirmado.');
+  }
 
   const distance = afterStop ? Math.hypot(afterStop.catX - start.catX, afterStop.catZ - start.catZ) : 0;
   const interactablesByKind = world.interactables.reduce((counts, item) => {
@@ -221,7 +225,9 @@ async function main() {
       fixture: 'GameEngine local com identidade sintética isolada; sem login Firebase e sem saves de produção',
     },
     worldInventory,
+    initialWorldSnapshot: initialWorld,
     worldSnapshot: world,
+    societyTickProgress: world.society.tick - initialWorld.society.tick,
     observations: {
       initial: start, atInputRelease, afterStop, settled, movementDistance: distance, coastingDistance, settleDrift,
       canvasCount: boot.canvasCount, title: boot.title,
@@ -245,7 +251,7 @@ async function main() {
     `- Deriva final em 600 ms: ${settleDrift.toFixed(3)} unidades`,
     `- Interagíveis: ${worldInventory.interactables} (${Object.entries(interactablesByKind).map(([kind,count]) => `${kind}: ${count}`).join(', ')})`,
     `- Predadores: ${worldInventory.predators}; chefes: ${worldInventory.bosses}; rivais: ${worldInventory.territoryRivals}`,
-    `- Agentes: ${worldInventory.societyAgents}; tarefas: ${worldInventory.societyTasks}; tick social: ${worldInventory.societyTick}`,
+    `- Agentes: ${worldInventory.societyAgents}; tarefas: ${worldInventory.societyTasks}; tick social: ${worldInventory.societyTick} (+${report.societyTickProgress} durante a observação)`,
     `- Lagos: ${worldInventory.waterBodies}; rios: ${worldInventory.rivers}; colisores: ${worldInventory.colliders}`,
     `- Erros fatais de página: ${pageErrors.length}`, '',
     'Capturas, mapa SVG e inventário JSON acompanham este relatório como artefatos.',
