@@ -308,6 +308,28 @@ export interface ShopHud {
   stock: ShopHudEntry[];
 }
 
+export interface AgentTasksHudSnapshot {
+  tick: number;
+  agents: Array<{
+    id: string;
+    name: string;
+    profession: string;
+    status: string;
+    activeTaskId: string | null;
+    energy: number;
+    health: number;
+  }>;
+  tasks: Array<{
+    id: string;
+    kind: string;
+    status: string;
+    requiredProfession: string;
+    assignedAgentId: string | null;
+    updatedAtTick: number;
+  }>;
+  cowilaBrief: string | null;
+}
+
 export interface HudSnapshot {
   health: number;
   maxHealth: number;
