@@ -4,7 +4,7 @@ const log: string[] = [];
 const engine = new GameEngine(container, {
   onHudUpdate: (s: any) => { (window as any).__hud = s; }, onToast: (m: string) => log.push(m), onLoreOpen: () => {},
   onPlayerDown: () => {}, onGameOver: () => {}, onVictory: () => {}, onEvolutionUnlocked: () => {},
-} as any);
+} as any, 'battle-render-check');
 (window as any).engine = engine;
 (window as any).toasts = log;
 engine.startNewGame();
