@@ -34,7 +34,7 @@ jobs:
       - name: Install Chromium
         run: npm exec --prefix scripts/matrix-explorer -- playwright install --with-deps chromium
       - name: Run Matrix Explorer observation
-        run: node scripts/matrix-explorer/run.mjs
+        run: node scripts/matrix-explorer/run.mjs --mission scripts/matrix-explorer/mission.example.json
       - name: Upload observation evidence
         if: always()
         uses: actions/upload-artifact@v4
