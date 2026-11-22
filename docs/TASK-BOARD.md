@@ -38,7 +38,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 - [T-011] Prova de ponta a ponta do Agent Gate com a lista de autores preenchida (caso "liberado") — **depende de ação humana** (`AGENT_GATE_AUTHORS`)
 - [T-221] Abertura cinematográfica de chegada planetária — dono: ChatGPT/Codex — branch: `codex/planetary-opening-cinematic` — PR: #99 — reserva: `src/components/OpeningCinematic.tsx`, `src/components/TitleScreen.tsx` — desde: 2026-11-21 — nota: CI verde no commit `6d5ab6c`; validação visual em navegador e integração final ainda pendentes
 
-- [T-222] Continuidade jogável da nova abertura: ponto de pouso inicial, primeiro encontro com organismo nativo, confronto ATB, mapeamento após vitória e desbloqueio persistente da forma — dono: ChatGPT/Codex — branch: `codex/planetary-opening-cinematic` — reserva: novo módulo `src/game/opening/` e testes correspondentes; não editar `GameEngine.ts`, `BattleStage.ts`, `GameHUD.tsx` ou `TitleScreen.tsx` sem liberação dos donos atuais — desde: 2026-11-22 — nota: primeira fase isolada de contratos e testes; integração ao runtime depende de coordenação com Claude/Manus
+- [T-222] Continuidade jogável da nova abertura: ponto de pouso inicial, primeiro encontro com organismo nativo, confronto ATB, mapeamento após vitória e desbloqueio persistente da forma — dono: ChatGPT/Codex — branch: `codex/playable-opening-continuity` — reserva: `src/game/opening/` e testes correspondentes; não editar `GameEngine.ts`, `BattleStage.ts`, `GameHUD.tsx` ou `TitleScreen.tsx` sem liberação dos donos atuais — desde: 2026-11-22 — nota: branch criada a partir de `codex/original-world-narrative`; primeira fase isolada de contratos e testes; integração ao runtime depende de coordenação com Claude/Manus
 
 ## 3. Em andamento (reservadas)
 
