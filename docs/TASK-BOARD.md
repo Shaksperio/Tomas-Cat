@@ -42,6 +42,8 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
+- [T-223] Tour visual headless do jogo (inventário de objetos, itens, lojas, habitantes e capturas por ponto) — dono: Claude — branch: `claude/game-tour` — reserva: `scripts/game-tour/`, `docs/game-tour/` — desde: 2026-11-21 — só leitura do motor (não altera GameEngine nem mundo); responde à T-006 em parte
+
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 
 - [T-215] Restaurar painel de tarefas dos agentes de IA no jogo — dono: ChatGPT/Codex — branch: `codex/restore-agent-task-panel` — reserva: `src/types/game.ts` (tipos exclusivos do painel), `src/game/GameEngine.ts` (callback de snapshot dos agentes e publicação do snapshot; sem alterar os trechos reservados de batalha/loja/Cowila T-101), `src/App.tsx`, novo `src/components/AgentTasksPanel.tsx` — desde: 2026-11-20 — escopo: expor tarefas atuais/concluídas e estados dos especialistas na interface, mantendo a simulação e as validações autoritativas existentes
