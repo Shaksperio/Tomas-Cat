@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserPopupRedirectResolver, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { OracleDialogue } from './components/OracleDialogue';
-import { AgentTasksPanel } from './components/AgentTasksPanel';
 import type { OracleWorldAction } from './game/society/agents/oracleWorldActions';
 import { GameHUD } from './components/GameHUD';
 import { LoginScreen } from './components/LoginScreen';
@@ -352,7 +351,6 @@ export default function App() {
 
       <div className="relative min-h-0 w-full flex-1 overflow-hidden">
       <GameCanvas key={authUser.uid} callbacks={callbacks} ownerId={authUser.uid} ownerEmail={authUser.email ?? ''} ownerEmailVerified={authUser.emailVerified} onEngineReady={handleEngineReady} />
-      {phase === 'playing' && agentTasks && <AgentTasksPanel snapshot={agentTasks} />}
 
       {oracleOpen && authUser?.emailVerified && authUser.email?.trim().toLowerCase() === 'antonyopintor@gmail.com' && (
         <OracleDialogue
@@ -369,7 +367,7 @@ export default function App() {
 
       {phase !== 'title' && (
         <GameHUD
-          phase={phase} hud={hud} muted={muted} toast={toast} activeLore={activeLore}
+          phase={phase} hud={hud} muted={muted} toast={toast} activeLore={activeLore} agentTasks={agentTasks}
           evolvedBannerStage={evolvedBannerStage} onToggleMute={handleToggleMute}
           onPauseToggle={handlePauseToggle} onContinueAfterVictory={handleContinueAfterVictory}
           onInteract={() => engineRef.current?.triggerInteract()}

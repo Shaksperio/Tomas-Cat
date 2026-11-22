@@ -1,4 +1,5 @@
 import { DraggablePanel } from './DraggablePanel';
+import { AgentTasksPanel } from './AgentTasksPanel';
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   AlertTriangle,
@@ -42,7 +43,7 @@ import {
   MAX_CAT_LEVEL,
 } from '../types/game';
 import { getDayPeriod } from '../game/dayCycle';
-import type { DuelHud } from '../types/game';
+import type { AgentTasksHudSnapshot, DuelHud } from '../types/game';
 import { LORE_LOGS } from '../game/worldBuilder';
 import { MOVE_UNLOCKS } from '../game/progression/unlocks';
 import { DIALOGUE_DATA } from '../game/dialogue/dialogueData';
@@ -55,6 +56,7 @@ interface GameHUDProps {
   muted: boolean;
   toast: { id: number; message: string; tone: 'info' | 'success' | 'warn' } | null;
   activeLore: LoreLog | null;
+  agentTasks?: AgentTasksHudSnapshot | null;
   evolvedBannerStage: number | null;
   onToggleMute: () => void;
   onPauseToggle: () => void;
@@ -641,6 +643,7 @@ export function GameHUD({
   muted,
   toast,
   activeLore,
+  agentTasks,
   evolvedBannerStage,
   onToggleMute,
   onPauseToggle,
@@ -830,6 +833,11 @@ export function GameHUD({
                   <div className="space-y-2">{hud.playerTasks?.map((task) => <div key={task.id} className="text-[10px]"><div className="flex items-center justify-between gap-1"><span className={task.status === 'completed' ? 'text-emerald-300' : 'text-slate-100'}>{task.title}</span><span className="shrink-0 text-slate-400">{task.status === 'completed' ? '✓' : `${task.progress}/${task.target}`}</span></div><div className="mt-0.5 h-1 overflow-hidden rounded bg-white/10"><div className={`h-full ${task.status === 'completed' ? 'bg-emerald-400' : 'bg-cyan-400'}`} style={{ width: `${Math.min(100, task.progress / Math.max(1, task.target) * 100)}%` }} /></div></div>)}</div>
                 </div>}
               </div>
+              </DraggablePanel>
+            )}
+            {phase === 'playing' && agentTasks && (
+              <DraggablePanel id="agents" className="pointer-events-auto">
+                <AgentTasksPanel snapshot={agentTasks} />
               </DraggablePanel>
             )}
             {/* Hidden-by-default Expanded Status & Evolution Drawer */}
@@ -1287,9 +1295,9 @@ export function GameHUD({
 
       {/* TOAST */}
       {toast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+        <div className="absolute top-[22vh] left-1/2 -translate-x-1/2 z-20 pointer-events-none">
           <div
-            className={`rounded-lg border px-4 py-2 text-xs font-medium shadow-lg whitespace-nowrap ${
+            className={`max-w-[calc(100vw-1.5rem)] rounded-lg border px-4 py-2 text-center text-xs font-medium shadow-lg ${
               toast.tone === 'warn'
                 ? 'border-amber-500/40 bg-[#1F170B]/95 text-amber-200'
                 : toast.tone === 'success'

@@ -48,7 +48,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export function AgentTasksPanel({ snapshot }: AgentTasksPanelProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const taskById = useMemo(
     () => new Map<string, AgentTasksHudSnapshot['tasks'][number]>(snapshot.tasks.map((task) => [task.id, task] as const)),
     [snapshot.tasks],
@@ -64,7 +64,7 @@ export function AgentTasksPanel({ snapshot }: AgentTasksPanelProps) {
   return (
     <section
       aria-label="Tarefas dos agentes de inteligência artificial"
-      className="pointer-events-auto absolute left-2 top-16 z-[60] w-[min(19rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-violet-300/30 bg-[#0a1020]/95 text-slate-100 shadow-[0_12px_36px_rgba(0,0,0,0.48)] backdrop-blur-md"
+      className="pointer-events-auto w-[min(56vw,15rem)] overflow-hidden rounded-xl border border-violet-300/30 bg-[#0a1020]/95 text-slate-100 shadow-[0_12px_36px_rgba(0,0,0,0.48)] backdrop-blur-md"
     >
       <button
         type="button"
@@ -75,11 +75,11 @@ export function AgentTasksPanel({ snapshot }: AgentTasksPanelProps) {
         <span className="flex min-w-0 items-center gap-2">
           <span className="text-base" aria-hidden="true">✦</span>
           <span className="min-w-0">
-            <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-violet-200">Agentes de IA</span>
+            <span className="block whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.1em] text-violet-200">Agentes de IA</span>
             <span className="block text-[10px] text-slate-400">{workingCount} em atividade · {queuedTasks.length} na fila</span>
           </span>
         </span>
-        <span className="shrink-0 text-xs text-violet-200">{expanded ? 'Recolher −' : 'Ver tarefas +'}</span>
+        <span className="shrink-0 text-xs text-violet-200"><span className="hidden sm:inline">{expanded ? 'Recolher ' : 'Ver tarefas '}</span>{expanded ? '−' : '+'}</span>
       </button>
 
       {expanded && (
