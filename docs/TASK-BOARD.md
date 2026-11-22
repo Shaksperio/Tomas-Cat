@@ -36,6 +36,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 - [T-009] Persistência remota e sincronização (Worker, Durable Objects, D1) com infraestrutura própria — fase 6 do roteiro; confira com a tarefa T-103 antes
 - [T-010] Mundo evoluindo sem jogadores conectados — fase 7; depende de T-009
 - [T-011] Prova de ponta a ponta do Agent Gate com a lista de autores preenchida (caso "liberado") — **depende de ação humana** (`AGENT_GATE_AUTHORS`)
+- [T-222] Continuidade jogável da nova abertura: ponto de pouso inicial, primeiro encontro com organismo nativo, confronto ATB, mapeamento após vitória e desbloqueio persistente da forma — reserva sugerida: novo módulo `src/game/opening/`, novos testes em `src/game/opening/`; integração no `GameEngine.ts` e `BattleStage.ts` depende de liberação explícita das reservas atuais e revisão do quadro antes de reivindicar
 
 ## 3. Em andamento (reservadas)
 
