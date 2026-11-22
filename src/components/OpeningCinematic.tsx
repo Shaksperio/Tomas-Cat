@@ -10,12 +10,12 @@ type Beat = { at: number; title: string; line: string; speaker: 'COWILA' | 'TOMA
 
 const BEATS: Beat[] = [
   { at: 0, title: 'UMA NOVA FRONTEIRA', line: 'Setor desconhecido. Iniciando aproximação planetária.', speaker: 'COWILA' },
-  { at: 7, title: 'ENTRADA ATMOSFÉRICA', line: 'Atmosfera mais densa que o previsto. Ajustando trajetória.', speaker: 'COWILA' },
-  { at: 15, title: 'POUSO DE EMERGÊNCIA', line: 'Propulsor auxiliar comprometido. Pouso controlado em andamento.', speaker: 'COWILA' },
-  { at: 23, title: 'SINAIS DE VIDA', line: 'Tomas, há um organismo próximo. Leitura biométrica incompleta.', speaker: 'COWILA' },
-  { at: 30, title: 'PRIMEIRO CONTATO', line: 'Não se aproxime rápido. Ele está defendendo este lugar.', speaker: 'COWILA' },
-  { at: 37, title: 'MAPEAMENTO BIOLÓGICO', line: 'Compatibilidade orgânica confirmada. A forma pode ser sintetizada.', speaker: 'COWILA' },
-  { at: 42, title: 'UMA NOVA FORMA', line: 'Certo, Cowila. Vamos conhecer este mundo de perto.', speaker: 'TOMAS' },
+  { at: 7, title: 'ENTRADA ATMOSFÉRICA', line: 'Densidade atmosférica acima do previsto. Compensando a trajetória.', speaker: 'COWILA' },
+  { at: 15, title: 'POUSO DE EMERGÊNCIA', line: 'Um propulsor perdeu estabilidade. Iniciando pouso controlado.', speaker: 'COWILA' },
+  { at: 23, title: 'SISTEMAS DA NAVE', line: 'Suporte vital estável. Energia limitada. A nave será nossa primeira base.', speaker: 'COWILA' },
+  { at: 30, title: 'PRIMEIRO CONTATO', line: 'Detectei um organismo nativo. Ele protege o próprio território.', speaker: 'COWILA' },
+  { at: 37, title: 'DISTÂNCIA SEGURA', line: 'Ainda não conhecemos seu comportamento. Recomendo observar antes de agir.', speaker: 'COWILA' },
+  { at: 42, title: 'UMA NOVA MISSÃO', line: 'Entendido. Primeiro vamos conhecer este lugar — sem ameaçar quem vive aqui.', speaker: 'TOMAS' },
 ];
 
 function makeShip(): THREE.Group {
@@ -230,12 +230,6 @@ export function OpeningCinematic({ onComplete, onSkip }: OpeningCinematicProps) 
     cat.position.set(2.1, 0, -2.1);
     cat.scale.setScalar(1.15);
     surfaceGroup.add(cat);
-    const transformedCat = makeNativeCat();
-    transformedCat.position.set(-1.1, 0, 0.5);
-    transformedCat.rotation.y = Math.PI * 0.5;
-    transformedCat.scale.setScalar(0.001);
-    surfaceGroup.add(transformedCat);
-
     const scanRing = new THREE.Mesh(
       new THREE.TorusGeometry(1.35, 0.035, 8, 48),
       new THREE.MeshBasicMaterial({ color: 0x53dcff, transparent: true, opacity: 0.85 })
@@ -302,19 +296,14 @@ export function OpeningCinematic({ onComplete, onSkip }: OpeningCinematicProps) 
         android.rotation.y = local > 9 ? Math.sin(local * 0.28) * 0.08 : 0;
         cat.rotation.y = local > 8 ? Math.sin(local * 0.8) * 0.1 : 0;
         cat.position.x = 2.1 + (local > 10 ? Math.sin(local * 0.55) * 0.1 + approach * 0.28 : 0);
-        const contactPulse = local > 14 && local < 17 ? 1 + Math.sin((local - 14) * Math.PI / 3) * 0.28 : 1;
-        android.scale.setScalar(local < 21 ? 0.9 * contactPulse : Math.max(0.001, 0.9 * (1 - THREE.MathUtils.clamp((local - 21) / 3, 0, 1))));
-        const scan = THREE.MathUtils.clamp((local - 15) / 7, 0, 1);
-        scanRing.position.set(local > 22 ? -1.1 : 2.1, 0.08, local > 22 ? 0.5 : -2.1);
-        scanRing.scale.setScalar(0.75 + scan * 1.15 + Math.sin(t * 3) * 0.05);
-        (scanRing.material as THREE.MeshBasicMaterial).opacity = 0.82 - scan * 0.3;
-        const morph = THREE.MathUtils.clamp((local - 21) / 3, 0, 1);
-        transformedCat.scale.setScalar(morph * 0.9);
-        transformedCat.position.x = -1.1 + morph * 0.05;
-        transformedCat.rotation.y = Math.PI * 0.5 + Math.sin(local * 0.4) * 0.035;
-        if (local > 24) {
-          transformedCat.position.y = Math.abs(Math.sin(local * 2.1)) * 0.045;
-        }
+        const contactPulse = local > 14 && local < 17 ? 1 + Math.sin((local - 14) * Math.PI / 3) * 0.08 : 1;
+        android.scale.setScalar(0.9 * contactPulse);
+        android.position.x = -1.1 + (local > 16 ? Math.min((local - 16) / 12, 1) * 0.18 : 0);
+        scanRing.position.set(2.1, 0.08, -2.1);
+        scanRing.scale.setScalar(0.72 + Math.sin(t * 2.2) * 0.12);
+        (scanRing.material as THREE.MeshBasicMaterial).opacity = 0.35 + (Math.sin(t * 2.2) + 1) * 0.18;
+        cat.rotation.y = local > 8 ? Math.sin(local * 0.8) * 0.1 : 0;
+        cat.position.x = 2.1 + (local > 10 ? Math.sin(local * 0.55) * 0.1 : 0);
       }
       renderer.render(scene, camera);
     };
