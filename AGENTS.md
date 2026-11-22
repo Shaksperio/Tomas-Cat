@@ -9,7 +9,7 @@
 
 - **Nome:** Tomas Vagabundo (nome interno antigo: FELIS-09). O gato jogável se chama **Tomas Vagabundo**.
 - **Repositório:** https://github.com/Shaksperio/Tomas-Cat — autor: Tom (Antonio), `Shaksperio`.
-- **O que é:** jogo 3D de mundo aberto e sobrevivência, em terceira pessoa, com um gato abandonado numa metrópole devastada. Roda no navegador. **Diretriz de mundo (2026-11-17): Tomas Vagabundo será um mundo do tipo Matrix**: uma realidade simulada persistente, formada por ambientes e sociedades autônomas com regras consistentes. O termo descreve a ambição de simulação e autonomia; não autoriza copiar personagens, estética, narrativa, símbolos ou elementos protegidos da franquia Matrix.
+- **O que é:** jogo 3D de mundo aberto e sobrevivência, em terceira pessoa. **Narrativa oficial (decisão de Tom, 2026-11-21): Tomas chega do espaço como androide híbrido, pousa num planeta inabitável e passa a explorá-lo e torná-lo habitável; a forma de gato é obtida por mapeamento do primeiro gato nativo e é a forma jogável atual. A Cowila é a IA da nave.** O texto completo está em `docs/story/ORIGINAL-WORLD-NARRATIVE.md` (PR #98; até ela ser integrada, a `main` ainda traz a premissa antiga de "gato abandonado numa metrópole devastada", que deve ser contextualizada, não apagada). Roda no navegador. **Diretriz de mundo (2026-11-17; nome atualizado em 2026-11-21): Tomas Vagabundo será um Mundo Virtual**: uma realidade simulada persistente, formada por ambientes e sociedades autônomas com regras consistentes. O termo descreve a ambição de simulação e autonomia; não autoriza copiar personagens, estética, narrativa, símbolos ou elementos protegidos de obras de terceiros.
 - **Stack:** React 19, TypeScript, Three.js, Vite, Tailwind CSS 4. Sem engine externa.
 - **Publicação:** GitHub Pages, https://shaksperio.github.io/Tomas-Cat/ (base `/Tomas-Cat/` em `vite.config.ts`). Deploy automático a cada push na `main`, pelo workflow `.github/workflows/deploy-pages.yml`.
 - **Origem:** criado no Google AI Studio; versionado aqui. Mantenha a configuração do Vite e o workflow ao sincronizar.
@@ -82,7 +82,7 @@ O workflow roda, nesta ordem: instalação, `npm test`, `npm run lint`, `npm run
 - **Testes:** contratos, simulação, orquestrador, skills, memória, aprendizado, runtime, projetos, publicação visual e restauração de saves. CI valida testes, TypeScript e build.
 - **Limites atuais:** tudo isso ainda é simulação local do cliente; não é servidor autoritativo, não mantém o mundo avançando depois que o navegador fecha e não implementa multiplayer nem piloto automático persistente.
 
-### 4.3 Diretriz Matrix — realidade simulada
+### 4.3 Diretriz do Mundo Virtual — realidade simulada
 - O mundo deve comportar-se como uma realidade coerente, não como um cenário que só reage ao jogador. Habitantes e sistemas têm rotinas, necessidades, relações, economia, memória de eventos, governança e consequências verificáveis.
 - Camadas-alvo: mundo físico (regiões, clima, construções e recursos); sociedade (habitantes, profissões, relações e tarefas); economia (produção, estoque, comércio e salários); governança (regras, conflitos, proteção e justiça); memória (eventos e estado persistente); interface/percepção (o que o jogador observa, descobre e pode influenciar).
 - Cada mundo já possui simulação local e runtime de agentes isolados por `worldId`, incluídos no save. Isso ainda não equivale a um servidor compartilhado nem a simulação de background.

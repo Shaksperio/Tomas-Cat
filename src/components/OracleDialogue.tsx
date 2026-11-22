@@ -8,7 +8,7 @@ const ENDPOINT = 'https://tomas-cowila-ai.antonyopintor.workers.dev';
 
 export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onClose: () => void; onWorldActions: (actions: OracleWorldAction[]) => void; worldPosition: { x: number; z: number } }) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'oracle', text: 'Então você chegou, Tomas… Eu sou Cowila, a Oráculo. Há muito mais nesta Matrix do que seus olhos conseguem perceber. Os Sentinelas sentem sua presença. O que deseja saber, Escolhido?' },
+    { role: 'oracle', text: 'Então você chegou, Tomas… Eu sou Cowila, a Oráculo. Há muito mais neste Mundo Virtual do que seus olhos conseguem perceber. Os Sentinelas sentem sua presença. O que deseja saber, Escolhido?' },
   ]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
       const response = await fetch(`${ENDPOINT}/v1/oracle-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'Accept': 'application/json' },
-        body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'O Escolhido', setting: 'Matrix', position: worldPosition, bounds: 180 } }),
+        body: JSON.stringify({ message, history, world: { character: 'Tomas', role: 'O Escolhido', setting: 'Mundo Virtual', position: worldPosition, bounds: 180 } }),
       });
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) throw new Error(`A Oráculo retornou uma resposta inesperada (HTTP ${response.status}).`);
@@ -58,9 +58,9 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
       <div className="flex max-h-[min(78vh,680px)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-cyan-300/30 bg-[#071321]/95 shadow-2xl shadow-cyan-950/50">
         <header className="flex items-center justify-between border-b border-cyan-200/15 px-4 py-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-300">A Matrix de Tomas</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-300">O Mundo Virtual de Tomas</p>
             <h2 className="text-lg font-semibold text-slate-50">Cowila · A Oráculo</h2>
-            <p className="text-xs text-slate-400">Uma inteligência nascida dentro da Matrix</p>
+            <p className="text-xs text-slate-400">Uma inteligência nascida dentro do Mundo Virtual</p>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => {
@@ -83,7 +83,7 @@ export function OracleDialogue({ onClose, onWorldActions, worldPosition }: { onC
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100">{message.text}</p>
             </div>
           ))}
-          {busy && <p className="text-xs text-cyan-200 animate-pulse">A Oráculo observa os sinais da Matrix…</p>}
+          {busy && <p className="text-xs text-cyan-200 animate-pulse">A Oráculo observa os sinais do Mundo Virtual…</p>}
         </div>
         {error && <p role="alert" className="px-4 pb-2 text-xs text-amber-300">{error}</p>}
         <form onSubmit={send} className="flex gap-2 border-t border-cyan-200/15 p-3">
