@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as THREE from 'three';
-import { FighterOcclusionState, isSafeOcclusionHit } from './fighterOcclusion';
+import { FighterOcclusionState, collectOcclusionCandidates, isSafeOcclusionHit } from './fighterOcclusion';
 
 const notIgnored = () => false;
 
@@ -96,4 +96,52 @@ test('restores several individual blockers across repeated occlusion cycles', ()
   instanced.getMatrixAt(0, restored);
   assert.equal(blockerB.visible, true);
   assert.deepEqual(restored.elements, instanceA.elements);
+});
+
+test('candidatos de oclusão excluem sprites, instâncias, lutadores, ocultos e objetos grandes', () => {
+  const material = new THREE.MeshBasicMaterial();
+  const scene = new THREE.Scene();
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  const hiddenCrate = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  hiddenCrate.visible = false;
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(80, 6, 1), material);
+  const instanced = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, 4);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial());
+  const fighter = new THREE.Group();
+  const fighterBody = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  fighter.add(fighterBody);
+  scene.add(crate, hiddenCrate, wall, instanced, sprite, fighter);
+
+  const isFighter = (object: THREE.Object3D) => object === fighterBody;
+  const candidates = collectOcclusionCandidates(scene, isFighter);
+  assert.deepEqual(candidates, [crate]);
+});
+
+test('lançar o raio de oclusão só contra os candidatos nunca falha, mesmo com sprites na cena e sem câmera no raycaster', () => {
+  // Regressão da tela branca: Raycaster sem câmera + Sprite lança TypeError no three.js,
+  // o que derrubava o laço de quadros com o clarão branco da abertura preso na tela.
+  const camera = new THREE.PerspectiveCamera();
+  camera.position.set(0, 1, 10);
+  const material = new THREE.MeshBasicMaterial();
+  const scene = new THREE.Scene();
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material);
+  crate.position.set(0, 1, 5);
+  const label = new THREE.Sprite(new THREE.SpriteMaterial());
+  label.position.set(0, 1, 6);
+  scene.add(crate, label);
+  scene.updateMatrixWorld(true);
+
+  const raycaster = new THREE.Raycaster(); // propositalmente sem camera
+  raycaster.set(camera.position, new THREE.Vector3(0, 0, -1));
+  raycaster.far = 9;
+  const candidates = collectOcclusionCandidates(scene, () => false);
+  assert.doesNotThrow(() => raycaster.intersectObjects(candidates, false));
+  const hit = raycaster.intersectObjects(candidates, false)[0];
+  assert.equal(hit?.object, crate);
+
+  const occlusion = new FighterOcclusionState();
+  assert.equal(occlusion.hide({ object: hit.object }), true);
+  assert.equal(crate.visible, false);
+  occlusion.restore();
+  assert.equal(crate.visible, true);
 });

@@ -56,6 +56,7 @@ import type { InventoryState } from './items/inventory';
 import { ITEM_CATALOG, EQUIPMENT_SLOT_LABELS, isInventoryItemId, type InventoryItemId, type EquipmentItemId, type EquipmentSlot } from './items/itemCatalog';
 import { getShop, isShopOpen } from './shop/catalog';
 import { purchaseItem } from './shop/purchase';
+import { FrameFailureTracker, runFrameStep } from './frameGuard';
 import { createEquipmentState, getEquipmentBonuses, normalizeEquipment } from './items/equipment';
 import type { EquipmentState } from './items/equipment';
 import { findGridRoute } from './tasks/gridRoute';
@@ -2726,6 +2727,22 @@ export class GameEngine {
     this.frameId = requestAnimationFrame(this.tick);
   }
 
+  private readonly frameFailures = new FrameFailureTracker();
+
+  /** Registra a falha do quadro e, se persistir durante uma batalha, encerra a batalha sem alterar apostas. */
+  private handleFrameFailure(error: unknown): void {
+    const info = this.frameFailures.failure(performance.now());
+    if (info.shouldLog) console.error('[GameEngine] Falha no quadro; o laço continua.', error);
+    if (!info.shouldRecover) return;
+    this.frameFailures.reset();
+    if (this.duelPhase !== 'idle') {
+      console.error('[GameEngine] Batalha encerrada após falhas consecutivas; a aposta não foi liquidada.');
+      this.resetDuel();
+      this.callbacks.onToast('A batalha foi encerrada por um erro de exibição. Nada foi cobrado.', 'warn');
+      this.syncHud();
+    }
+  }
+
   private tick = (): void => {
     if (this.disposed) return;
     const now = performance.now();
@@ -2733,73 +2750,82 @@ export class GameEngine {
     this.lastTime = now;
     this.elapsed += dt;
 
-    if (this.phase === 'title') {
-      const orbitAngle = this.elapsed * 0.18;
-      this.camera.position.set(
-        this.catPos.x + Math.sin(orbitAngle) * 7.6,
-        this.catPos.y + 3.0,
-        this.catPos.z + Math.cos(orbitAngle) * 7.6,
-      );
-      this.camera.lookAt(this.catPos.x, this.catPos.y + 0.85, this.catPos.z);
-      this.cat.update(dt, 0, true, false, false, false, false, 0, false, this.elapsed);
-      this.updateEnvironmentLighting(dt);
-    } else if (this.phase === 'playing') {
-      if (this.duelPhase === 'fighting') this.updateBattle(dt);
-      else this.updateGameplay(dt);
-      this.updateTaskGpsRoute();
-      this.societyTickTimer += dt;
-      while (this.societyTickTimer >= 1) {
-        const frame = this.agentRuntime.step(this.society, 1);
-        this.callbacks.onAgentTasksUpdate?.(this.buildAgentTasksSnapshot());
-        // A Cowila generativa consulta a sociedade em intervalos de 25 ticks.
-        // A rede nunca bloqueia o frame; propostas retornam ao validador local.
-        if (isCowilaAiConfigured() && !this.cowilaAiRequestPending
-          && frame.snapshot.tick > 0 && frame.snapshot.tick % 25 === 0
-          && this.cowilaAiLastRequestedTick !== frame.snapshot.tick) {
-          this.cowilaAiRequestPending = true;
-          this.cowilaAiLastRequestedTick = frame.snapshot.tick;
-          const targetSociety = this.society;
-          const requestedTick = frame.snapshot.tick;
-          void requestCowilaDecision(frame.snapshot).then((decision) => {
-            if (targetSociety.snapshot().tick !== requestedTick || decision.tick !== requestedTick) return;
-            const result = applyCowilaAiDecision(targetSociety, decision);
-            if (result.accepted > 0) {
-              this.callbacks.onToast(
-                `Cowila IA: ${result.accepted} nova(s) tarefa(s) estratégica(s). ${result.brief}`,
-                'info',
-              );
-            }
-          }).catch(() => {
-            // Falha remota não interrompe a simulação determinística.
-          }).finally(() => {
-            this.cowilaAiRequestPending = false;
-          });
+    // Nenhuma falha de atualização pode impedir o desenho nem o próximo quadro.
+    const failure = runFrameStep(() => {
+      if (this.phase === 'title') {
+        const orbitAngle = this.elapsed * 0.18;
+        this.camera.position.set(
+          this.catPos.x + Math.sin(orbitAngle) * 7.6,
+          this.catPos.y + 3.0,
+          this.catPos.z + Math.cos(orbitAngle) * 7.6,
+        );
+        this.camera.lookAt(this.catPos.x, this.catPos.y + 0.85, this.catPos.z);
+        this.cat.update(dt, 0, true, false, false, false, false, 0, false, this.elapsed);
+        this.updateEnvironmentLighting(dt);
+      } else if (this.phase === 'playing') {
+        if (this.duelPhase === 'fighting') this.updateBattle(dt);
+        else this.updateGameplay(dt);
+        this.updateTaskGpsRoute();
+        this.societyTickTimer += dt;
+        while (this.societyTickTimer >= 1) {
+          const frame = this.agentRuntime.step(this.society, 1);
+          this.callbacks.onAgentTasksUpdate?.(this.buildAgentTasksSnapshot());
+          // A Cowila generativa consulta a sociedade em intervalos de 25 ticks.
+          // A rede nunca bloqueia o frame; propostas retornam ao validador local.
+          if (isCowilaAiConfigured() && !this.cowilaAiRequestPending
+            && frame.snapshot.tick > 0 && frame.snapshot.tick % 25 === 0
+            && this.cowilaAiLastRequestedTick !== frame.snapshot.tick) {
+            this.cowilaAiRequestPending = true;
+            this.cowilaAiLastRequestedTick = frame.snapshot.tick;
+            const targetSociety = this.society;
+            const requestedTick = frame.snapshot.tick;
+            void requestCowilaDecision(frame.snapshot).then((decision) => {
+              if (targetSociety.snapshot().tick !== requestedTick || decision.tick !== requestedTick) return;
+              const result = applyCowilaAiDecision(targetSociety, decision);
+              if (result.accepted > 0) {
+                this.callbacks.onToast(
+                  `Cowila IA: ${result.accepted} nova(s) tarefa(s) estratégica(s). ${result.brief}`,
+                  'info',
+                );
+              }
+            }).catch(() => {
+              // Falha remota não interrompe a simulação determinística.
+            }).finally(() => {
+              this.cowilaAiRequestPending = false;
+            });
+          }
+          if (frame.readyPlacements.length > 0) {
+            this.societyActors.applyReadyPlacements(frame.readyPlacements);
+            const completedProjectIds = [...new Set(frame.readyPlacements.map((placement) => placement.projectId))];
+            this.agentRuntime.markPlacementsPublished(completedProjectIds);
+          }
+          if (frame.registeredProjectIds.length > 0 && frame.directive) {
+            this.callbacks.onToast(frame.directive.brief, 'info');
+          }
+          this.societyTickTimer -= 1;
         }
-        if (frame.readyPlacements.length > 0) {
-          this.societyActors.applyReadyPlacements(frame.readyPlacements);
-          const completedProjectIds = [...new Set(frame.readyPlacements.map((placement) => placement.projectId))];
-          this.agentRuntime.markPlacementsPublished(completedProjectIds);
+        // Persiste a evolução autônoma mesmo quando o jogador não executa ações.
+        this.societySaveTimer += dt;
+        if (this.societySaveTimer >= 30) {
+          this.saveGame();
+          this.societySaveTimer = 0;
         }
-        if (frame.registeredProjectIds.length > 0 && frame.directive) {
-          this.callbacks.onToast(frame.directive.brief, 'info');
-        }
-        this.societyTickTimer -= 1;
+        this.societyActors.update(dt, this.snapshotForActors(), true);
+        this.oracle?.update(dt);
+      } else {
+        // Durante a conversa o habitante permanece visível para ancorar o balão.
+        this.societyActors.update(dt, this.society.snapshot(), this.activeDialogue !== null);
+        this.oracle?.update(dt);
       }
-      // Persiste a evolução autônoma mesmo quando o jogador não executa ações.
-      this.societySaveTimer += dt;
-      if (this.societySaveTimer >= 30) {
-        this.saveGame();
-        this.societySaveTimer = 0;
-      }
-      this.societyActors.update(dt, this.snapshotForActors(), true);
-      this.oracle?.update(dt);
+    });
+    if (failure === null) {
+      this.frameFailures.success();
     } else {
-      // Durante a conversa o habitante permanece visível para ancorar o balão.
-      this.societyActors.update(dt, this.society.snapshot(), this.activeDialogue !== null);
-      this.oracle?.update(dt);
+      this.handleFrameFailure(failure);
     }
 
-    this.renderer.render(this.scene, this.camera);
+    const renderFailure = runFrameStep(() => this.renderer.render(this.scene, this.camera));
+    if (renderFailure !== null) this.handleFrameFailure(renderFailure);
     this.scheduleNextFrame();
   };
 
