@@ -77,7 +77,9 @@ export function applyCowilaAiDecision(
   decision: CowilaAiDecision,
 ): ApplyCowilaAiResult {
   const snapshot = simulation.snapshot();
-  if (!decision || decision.tick !== snapshot.tick || !Array.isArray(decision.proposals)) {
+  if (!decision || !Number.isSafeInteger(decision.tick)
+    || decision.tick > snapshot.tick || snapshot.tick - decision.tick > 25
+    || !Array.isArray(decision.proposals) || typeof decision.brief !== 'string') {
     return {
       accepted: 0,
       skipped: Array.isArray(decision?.proposals) ? decision.proposals.length : 0,
