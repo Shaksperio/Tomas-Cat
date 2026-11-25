@@ -2,7 +2,7 @@
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "cowila-mcp-runtime-test",
   "main": "src/resource-server.ts",
-  "compatibility_date": "2026-11-25",
+  "compatibility_date": "2026-10-30",
   "workers_dev": false,
   "routes": [
     { "pattern": "cowila-mcp.example.invalid", "custom_domain": true }
