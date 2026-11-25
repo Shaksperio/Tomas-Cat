@@ -409,3 +409,25 @@ Referências primárias:
 4. O authorization server e resource server terão URLs HTTPS próprias e audience MCP exata; URLs e bindings só serão fixados quando domínio/serviços forem aprovados.
 5. O Authorization Worker exigirá KV + D1 e secrets Google/Firebase/vault. Nenhum ID fictício será colocado em Wrangler e nenhuma infraestrutura será provisionada nesta etapa.
 6. A implementação só será considerada pronta após typecheck contra o pacote real, testes do consentimento/callback, execução local em Workers runtime e teste com Firebase de desenvolvimento.
+
+
+## Implementação executável adicionada em 2026-11-25
+
+A branch agora contém o primeiro código dos dois Workers isolados:
+
+- `integrations/cowila-chatgpt-mcp/src/authorization-server.ts`: `OAuthAuthorizationServer` 1.3.0, parse/validação do pedido, consentimento com handle single-use vinculado ao browser, Google upstream, PKCE S256, callback com `finishUpstream`, exchange Google→Firebase, verificação de identidade, refresh token cifrado em D1 e `completeAuthorization`.
+- `integrations/cowila-chatgpt-mcp/src/resource-server.ts`: `OAuthResourceServer` com Service Binding para validar token/audience, verificação do UID em `ctx.props`, scope `mcp:read` e MCP handler Streamable HTTP.
+- `integrations/cowila-chatgpt-mcp/src/config.ts`: issuer, resource e callback são placeholders `.example.invalid`, intencionalmente não implantáveis.
+- `integrations/cowila-chatgpt-mcp/src/pkce.ts`: geração de verifier e challenge S256.
+- `integrations/cowila-chatgpt-mcp/package.json` e `tsconfig.json`: dependências isoladas e compilação strict.
+- `src/resource-server.ts` publica três ferramentas read-only: resumo, mensagens recentes (limite 25) e busca (limite 20 resultados).
+
+### Verificação atualizada
+
+GitHub Actions run #74, commit `fcb76c5e85b15204a12e703e28b095867c704dbb`: TypeScript strict aprovado e **49 testes aprovados, 0 falhas**. O teste adicional cobre o cálculo PKCE S256.
+
+### Limites que continuam
+
+A implementação ainda não foi executada em runtime Workers nem percorreu o OAuth real no navegador. Não há testes ponta a ponta com KV/D1, Google, Firebase ou MCP client real. Os endpoints estão em placeholders `.invalid`; não há Wrangler config com IDs fictícios. D1 migration não aplicada, secrets não provisionados, deploy não feito e nenhuma leitura do histórico de produção ocorreu.
+
+O próximo gate é adicionar testes de integração em runtime Workers com KV/D1 simulados, validar o round-trip consentimento→Google callback→Firebase→grant, e provar a validação MCP por Service Binding antes de provisionar qualquer infraestrutura real.
