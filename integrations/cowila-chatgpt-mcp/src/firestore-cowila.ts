@@ -159,6 +159,11 @@ export async function readCowilaTrainingRecord(input: {
   } catch {
     throw new CowilaFirestoreError("Cowila Firestore returned an invalid document.");
   }
+  const expectedDocumentName = `projects/${input.projectId}/databases/${input.databaseId}/documents/users/${input.uid}/cowilaLab/real-training-v2`;
+  if (document.name !== expectedDocumentName) {
+    throw new CowilaFirestoreError("Cowila Firestore returned an unexpected document path.");
+  }
+
   const fields = document.fields;
   if (!fields) throw new CowilaFirestoreError("Cowila Firestore record has no fields.");
 
