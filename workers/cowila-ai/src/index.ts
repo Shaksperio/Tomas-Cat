@@ -217,7 +217,7 @@ export default {
           try {
             const reply = await geminiOracleReply(env.GEMINI_API_KEY, prompt, trainingMode
               ? 'Você é Cowila, uma IA em ambiente real de treinamento. Não é personagem de jogo, oráculo ou parte da Matrix. O usuário é o treinador humano, não O Escolhido. Não use lore nem skills do jogo. Seja precisa e honesta.'
-              : undefined);
+              : 'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo. Tomas é O Escolhido. Preserve a identidade ficcional da história no modo de jogo, mas responda com clareza e honestidade.');
             const actions = trainingMode ? [] : await generateOracleActions(env, input.message.trim(), input.world ?? {});
             return json({ reply, actions, model: 'gemini-2.5-flash', provider: 'gemini', fallback: true, mode: trainingMode ? 'training' : 'game' }, 200, origin, allowed);
           } catch {
