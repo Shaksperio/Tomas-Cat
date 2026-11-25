@@ -156,6 +156,7 @@ describe("Cowila Workers runtime boundary", () => {
     callbackUrl.searchParams.set("state", googleUrl.searchParams.get("state")!);
     const callback = await auth.fetch(callbackUrl, {
       headers: { cookie: cookies },
+      redirect: "manual",
     });
     expect(callback.status).toBe(302);
     const deniedRedirect = new URL(callback.headers.get("location")!);
