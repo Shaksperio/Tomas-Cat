@@ -294,3 +294,25 @@ Foi implementado `src/firebase-google-exchange.ts` como próximo componente do f
 Foram adicionados sete testes para troca válida, UID divergente, resposta incompleta, provider incorreto, erro upstream sanitizado, callback não HTTPS e chave de assinatura desconhecida.
 
 **Limite importante:** a troca REST não é o login OAuth completo. Ainda não foi conectado a `beginUpstream()/finishUpstream()`, não há callback OAuth, sessão, consentimento, state ou persistência D1. O workflow executa agora 24 testes; o resultado desta nova execução precisa ficar verde antes de aceitar a etapa. O fluxo depende também da configuração do provedor Google no Firebase Auth e de um OAuth client Google server-side, ainda não provisionados.
+
+
+## Google OAuth authorization code + PKCE (2026-11-25)
+
+Foi acrescentado `src/google-oauth.ts`:
+
+- Constrói a URL de autorização Google com `response_type=code`, escopos `openid email profile`, `access_type=offline` e `prompt=consent`.
+- Exige state de alta entropia vindo do `beginUpstream()` Cloudflare e challenge PKCE S256; o verifier permanece no servidor.
+- Exige callback HTTPS limpo e fixo.
+- Troca o authorization code no token endpoint Google usando client ID/secret, callback exato e verifier PKCE.
+- Valida `token_type=Bearer`, access token e `expires_in`; não persiste Google access token nem refresh token do Google.
+- Erros externos são sanitizados.
+
+O módulo é deliberadamente uma camada de protocolo. O próximo Worker deverá chamar `beginUpstream()` antes de redirecionar para a URL construída, e `finishUpstream()` antes de aceitar o code no callback. Assim, state, cookie vinculado ao navegador, uso único e PKCE do OAuth Provider não são reimplementados manualmente.
+
+### CI
+
+O workflow executou **31 testes aprovados, 0 falhas** no run #19 (Node 22). Os testes cobrem URL Google, scopes, PKCE, callback HTTPS, token exchange, erros sanitizados e os componentes Firebase já implementados.
+
+### Limite
+
+Não existe ainda um endpoint `/authorize`/callback em execução, sessão OAuth persistida, D1, Worker authorization server ou resource server. O fluxo ainda não está ligado ao ChatGPT. As credenciais Google OAuth e os valores Firebase de servidor não foram provisionados.
