@@ -1,9 +1,9 @@
-# Laboratório da Cowila
+# Laboratório Real de Treinamento da Cowila
 
 **Rota:** `https://shaksperio.github.io/Tomas-Cat/cowila-lab`
 
-O laboratório é uma interface separada do jogo, mas usa a mesma API de conversa do Worker `tomas-cowila-ai`:
-`POST https://tomas-cowila-ai.antonyopintor.workers.dev/v1/oracle-chat`.
+O laboratório é um ambiente real de treinamento e avaliação de IA, separado da experiência narrativa do jogo. Usa uma rota de treinamento isolada na API do Worker `tomas-cowila-ai`:
+`POST https://tomas-cowila-ai.antonyopintor.workers.dev/v1/oracle-chat` com `mode: training`.
 
 ## Acesso
 
@@ -58,3 +58,14 @@ Pipeline futuro:
 6. Comparar com baseline e promover somente após aprovação.
 
 O feedback em chat é supervisão humana e coleta de experiências, não aprendizagem de pesos em tempo real.
+
+
+## Isolamento do jogo (v2)
+
+- O modo `training` estabelece a identidade de Cowila como IA em treinamento real, fora de Tomas Vagabundo, da Matrix e de qualquer roleplay.
+- O operador é tratado como responsável humano pelo projeto e treinador, nunca como O Escolhido ou personagem.
+- O Worker não injeta lore, perfil de personagem, snapshot do mundo ou contexto de jogo no modo `training`.
+- O modo `training` não executa `generateOracleActions` e sempre retorna `actions: []`; não pode emitir comandos para alterar o mundo do jogo.
+- As skills de jogo permanecem no runtime da sociedade do jogo, onde são necessárias aos NPCs/agentes simulados. Elas não são carregadas nem disponibilizadas ao chat do laboratório. Removê-las do runtime do jogo quebraria os agentes do jogo, por isso a separação é feita na fronteira correta.
+- O histórico anterior do laboratório não é reutilizado: o navegador usa a chave local `cowila-real-training:v2` e o Firestore usa o documento `real-training-v2`, evitando contaminar o novo ambiente com conversas antigas que mencionem O Escolhido ou a Matrix.
+- Feedback continua sendo contextual e supervisionado. Não representa alteração dos pesos do modelo.
