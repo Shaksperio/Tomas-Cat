@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
+import { loadCowilaLabRecord, saveCowilaLabRecord } from '../firebase/cowilaLabStore';
 
 type ChatRole = 'user' | 'assistant';
 type ChatMessage = {
@@ -86,6 +87,8 @@ export function CowilaLab({ user, onExit }: Props) {
   const initial = useMemo(() => loadLab(storageKey), [storageKey]);
   const [messages, setMessages] = useState<ChatMessage[]>(initial.messages);
   const [instructions, setInstructions] = useState(initial.instructions);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('Carregando histórico seguro…');
   const [draft, setDraft] = useState('');
   const [correctionDraft, setCorrectionDraft] = useState('');
   const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null);
@@ -100,10 +103,49 @@ export function CowilaLab({ user, onExit }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
+    void loadCowilaLabRecord(user.uid).then((remote) => {
+      if (!active) return;
+      if (remote) {
+        const validMessages = remote.messages.filter((item): item is ChatMessage => Boolean(item)
+          && typeof item === 'object'
+          && typeof (item as ChatMessage).id === 'string'
+          && ((item as ChatMessage).role === 'user' || (item as ChatMessage).role === 'assistant')
+          && typeof (item as ChatMessage).content === 'string'
+          && typeof (item as ChatMessage).createdAt === 'number');
+        setMessages(validMessages.slice(-100));
+        setInstructions(remote.instructions.slice(0, 1500));
+      }
+      setSyncStatus('Histórico na nuvem conectado');
+      setCloudReady(true);
+    }).catch((cause) => {
+      if (!active) return;
+      setSyncStatus('Nuvem indisponível — usando cópia local');
+      setError(cause instanceof Error ? cause.message : 'Não foi possível carregar o histórico da nuvem.');
+      setCloudReady(true);
+    });
+    return () => { active = false; };
+  }, [user.uid]);
+
+  useEffect(() => {
+    if (!cloudReady) return;
     const record: LabRecord = { version: 1, messages, instructions, updatedAt: Date.now() };
     try { localStorage.setItem(storageKey, JSON.stringify(record)); }
     catch { setError('O armazenamento local está cheio. Exporte seu histórico para não perder os dados.'); }
-  }, [messages, instructions, storageKey]);
+    setSyncStatus('Salvando histórico…');
+    const timer = window.setTimeout(() => {
+      void saveCowilaLabRecord(user.uid, {
+        messages: messages.slice(-100),
+        instructions: instructions.slice(0, 1500),
+        updatedAt: Date.now(),
+      }).then(() => setSyncStatus('Histórico sincronizado na nuvem'))
+        .catch((cause) => {
+          setSyncStatus('Falha ao sincronizar');
+          setError(cause instanceof Error ? cause.message : 'Falha ao salvar o histórico na nuvem.');
+        });
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [messages, instructions, storageKey, user.uid, cloudReady]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -280,8 +322,8 @@ export function CowilaLab({ user, onExit }: Props) {
             ))}
           </nav>
           <div className="flex items-center gap-2 text-[11px] text-slate-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            {provider} · {model}
+            <span className={`h-2 w-2 rounded-full ${syncStatus.includes('Falha') || syncStatus.includes('indisponível') ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+            {syncStatus} · {provider} · {model}
           </div>
         </div>
 
@@ -382,7 +424,7 @@ export function CowilaLab({ user, onExit }: Props) {
                   <p className="mt-1 text-xs leading-5 text-slate-400">Gera JSONL com pergunta, resposta, avaliação, correção e instrução da sessão. Somente respostas marcadas manualmente como aprovadas entram como exemplos aprovados; ainda precisam de revisão, deduplicação e remoção de dados pessoais antes do SFT.</p>
                   <button onClick={() => downloadTrainingSet(messages, instructions)} className="mt-3 rounded-lg bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950">Exportar dataset JSONL</button>
                 </div>
-                <p className="text-xs text-slate-500">Histórico e feedback são guardados no armazenamento deste navegador, por conta. Não são enviados a um banco na Cloudflare nesta versão.</p>
+                <p className="text-xs text-slate-500">Histórico e feedback são sincronizados na nuvem pelo Firestore, isolados pelo UID Firebase, com cópia local neste navegador.</p>
               </div>
             )}
           </section>
@@ -413,7 +455,7 @@ export function CowilaLab({ user, onExit }: Props) {
             </section>
           </aside>
         </div>
-        <footer className="pt-4 text-center text-[10px] text-slate-600">Cowila Lab v1 · Histórico local deste navegador · Inferência na Cloudflare · Sem alteração automática de pesos</footer>
+        <footer className="pt-4 text-center text-[10px] text-slate-600">Cowila Lab v1 · Histórico Firestore + cópia local · Inferência na Cloudflare · Sem alteração automática de pesos</footer>
       </div>
     </main>
   );
