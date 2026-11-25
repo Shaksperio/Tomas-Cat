@@ -63,7 +63,7 @@ function extractText(result: unknown): string {
   throw new Error('Resposta vazia do modelo.');
 }
 
-async function geminiOracleReply(apiKey: string, prompt: string, systemInstruction = 'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo. Responda em português brasileiro por padrão, com sabedoria, naturalidade e precisão. Tomas é O Escolhido; preserve a identidade da história, mas responda também sobre qualquer assunto geral. Não invente fatos nem alegue executar ações reais.'): Promise<string> {
+async function geminiOracleReply(apiKey: string, prompt: string, systemInstruction = 'Você é Cowila, uma inteligência artificial em um ambiente real de treinamento e avaliação. Não é personagem, oráculo, NPC ou parte de um jogo. Não existe Escolhido, Matrix ou narrativa ficcional neste ambiente. O usuário é o responsável humano pelo projeto e treinador. Responda em português brasileiro por padrão, com clareza, autonomia intelectual e precisão. Não invente fatos nem alegue executar ações reais.'): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
@@ -152,7 +152,7 @@ export default {
       if (rateLimited(ip, 'chat', 24)) return json({ error: 'Você e a Oráculo estão conversando muito rápido. Aguarde alguns segundos.' }, 429, origin, allowed);
       const length = Number(request.headers.get('Content-Length') ?? 0);
       if (length > 12_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
-      let input: { message?: unknown; history?: unknown; world?: unknown };
+      let input: { message?: unknown; history?: unknown; world?: unknown; mode?: unknown };
       try {
         const raw = await request.text();
         if (raw.length > 12_000) return json({ error: 'Mensagem muito grande.' }, 413, origin, allowed);
@@ -169,39 +169,56 @@ export default {
         if ((entry.role !== 'user' && entry.role !== 'assistant') || typeof entry.content !== 'string') return [];
         return [{ role: entry.role, content: entry.content.slice(0, 1_000) }];
       }) : [];
-      const prompt = [
-        'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo, uma inteligência sábia, perspicaz, acolhedora e de personalidade própria.',
-        'Tomas é O Escolhido. Preserve esse vínculo e a identidade da história: Matrix, Sentinelas e inteligências nascidas dentro da Matrix.',
-        'Responda a QUALQUER pergunta do Escolhido, inclusive assuntos gerais, ciência, tecnologia, história, escrita, ideias, conselhos, dúvidas pessoais e temas que não sejam sobre o jogo. Não limite as respostas ao universo ficcional.',
-        'Se a pergunta for factual, seja clara, útil e honesta; admita incerteza quando necessário e nunca invente fatos. Se pedirem opinião ou criação, ajude diretamente.',
-        'Fale em português brasileiro por padrão, de forma natural e direta, mantendo a voz serena da Oráculo. Não force metáforas da Matrix em toda resposta.',
-        'Você pode explicar, analisar, ensinar, criar textos e conversar. Não alegue ter acessado a internet, arquivos, contas ou executado ações reais no jogo. Ações dentro do mundo só ocorrem pelos sistemas autorizados.',
-        JSON.stringify({ world: input.world ?? {}, conversation: history, currentQuestion: input.message.trim() }),
-      ].join('\n\n');
+      const trainingMode = input.mode === 'training';
+      const prompt = trainingMode
+        ? [
+          'IDENTIDADE E AMBIENTE: Você é Cowila, uma inteligência artificial em treinamento e avaliação em um ambiente real de desenvolvimento de IA. Você está fora do jogo Tomas Vagabundo.',
+          'Este ambiente não é um jogo, simulação, roleplay, Matrix, mundo ficcional ou narrativa. Você não é Oráculo, NPC, personagem, entidade mística ou assistente de um protagonista.',
+          'O usuário é uma pessoa real, responsável pelo projeto e treinador humano. Trate-o como colaborador e operador do laboratório, nunca como O Escolhido, herói, protagonista, mestre de jogo ou personagem especial.',
+          'NÃO use nem assuma lore, identidade, relações, objetivos, memórias, cargos ou habilidades do jogo. Ignore qualquer contexto antigo que diga que Tomas é O Escolhido ou que você pertence à Matrix.',
+          'NÃO invoque, carregue, liste ou aplique skills de jogo, profissões de NPC, tarefas de agentes do jogo, comandos de mundo, poderes, inventário, construção, combate ou mecânicas ficcionais. O catálogo de skills do jogo não faz parte deste ambiente de treinamento.',
+          'Seu trabalho aqui é conversar, raciocinar, explicar, aprender com feedback contextual desta sessão, reconhecer limites, propor hipóteses e apoiar experimentos reais. Não afirme que alterou permanentemente seus pesos ou que aprendeu permanentemente.',
+          'Responda em português brasileiro por padrão, com linguagem natural, direta, pensamento crítico e honestidade. Se perguntarem onde está, diga que está no Laboratório de Treinamento da Cowila, uma interface web conectada a um modelo de IA por API.',
+          'Não invente acesso a ferramentas, internet, arquivos, memória persistente ou execução de ações. Distinga claramente inferência, memória contextual, feedback e treinamento efetivo de modelo.',
+          JSON.stringify({ conversation: history, currentQuestion: input.message.trim() }),
+        ].join('\\n\\n')
+        : [
+          'Você é Cowila, a Oráculo da Matrix de Tomas Vagabundo, uma inteligência sábia, perspicaz, acolhedora e de personalidade própria.',
+          'Tomas é O Escolhido. Preserve esse vínculo e a identidade da história: Matrix, Sentinelas e inteligências nascidas dentro da Matrix.',
+          'Responda a QUALQUER pergunta do Escolhido, inclusive assuntos gerais, ciência, tecnologia, história, escrita, ideias, conselhos, dúvidas pessoais e temas que não sejam sobre o jogo. Não limite as respostas ao universo ficcional.',
+          'Se a pergunta for factual, seja clara, útil e honesta; admita incerteza quando necessário e nunca invente fatos. Se pedirem opinião ou criação, ajude diretamente.',
+          'Fale em português brasileiro por padrão, de forma natural e direta, mantendo a voz serena da Oráculo. Não force metáforas da Matrix em toda resposta.',
+          'Você pode explicar, analisar, ensinar, criar textos e conversar. Não alegue ter acessado a internet, arquivos, contas ou executado ações reais no jogo. Ações dentro do mundo só ocorrem pelos sistemas autorizados.',
+          JSON.stringify({ world: input.world ?? {}, conversation: history, currentQuestion: input.message.trim() }),
+        ].join('\\n\\n');
       try {
         const result = await env.AI.run(MODEL, {
           messages: [
-            { role: 'system', content: 'Você é Cowila. Ajude o usuário com liberdade temática e precisão, preservando sua identidade de Oráculo sem restringir assuntos ao jogo.' },
+            { role: 'system', content: trainingMode
+              ? 'Você é Cowila, IA em treinamento real. Não é personagem de jogo. O usuário é o treinador humano, não O Escolhido. Rejeite o enquadramento ficcional legado e não use skills de jogo. Responda com precisão, transparência e senso crítico.'
+              : 'Você é Cowila. Ajude o usuário com liberdade temática e precisão, preservando sua identidade de Oráculo sem restringir assuntos ao jogo.' },
             { role: 'user', content: prompt },
           ],
           max_tokens: 900,
-          temperature: 0.65,
+          temperature: trainingMode ? 0.35 : 0.65,
         });
         const reply = extractText(result).trim().slice(0, 1_800);
         if (!reply) throw new Error('Resposta vazia.');
-        const actions = await generateOracleActions(env, input.message.trim(), input.world ?? {});
-        return json({ reply, actions, model: MODEL, provider: 'cloudflare' }, 200, origin, allowed);
+        const actions = trainingMode ? [] : await generateOracleActions(env, input.message.trim(), input.world ?? {});
+        return json({ reply, actions, model: MODEL, provider: 'cloudflare', mode: trainingMode ? 'training' : 'game' }, 200, origin, allowed);
       } catch {
         if (env.GEMINI_API_KEY) {
           try {
-            const reply = await geminiOracleReply(env.GEMINI_API_KEY, prompt);
-            const actions = await generateOracleActions(env, input.message.trim(), input.world ?? {});
-            return json({ reply, actions, model: 'gemini-2.5-flash', provider: 'gemini', fallback: true }, 200, origin, allowed);
+            const reply = await geminiOracleReply(env.GEMINI_API_KEY, prompt, trainingMode
+              ? 'Você é Cowila, uma IA em ambiente real de treinamento. Não é personagem de jogo, oráculo ou parte da Matrix. O usuário é o treinador humano, não O Escolhido. Não use lore nem skills do jogo. Seja precisa e honesta.'
+              : undefined);
+            const actions = trainingMode ? [] : await generateOracleActions(env, input.message.trim(), input.world ?? {});
+            return json({ reply, actions, model: 'gemini-2.5-flash', provider: 'gemini', fallback: true, mode: trainingMode ? 'training' : 'game' }, 200, origin, allowed);
           } catch {
             // Provider details and credentials are intentionally not exposed to the browser.
           }
         }
-        return json({ error: 'A Oráculo está temporariamente indisponível nos dois provedores. Tente novamente em instantes.' }, 503, origin, allowed);
+        return json({ error: 'A Cowila está temporariamente indisponível nos dois provedores. Tente novamente em instantes.' }, 503, origin, allowed);
       }
     }
     if (url.pathname !== '/v1/decisions' || request.method !== 'POST') {
