@@ -102,3 +102,34 @@ O cliente em `src/firebase/client.ts` usa esses valores para inicializar Firebas
 Para leitura server-side, o conector ainda precisa de uma identidade de serviço/credencial segura com permissões mínimas, ou de uma alternativa baseada em Firebase Auth que preserve as regras e a identidade UID do usuário. Essa decisão deve ser tomada antes de implementar o acesso. Não copiar valores de Secrets para o repositório, logs, prompts ou respostas MCP.
 
 A variável `COWILA_AI_URL` é o endereço do Worker de inferência/chat, não o endpoint de dados do Firestore; ela não deve ser confundida com a URL do servidor MCP. O MCP será um serviço separado.
+
+
+## Decisão técnica após consulta à documentação Cloudflare (2026-11-25)
+
+A documentação oficial atual do Cloudflare Agents confirma:
+
+- Para um servidor MCP novo e sem estado de protocolo, usar `createMcpHandler` de `agents/mcp/server` com `McpServer` de `@modelcontextprotocol/server` (SDK MCP v2), em vez do `McpAgent` legado.
+- O transporte remoto recomendado é Streamable HTTP; SSE antigo não será usado.
+- A camada de recurso autenticado é `OAuthResourceServer` de `@cloudflare/workers-oauth-provider`. Ela valida token e audience/recurso antes de encaminhar ao handler.
+- O escopo `requiredScopes` é anunciado, mas não aplicado automaticamente: o handler precisa validar `ctx.auth.scope` e rejeitar chamadas sem `mcp:read`.
+- A identidade e os atributos aprovados no fluxo OAuth chegam às ferramentas por `getMcpAuthContext()?.props`; o UID Firebase deve vir de um vínculo confiável gravado no servidor durante a autorização, nunca de argumento MCP.
+- A documentação recomenda um authorization server e resource server separados, com validação de tokens via Service Binding dentro da rede Cloudflare.
+
+Referências oficiais consultadas:
+- https://developers.cloudflare.com/agents/model-context-protocol/apis/handler-api/
+- https://developers.cloudflare.com/agents/model-context-protocol/protocol/authorization/
+- https://developers.cloudflare.com/agents/model-context-protocol/protocol/transport/
+- https://developers.cloudflare.com/agents/model-context-protocol/guides/securing-mcp-server/
+
+### Consequência para a implementação
+
+Não será criado um endpoint MCP aberto nem um token estático compartilhado. A arquitetura precisa incluir OAuth Authorization Server + MCP Resource Server, consentimento explícito, audience exata do MCP e escopo mínimo `mcp:read`. O servidor só poderá consultar o UID Firebase previamente vinculado a uma identidade autorizada. A URL final do MCP e a compatibilidade do OAuth com o cadastro de conectores do ChatGPT ainda precisam ser verificadas antes de fixar os metadados e implantar.
+
+### Decisão sobre acesso Firestore
+
+As variáveis `VITE_FIREBASE_*` do GitHub Actions pertencem ao cliente web e não serão usadas como identidade server-side. Antes de implementar consultas reais, escolheremos uma destas estratégias e testaremos a autorização:
+
+1. **Firebase Auth delegado:** o OAuth do conector vincula o usuário ao UID Firebase e o servidor usa um token Firebase de usuário com regras Firestore, sem service account privilegiada; ou
+2. **Service account restrita:** usar credencial server-side com IAM mínimo, mais uma allowlist rígida de UID/documentos vinculada ao principal autenticado.
+
+A opção 1 é preferível se o fluxo de identidade e refresh puder ser implementado com segurança. A opção 2 só será adotada após revisão do alcance de IAM e aprovação explícita. Nenhum dado será consultado até essa decisão e aprovação.
