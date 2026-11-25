@@ -113,12 +113,15 @@ async function renderConsent(request: Request, env: Env): Promise<Response> {
   const clientDomain = description.clientDomain
     ? "<p><strong>Verified client domain:</strong> " + escapeHtml(description.clientDomain) + "</p>"
     : "";
+  const loopbackWarning = description.redirectIsLoopback
+    ? "<p role=\"alert\"><strong>Warning:</strong> the redirect goes to a local application; another local process may be listening there.</p>"
+    : "";
   const body =
     "<!doctype html><html lang=\"pt-BR\"><meta charset=\"utf-8\">" +
     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
     "<title>Autorizar Cowila</title><body style=\"font:16px system-ui;max-width:620px;margin:48px auto;padding:0 20px;background:#10131a;color:#f3f5f7\">" +
     "<h1>Conectar ao histórico da Cowila</h1><p>O aplicativo <strong>" + clientName +
-    "</strong> solicita acesso de leitura ao seu histórico Cowila.</p>" + clientDomain +
+    "</strong> solicita acesso de leitura ao seu histórico Cowila.</p>" + clientDomain + loopbackWarning +
     "<p><strong>Destino de retorno:</strong> " + redirectHost + "</p>" +
     "<p><strong>Permissão:</strong> leitura (mcp:read). Nenhuma mensagem será alterada ou excluída.</p>" +
     "<p>Ao continuar, você será encaminhado ao Google para confirmar sua identidade.</p>" +
