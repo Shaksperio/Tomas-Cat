@@ -1,6 +1,6 @@
 # Cowila — ChatGPT MCP connector
 
-**Status:** isolated Authorization Worker and MCP Resource Worker source implemented; TypeScript strict and 49 unit tests pass in GitHub Actions run #78. Not deployed, not connected to production Firestore, and not registered in ChatGPT.
+**Status:** isolated Authorization Worker and MCP Resource Worker implemented; TypeScript strict, 52 unit tests and 5 Workers runtime tests pass in GitHub Actions run #117. Not deployed, not connected to production Firestore, and not registered in ChatGPT.
 
 ## Implemented
 
@@ -20,15 +20,20 @@
   - `cowila_get_recent_messages` (1–25 messages)
   - `cowila_search_messages` (bounded query and at most 20 results)
 - Dedicated package manifest and strict TypeScript configuration.
-- GitHub Actions workflow installs isolated dependencies, type-checks the complete integration and runs unit tests.
+- Local-only Wrangler configurations for two-Worker `workerd` tests, with local KV/D1 bindings and a real local Service Binding; no production IDs or domains.
+- Runtime tests cover OAuth metadata, protected-resource challenge, invalid bearer validation through the Service Binding, unauthenticated MCP tool rejection, dynamic client registration, browser-bound consent, Google PKCE redirect and upstream denial callback.
+- Exact OAuth grant policy rejects additional, duplicate or missing scopes and any resource other than the one registered.
+- GitHub Actions installs isolated dependencies, type-checks the complete integration, runs unit tests and launches the Workers runtime suite.
 
 ## Latest verification
 
-GitHub Actions run **#74** on commit `fcb76c5e85b15204a12e703e28b095867c704dbb` completed successfully:
+GitHub Actions run **#117** on commit `1c4883180b1d9d5d32b434edfcea5597dd3e766e` completed successfully:
 - TypeScript strict check: passed.
-- Unit tests: **49 passed, 0 failed**.
+- Unit tests: **52 passed, 0 failed**.
+- Workers runtime suite in `workerd`: **5 passed, 0 failed**.
+- Runtime coverage includes OAuth discovery, resource metadata, invalid-token validation through the actual local Service Binding, unauthenticated tool rejection, DCR, browser-bound consent, Google S256 PKCE redirect and a provider-denial callback redirected safely to the OAuth client.
 
-These are unit tests and compile checks. They do not prove OAuth browser round-trip, Worker runtime compatibility, real Google/Firebase sign-in, Firestore permission behavior against the real project, or ChatGPT client compatibility.
+This is a meaningful local runtime integration check, but not a full production OAuth round-trip. It does not prove successful Google authentication, Firebase Identity Toolkit exchange, D1 credential persistence/rotation, an authorized MCP tool read against Firestore, real-project Firestore rules, or ChatGPT client compatibility.
 
 ## Configuration intentionally not supplied
 
@@ -58,11 +63,11 @@ The Authorization Worker also requires the Cloudflare compatibility flag `global
 
 ## Still required
 
-1. Add isolated Worker runtime/integration tests for OAuth consent, Google callback, token validation and MCP tool calls (including denial, expired state, UID mismatch and missing scope).
-2. Run local Workers runtime tests with mock KV/D1 and mocked Google/Firebase/Firestore endpoints.
+1. Extend runtime tests to cover consent expiry/replay, token endpoint issuance/refresh, and a valid authorized MCP tool invocation with isolated Firebase/Firestore mocks.
+2. Validate successful Google→Firebase exchange and D1 credential write/rotation in an isolated test project.
 3. Provision a separate Firebase development project and test the full delegated identity flow.
-4. Approve real hostnames, OAuth Google client, KV/D1 resources and secrets.
-5. Apply D1 migration and deploy only after explicit approval; then validate the real read-only path.
+4. Approve real hostnames, Google OAuth client, KV/D1 resources and secrets.
+5. Apply the D1 migration and deploy only after explicit approval; then validate the real read-only path.
 6. Register the MCP endpoint in ChatGPT and test actual availability in the Android app. No such connection has been made yet.
 
 The PR remains Draft until the runtime integration tests and development-project validation are complete.
