@@ -278,3 +278,19 @@ O workflow isolado executou os três módulos de teste no commit `9a74df7fce8e4b
 ### Limites preservados
 
 A função de verificação ainda não é um callback e não armazena vínculo. Não há proteção state/nonce de fluxo, página de vinculação, persistência D1, OAuth server, handler MCP, consulta Firestore ou deploy. A etapa seguinte deve integrar state de uso único e callback somente depois de fixar o contrato do authorization server Cloudflare/ChatGPT. Nenhum histórico real foi consultado.
+
+
+## Troca Google → Firebase Identity Toolkit (2026-11-25)
+
+Foi implementado `src/firebase-google-exchange.ts` como próximo componente do fluxo delegado:
+
+- Recebe somente o access token Google de curta duração obtido pelo fluxo upstream OAuth do authorization server.
+- Faz POST para o endpoint oficial Firebase Identity Toolkit `accounts:signInWithIdp`, com `providerId=google.com`, `requestUri` HTTPS fixo e `returnSecureToken=true`.
+- Exige resposta completa contendo `localId`, `email`, `idToken`, `refreshToken` e `providerId=google.com`.
+- Verifica a assinatura do ID token Firebase pela rotina já existente, incluindo issuer/audience, e-mail permitido verificado e autenticação recente.
+- Compara o UID/email da resposta REST com os claims assinados. Só então devolve internamente UID, e-mail e refresh token para o próximo estágio de criptografia.
+- Erros do provedor são sanitizados; o callback deve cifrar o refresh token imediatamente e nunca retorná-lo ao cliente MCP, ao navegador ou aos logs.
+
+Foram adicionados sete testes para troca válida, UID divergente, resposta incompleta, provider incorreto, erro upstream sanitizado, callback não HTTPS e chave de assinatura desconhecida.
+
+**Limite importante:** a troca REST não é o login OAuth completo. Ainda não foi conectado a `beginUpstream()/finishUpstream()`, não há callback OAuth, sessão, consentimento, state ou persistência D1. O workflow executa agora 24 testes; o resultado desta nova execução precisa ficar verde antes de aceitar a etapa. O fluxo depende também da configuração do provedor Google no Firebase Auth e de um OAuth client Google server-side, ainda não provisionados.
