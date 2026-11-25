@@ -41,7 +41,7 @@ function loadLab(key: string): LabRecord {
     }
   } catch { /* corrupted local history is ignored, never sent */ }
   return {
-    version: 1,
+    version: 2,
     messages: [{ id: makeId(), role: 'assistant', content: STARTER, createdAt: Date.now() }],
     instructions: '',
     updatedAt: Date.now(),
@@ -132,7 +132,7 @@ export function CowilaLab({ user, onExit }: Props) {
 
   useEffect(() => {
     if (!cloudReady) return;
-    const record: LabRecord = { version: 1, messages, instructions, updatedAt: Date.now() };
+    const record: LabRecord = { version: 2, messages, instructions, updatedAt: Date.now() };
     try { localStorage.setItem(storageKey, JSON.stringify(record)); }
     catch { setError('O armazenamento local está cheio. Exporte seu histórico para não perder os dados.'); }
     setSyncStatus('Salvando histórico…');
@@ -209,13 +209,7 @@ export function CowilaLab({ user, onExit }: Props) {
         body: JSON.stringify({
           message,
           history,
-          world: {
-            character: 'Tomas',
-            role: 'O Escolhido',
-            setting: 'Matrix',
-            mode: 'cowila-lab',
-            evaluationFocus: ['reasoning', 'context-retention', 'personality', 'honesty'],
-          },
+          mode: 'training',
         }),
       });
       const elapsed = Math.round(performance.now() - started);
@@ -319,7 +313,7 @@ export function CowilaLab({ user, onExit }: Props) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs text-emerald-200">● Conta autenticada</span>
-            <button onClick={onExit} className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Voltar ao jogo</button>
+            <button onClick={onExit} className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Sair do laboratório</button>
           </div>
         </header>
 
