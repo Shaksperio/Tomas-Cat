@@ -179,7 +179,7 @@ export default {
       if (typeof input.message !== 'string' || !input.message.trim() || input.message.length > 1_000) {
         return json({ error: 'Escreva uma mensagem de até 1.000 caracteres.' }, 400, origin, allowed);
       }
-      const history = Array.isArray(input.history) ? input.history.slice(-10).flatMap((item) => {
+      const history: CowilaHistoryEntry[] = Array.isArray(input.history) ? input.history.slice(-10).flatMap((item) => {
         if (!item || typeof item !== 'object') return [];
         const entry = item as Record<string, unknown>;
         if ((entry.role !== 'user' && entry.role !== 'assistant') || typeof entry.content !== 'string') return [];
