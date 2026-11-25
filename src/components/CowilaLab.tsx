@@ -240,7 +240,7 @@ export function CowilaLab({ user, onExit }: Props) {
   }
 
   return (
-    <main className="min-h-screen overflow-y-auto bg-[#070b14] text-slate-100">
+    <main className="min-h-screen overflow-y-auto touch-auto select-text bg-[#070b14] text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-[1500px] flex-col p-3 sm:p-5">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-cyan-300/15 pb-4">
           <div className="flex items-center gap-3">
