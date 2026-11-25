@@ -11,7 +11,7 @@ export interface CowilaLabCloudRecord {
 
 function sessionDocument(uid: string) {
   if (!firestore) throw new Error('Firebase Firestore não está configurado.');
-  return doc(firestore, 'users', uid, 'cowilaLab', 'current');
+  return doc(firestore, 'users', uid, 'cowilaLab', 'real-training-v2');
 }
 
 export async function loadCowilaLabRecord(uid: string): Promise<CowilaLabCloudRecord | null> {
