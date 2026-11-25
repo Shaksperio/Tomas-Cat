@@ -268,6 +268,11 @@ describe("Cowila Workers runtime boundary", () => {
     });
     const summaryBody = await summary.text();
     expect(summary.status, summaryBody).toBe(200);
-    expect(summaryBody).toContain("Cowila training record does not exist yet");
+    const summaryPayload = JSON.parse(summaryBody) as {
+      result?: { isError?: boolean; content?: Array<{ text?: string }> };
+    };
+    expect(summaryPayload.result?.isError).toBe(true);
+    expect(summaryPayload.result?.content?.[0]?.text).toBeTruthy();
+    expect(summaryBody).not.toContain(tokens.access_token);
   });
 });
