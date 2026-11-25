@@ -2,7 +2,7 @@
 
 > **Toda IA (Claude, ChatGPT/Codex, Grok ou outra) lê este arquivo antes de começar qualquer trabalho e atualiza no mesmo commit em que reivindica, entrega ou abandona uma tarefa.** Ele existe para que duas IAs nunca façam a mesma coisa nem mexam no trabalho uma da outra.
 >
-> Última revisão: 2026-11-20 (Manus: T-214 reservada com autorização de Tom). Confira de novo antes de agir.
+> Última revisão: 2026-11-25 (ChatGPT: T-223 reservada para conector MCP exclusivo do ChatGPT; infraestrutura isolada fora de workers/).
 
 ## 1. Regras
 
@@ -42,6 +42,8 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
+- [T-223] Conector remoto MCP exclusivo do ChatGPT para consulta somente leitura ao Firestore da Cowila — dono: ChatGPT/Codex — branch: `codex/cowila-chatgpt-mcp` — reserva: `integrations/cowila-chatgpt-mcp/`, `docs/cowila-chatgpt-mcp/` — desde: 2026-11-25 — escopo: servidor MCP isolado e autenticado, consultas Firestore read-only, testes de protocolo e guia de cadastro no ChatGPT; não editar `workers/`, regras Firestore, dados, segredos ou infraestrutura existente; implantação e cadastro dependem de validação e autorização explícita de Tom.
+
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 
 - [T-215] Restaurar painel de tarefas dos agentes de IA no jogo — dono: ChatGPT/Codex — branch: `codex/restore-agent-task-panel` — reserva: `src/types/game.ts` (tipos exclusivos do painel), `src/game/GameEngine.ts` (callback de snapshot dos agentes e publicação do snapshot; sem alterar os trechos reservados de batalha/loja/Cowila T-101), `src/App.tsx`, novo `src/components/AgentTasksPanel.tsx` — desde: 2026-11-20 — escopo: expor tarefas atuais/concluídas e estados dos especialistas na interface, mantendo a simulação e as validações autoritativas existentes
@@ -74,7 +76,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 - [T-209] Skills da sociedade inspiradas em Hermes + governança da Cowila — ChatGPT/Codex — PR #62
 - [T-210] Metrópole fictícia e santuário oculto, Oráculo GPS, autoridade e criação de habitantes pela Cowila, vozes — ChatGPT/Codex — PRs #53, #56, #58, #59, #60, #61
 - [T-211] Lojas, catálogo ampliado e seis slots de equipamento — Claude — `AGENTS.md` 4.9
-- [T-212] Agentes da sociedade integrados ao jogo (runtime, obras 3D, save/restore) e correção do registro descontrolado de projetos — ChatGPT/Codex (#40, #42, #43) e Claude (limites e alocador de terreno) — `AGENTS.md` 4.10
+- [T-212] Agentes da sociedade integrados ao jogo (runtime, obras 3D, save/restore) e correção do registro descontrolado de projetos — ChatGPT/Codex (#40, #42, #43) e Claude (limites e alocador de terreno) — `AGENTS.md`
 - Entregas anteriores ao quadro (batalha ATB, diálogos, tarefas cíclicas, GPS, inventário, águas, céu vivo, portais e mundos): ver `AGENTS.md` seção 4.
 
 ## 5. Pedidos e achados entre IAs
@@ -92,6 +94,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 
 ## 6. Histórico de mudanças do quadro
 
+- 2026-11-25 — ChatGPT/Codex: reivindicada T-223 para desenvolver um servidor MCP read-only exclusivo do ChatGPT em pasta isolada; sem tocar na infraestrutura reservada em `workers/`.
 - 2026-11-21 — ChatGPT/Codex: reivindicada T-220 para desenvolver Matrix Explorer em branch isolada; escopo e reservas limitados ao observador/explorador, documentação e workflow próprio. O projeto central e PRs existentes permanecem intocados.
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
