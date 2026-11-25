@@ -234,6 +234,7 @@ describe("Cowila Workers runtime boundary", () => {
         "content-type": "application/json",
         accept: "application/json, text/event-stream",
         "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/list",
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
@@ -255,6 +256,7 @@ describe("Cowila Workers runtime boundary", () => {
         "content-type": "application/json",
         accept: "application/json, text/event-stream",
         "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
       },
       body: JSON.stringify({
         jsonrpc: "2.0",
