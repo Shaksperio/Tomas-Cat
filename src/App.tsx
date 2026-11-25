@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserPopupRedirectResolver, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { OracleDialogue } from './components/OracleDialogue';
+import { CowilaLab } from './components/CowilaLab';
 import { AgentTasksPanel } from './components/AgentTasksPanel';
 import type { OracleWorldAction } from './game/society/agents/oracleWorldActions';
 import { GameHUD } from './components/GameHUD';
@@ -333,6 +334,10 @@ export default function App() {
 
   if (!authUser) {
     return <LoginScreen configured={firebaseConfigured} busy={authBusy} error={authError} inIframe={inIframe} onGoogleLogin={handleGoogleLogin} />;
+  }
+
+  if (window.location.pathname.replace(/\\/+$/, '').endsWith('/cowila-lab')) {
+    return <CowilaLab user={authUser} onExit={() => window.location.assign('/Tomas-Cat/')} />;
   }
 
   return (
