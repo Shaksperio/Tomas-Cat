@@ -182,6 +182,11 @@ async function handleGoogleCallback(request: Request, env: Env): Promise<Respons
     return errorPage("A sessão OAuth expirou ou não corresponde a este navegador. Reinicie a conexão.", 400);
   }
 
+  // Reject mismatched resource/scope before exchanging credentials or persisting a Firebase refresh token.
+  if (!validateResourceAndScope(resumed.request)) {
+    return errorPage("O pedido OAuth não corresponde ao recurso Cowila permitido.", 400, resumed.headers);
+  }
+
   const url = new URL(request.url);
   if (url.searchParams.has("error")) {
     return errorPage("A autenticação Google foi cancelada ou recusada.", 401, resumed.headers);
@@ -213,9 +218,6 @@ async function handleGoogleCallback(request: Request, env: Env): Promise<Respons
       env.FIREBASE_VAULT_KEY,
     );
 
-    if (!validateResourceAndScope(resumed.request)) {
-      return errorPage("O pedido OAuth não corresponde ao recurso Cowila permitido.", 400, resumed.headers);
-    }
     const client = await oauth.lookupClient(resumed.request.clientId);
     const completed = await oauth.completeAuthorization({
       request: resumed.request,
