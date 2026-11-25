@@ -247,3 +247,11 @@ Foi criado o primeiro incremento executável em `integrations/cowila-chatgpt-mcp
 - Workflow isolado `.github/workflows/cowila-chatgpt-mcp.yml`: instala dependências travadas e executa somente os testes do conector em PR/push relevante.
 
 **Limite desta implementação:** estes módulos não fazem a vinculação inicial Google/Firebase, não persistem credenciais, não iniciam OAuth, não expõem MCP e não acessam Firestore. A segurança do refresh depende de o fluxo de vinculação validar o ID token inicial e vincular o UID ao principal OAuth antes de guardar o refresh token. O workflow foi criado, mas seu resultado precisa ser observado no GitHub Actions antes de considerar os testes aprovados.
+
+
+### Resultado da primeira execução CI
+
+- Primeira execução falhou antes dos testes porque o repositório não possui `package-lock.json`; o passo `setup-node` com cache npm exigia um lockfile.
+- Workflow corrigido para executar a versão fixada `tsx@4.21.0` via `npx`, sem presumir lockfile nem instalar a árvore completa do jogo.
+- Execução seguinte: **9 testes aprovados, 0 falhas** (GitHub Actions run #4, job `Firebase auth + encrypted vault tests`).
+- O teste valida os módulos isolados em Node 22. Ainda não é prova de compatibilidade em produção Cloudflare Workers, nem valida o fluxo OAuth completo.
