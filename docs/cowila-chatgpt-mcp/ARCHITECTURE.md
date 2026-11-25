@@ -316,3 +316,19 @@ O workflow executou **31 testes aprovados, 0 falhas** no run #19 (Node 22). Os t
 ### Limite
 
 Não existe ainda um endpoint `/authorize`/callback em execução, sessão OAuth persistida, D1, Worker authorization server ou resource server. O fluxo ainda não está ligado ao ChatGPT. As credenciais Google OAuth e os valores Firebase de servidor não foram provisionados.
+
+
+## Persistência D1 do vínculo Firebase (2026-11-25)
+
+Foi criado o primeiro contrato de armazenamento:
+
+- Migration `migrations/0001_firebase_link_credentials.sql` cria somente `firebase_link_credentials`.
+- A chave primária é o UID Firebase validado; o e-mail permitido é imposto também por CHECK.
+- A tabela guarda versão/algoritmo, nonce e ciphertext AES-GCM, além de timestamps. Não armazena Google access tokens, Firebase ID tokens, refresh tokens em claro, mensagens ou manuscritos.
+- `src/firebase-credential-store.ts` cifra antes do INSERT/UPSERT, lê apenas por UID, decifra somente para código confiável, preserva `created_at` na rotação e permite excluir a credencial no unlink.
+- O armazenamento não recebe UID vindo de ferramenta MCP; o Worker deverá derivá-lo de `ctx.props` validado pelo OAuth Authorization Server.
+- A exclusão D1 remove a credencial local. Revogação dos grants OAuth e tratamento de tokens Firebase já emitidos são etapas separadas e ainda não implementadas.
+
+Foram adicionados seis testes com um adaptador D1 em memória: round-trip cifrado, rotação, rejeição de e-mail não permitido, UID sem vínculo, unlink e envelope inválido.
+
+**Limite operacional:** a migration ainda não foi aplicada; não há D1 database/binding criado ou selecionado, nem chave de cifragem provisionada. Não executei comandos remotos nem alterei Cloudflare. A execução CI desta etapa ainda precisa concluir.
