@@ -265,7 +265,8 @@ describe("Cowila Workers runtime boundary", () => {
         params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {} }, name: "cowila_get_training_summary", arguments: {} },
       }),
     });
-    expect(summary.status).toBe(200);
-    expect(await summary.text()).toContain("Cowila training record does not exist yet");
+    const summaryBody = await summary.text();
+    expect(summary.status, summaryBody).toBe(200);
+    expect(summaryBody).toContain("Cowila training record does not exist yet");
   });
 });
