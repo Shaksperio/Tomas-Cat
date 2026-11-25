@@ -9,8 +9,9 @@ This directory is reserved by task T-223. It must remain isolated from `workers/
 - `src/firebase-auth.ts`: Firebase Secure Token refresh exchange, strict linked-UID equality, expiry validation, and sanitized errors.
 - `src/secret-vault.ts`: AES-256-GCM envelope encryption for Firebase refresh tokens using a 32-byte runtime key.
 - `src/firebase-identity.ts`: verifies Firebase ID token signature against Google's Secure Token JWKS; enforces exact issuer/audience, permitted verified operator email, UID, expiry, and recent authentication (10-minute maximum auth age).
+- `src/google-oauth.ts`: builds the Google authorization URL with S256 PKCE, offline access and identity scopes; exchanges the authorization code using the server-held verifier and sanitizes provider errors.
 - `src/firebase-google-exchange.ts`: exchanges a short-lived Google OAuth access token through Firebase Identity Toolkit `accounts:signInWithIdp`, verifies the returned signed Firebase ID token and UID/email consistency, and returns the Firebase refresh token only to the trusted server caller for immediate encryption.
-- Unit tests for all four modules, including forged signatures, malformed/expired identity claims, mismatched UID, invalid provider response, and non-HTTPS callback rejection.
+- Unit tests for all five modules, including S256 PKCE, malformed Google token responses, forged Firebase signatures, malformed/expired identity claims, mismatched UID, invalid provider response, and non-HTTPS callback rejection.
 
 ## Run tests
 
@@ -25,7 +26,7 @@ Latest CI result: **17 tests passed, 0 failed** (GitHub Actions run #9, Node 22)
 ## Explicit non-goals of this increment
 
 - No OAuth authorization server or MCP HTTP endpoint.
-- No Google/Firebase account-linking page or callback. The Google-to-Firebase token-exchange primitive exists, but it is not yet wired to Cloudflare's OAuth callback.
+- No Google/Firebase account-linking page or callback. The Google OAuth PKCE and Google-to-Firebase exchange primitives exist, but are not yet wired to Cloudflare's OAuth callback.
 - No D1 binding, schema, migration, Worker deployment, or secret provisioning.
 - No Firestore reads or writes.
 - No access to production Cowila history.
