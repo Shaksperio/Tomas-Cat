@@ -40,6 +40,7 @@ const authorizationServer = new OAuthAuthorizationServer<Env>({
   defaultResource: COWILA_MCP_RESOURCE,
   scopesSupported: [...COWILA_SCOPES],
   clientIdMetadataDocumentEnabled: true,
+  clientRegistrationEndpoint: "/oauth/register",
   accessTokenTTL: 3600,
   refreshTokenTTL: 60 * 60 * 24 * 30,
 });
