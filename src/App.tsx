@@ -352,6 +352,9 @@ export default function App() {
             {authUser.displayName && authUser.email && <p className="truncate text-[10px] text-slate-400">{authUser.email}</p>}
           </div>
         </div>
+        {authUser.emailVerified && authUser.email?.trim().toLowerCase() === 'antonyopintor@gmail.com' && (
+          <button type="button" onClick={() => window.location.assign('/Tomas-Cat/cowila-lab')} className="shrink-0 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Laboratório Cowila</button>
+        )}
         <button type="button" onClick={handleLogout} className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/20">Sair</button>
       </header>
 
