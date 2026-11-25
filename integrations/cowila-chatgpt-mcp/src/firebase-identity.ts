@@ -21,8 +21,16 @@ interface FirebaseIdTokenClaims {
   email_verified?: unknown;
 }
 
+interface FirebaseJwk extends JsonWebKey {
+  kid?: string;
+}
+
 interface FirebaseJwkSet {
-  keys?: JsonWebKey[];
+  keys?: FirebaseJwk[];
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 export class FirebaseIdentityError extends Error {
@@ -137,8 +145,8 @@ export async function verifyFirebaseIdToken(
     validSignature = await crypto.subtle.verify(
       "RSASSA-PKCS1-v1_5",
       publicKey,
-      decodeBase64Url(parts[2]),
-      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+      toArrayBuffer(decodeBase64Url(parts[2])),
+      toArrayBuffer(new TextEncoder().encode(`${parts[0]}.${parts[1]}`)),
     );
   } catch {
     throw new FirebaseIdentityError("Firebase identity signature could not be verified.");
