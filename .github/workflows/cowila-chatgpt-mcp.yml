@@ -39,7 +39,7 @@ jobs:
           cache-dependency-path: integrations/cowila-chatgpt-mcp/package.json
 
       - name: Install isolated dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Type-check complete integration
         run: npm run typecheck
