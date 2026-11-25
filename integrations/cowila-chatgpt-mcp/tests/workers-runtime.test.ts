@@ -100,8 +100,8 @@ describe("Cowila Workers runtime boundary", () => {
     const verifier = "cowila-runtime-test-verifier-0123456789-abcdefghijklmnopqrstuvwxyz";
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\\+/g, "-")
-      .replace(/\\//g, "_")
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
       .replace(/=+$/, "");
     const authorizationUrl = new URL("/authorize", AUTH_ISSUER);
     for (const [key, value] of Object.entries({
