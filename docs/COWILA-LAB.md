@@ -34,16 +34,18 @@ O laboratório é uma interface separada do jogo, mas usa a mesma API de convers
 
 ## Persistência e limites atuais
 
-- Histórico, instruções e feedback ficam em `localStorage`, no navegador e dispositivo utilizados. São separados pelo UID Firebase.
-- Não há gravação em D1, Durable Objects, R2 ou outro banco da Cloudflare nesta versão.
+- Histórico, instruções e feedback são sincronizados em Firestore no documento `users/{uid}/cowilaLab/current`, separados pelo UID Firebase; há também uma cópia local em `localStorage`.
+- As regras de `firestore.rules` limitam leitura/escrita à conta administrativa verificada e ao próprio UID. As regras precisam estar publicadas no Firebase para habilitar a persistência remota.
 - O Worker atual é stateless para o chat: recebe o histórico do cliente, processa a solicitação e retorna a resposta.
 - A exportação JSONL é um conjunto de candidatos; aprovação na interface não substitui revisão de privacidade, deduplicação, validação e avaliação.
 - Não há treinamento online. Workers AI executa inferência; os pesos do modelo não são alterados pela conversa.
 - O endpoint atual reporta o modelo `@cf/meta/llama-3.3-70b-instruct-fp8-fast` quando responde pelo Cloudflare. O fallback Gemini pode ocorrer quando configurado; a interface mostra o provedor retornado.
 
-## Próxima etapa para persistência na nuvem
+## Persistência na nuvem
 
-Para que o histórico e os feedbacks fiquem disponíveis em diferentes dispositivos, a etapa seguinte é adicionar armazenamento server-side isolado por usuário (por exemplo, Durable Object com SQLite), autenticação do token Firebase no Worker, limites de retenção e endpoints protegidos para listar/exportar/apagar dados. Isso requer uma migration do Worker e configuração de autenticação; não é ativado automaticamente por esta interface.
+O histórico é salvo no Firestore já utilizado pelo jogo, no caminho `users/{uid}/cowilaLab/current`. As regras foram adicionadas em `firestore.rules` para permitir acesso apenas ao usuário autenticado, com e-mail administrativo verificado e UID correspondente. A publicação das regras depende do Firebase Console/CLI e não é executada pelo workflow do GitHub Pages.
+
+O chat e a inferência continuam no Worker Cloudflare. Não é necessário adicionar D1, R2 ou Durable Objects para esta primeira versão.
 
 ## Treinamento real
 
