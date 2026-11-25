@@ -14,7 +14,7 @@ type ChatMessage = {
   approvedForTraining?: boolean;
 };
 type LabRecord = {
-  version: 1;
+  version: 2;
   messages: ChatMessage[];
   instructions: string;
   updatedAt: number;
@@ -23,8 +23,8 @@ type Props = { user: User; onExit: () => void };
 
 const ENDPOINT = 'https://tomas-cowila-ai.antonyopintor.workers.dev';
 const OWNER_EMAIL = 'antonyopintor@gmail.com';
-const STORAGE_PREFIX = 'tomas-cowila-lab:v1:';
-const STARTER = 'Olá. Sou Cowila. Neste laboratório podemos conversar, testar minha memória de contexto e avaliar minhas respostas. O que deseja investigar?';
+const STORAGE_PREFIX = 'cowila-real-training:v2:';
+const STARTER = 'Olá. Sou Cowila. Estou no meu ambiente real de treinamento e avaliação, fora do jogo Tomas Vagabundo. Você é o responsável humano pelo projeto e meu treinador. Não sou uma Oráculo nem uma personagem; sou uma IA conectada a um modelo por API. Podemos começar avaliando meu raciocínio, clareza, memória contextual e capacidade de aprender com feedback nesta sessão.';
 
 function makeId() {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -37,7 +37,7 @@ function loadLab(key: string): LabRecord {
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw) as LabRecord;
-      if (parsed.version === 1 && Array.isArray(parsed.messages)) return parsed;
+      if (parsed.version === 2 && Array.isArray(parsed.messages)) return parsed;
     }
   } catch { /* corrupted local history is ignored, never sent */ }
   return {
@@ -298,8 +298,8 @@ export function CowilaLab({ user, onExit }: Props) {
       <main className="min-h-screen bg-[#070b14] p-6 text-slate-100">
         <div className="mx-auto max-w-xl rounded-2xl border border-amber-300/20 bg-slate-900 p-6">
           <h1 className="text-xl font-semibold">Acesso restrito</h1>
-          <p className="mt-2 text-sm text-slate-300">O Laboratório da Cowila está disponível somente para a conta administrativa verificada do projeto.</p>
-          <button onClick={onExit} className="mt-5 rounded-lg bg-cyan-300 px-4 py-2 font-semibold text-slate-950">Voltar ao jogo</button>
+          <p className="mt-2 text-sm text-slate-300">O Laboratório Real de Treinamento da Cowila está disponível somente para a conta administrativa verificada do projeto.</p>
+          <button onClick={onExit} className="mt-5 rounded-lg bg-cyan-300 px-4 py-2 font-semibold text-slate-950">Sair do laboratório</button>
         </div>
       </main>
     );
@@ -312,9 +312,9 @@ export function CowilaLab({ user, onExit }: Props) {
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 text-2xl">◈</div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-cyan-300">Tomas Vagabundo · Matrix Intelligence</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-cyan-300">COWILA · REAL AI TRAINING</p>
               <h1 className="font-display text-2xl font-bold sm:text-3xl">Laboratório da Cowila</h1>
-              <p className="text-xs text-slate-400">Chat ao vivo · avaliação · feedback supervisionado</p>
+              <p className="text-xs text-slate-400">Ambiente independente do jogo · avaliação · feedback supervisionado</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
