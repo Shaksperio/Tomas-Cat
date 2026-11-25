@@ -79,7 +79,7 @@ describe("Cowila Workers runtime boundary", () => {
         jsonrpc: "2.0",
         id: 1,
         method: "tools/list",
-        params: { _meta: {} },
+        params: { _meta: { protocolVersion: "2026-07-28", clientCapabilities: {} } },
       }),
     });
 
@@ -261,7 +261,7 @@ describe("Cowila Workers runtime boundary", () => {
         jsonrpc: "2.0",
         id: 2,
         method: "tools/call",
-        params: { _meta: {}, name: "cowila_get_training_summary", arguments: {} },
+        params: { _meta: { protocolVersion: "2026-07-28", clientCapabilities: {} }, name: "cowila_get_training_summary", arguments: {} },
       }),
     });
     expect(summary.status).toBe(200);
