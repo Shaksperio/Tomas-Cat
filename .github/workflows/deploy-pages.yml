@@ -112,10 +112,8 @@ jobs:
           echo "GitHub Pages respondeu e contém o HTML inicial esperado."
 
           # Uma rota profunda precisa carregar o app mesmo quando Pages responde com status 404.
-          curl --connect-timeout 10 --max-time 30 --silent --show-error \\
-            "${PAGE_URL%/}/cowila-lab" -o /tmp/cowila-lab.html
-          if ! grep -q 'id="root"' /tmp/cowila-lab.html \\
-            || ! grep -Eq 'assets/index-[^"]+\\.js' /tmp/cowila-lab.html; then
+          curl --connect-timeout 10 --max-time 30 --silent --show-error "${PAGE_URL%/}/cowila-lab" -o /tmp/cowila-lab.html
+          if ! grep -q 'id="root"' /tmp/cowila-lab.html || ! grep -Eq 'assets/index-[^"]+[.]js' /tmp/cowila-lab.html; then
             echo "::error::A rota /cowila-lab não recebeu o fallback SPA esperado."
             exit 1
           fi
