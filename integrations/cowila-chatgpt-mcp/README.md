@@ -1,43 +1,68 @@
-# Cowila — ChatGPT MCP connector (proof of concept)
+# Cowila — ChatGPT MCP connector
 
-**Status: isolated authentication and Firestore access primitives implemented; OAuth server and MCP endpoint are not yet implemented. Not deployed, not connected to real Firestore, and not registered in ChatGPT.**
+**Status:** isolated Authorization Worker and MCP Resource Worker source implemented; TypeScript strict and 49 unit tests pass in GitHub Actions run #74. Not deployed, not connected to production Firestore, and not registered in ChatGPT.
 
-This directory is reserved by task T-223. It remains isolated from `workers/`, existing Firebase rules/data, and the game's production runtime.
+## Implemented
 
-## Implemented and tested
+- Firebase Secure Token refresh with expected-UID equality and sanitized errors.
+- AES-256-GCM envelope encryption for Firebase refresh tokens.
+- Firebase ID-token RS256/JWKS verification, exact issuer/audience, verified operator email, UID, expiry and recent-authentication checks.
+- Google authorization-code flow with S256 PKCE and HTTPS callback validation.
+- Google-to-Firebase Identity Toolkit exchange.
+- D1 credential repository and SQL migration. The migration has not been applied.
+- Read-only Firestore REST reader restricted to `users/{uid}/cowilaLab/real-training-v2`, using the delegated Firebase ID token and preserving Firestore Security Rules.
+- Credential refresh/rotation service; ID tokens and refresh tokens never reach MCP tool responses.
+- **Authorization Worker** (`src/authorization-server.ts`): Cloudflare `OAuthAuthorizationServer`, exact resource/scope checks, client consent page, one-use browser-bound consent handle, Google upstream redirect, callback state validation, Firebase identity exchange, encrypted D1 credential persistence and OAuth grant completion.
+- **Resource Worker** (`src/resource-server.ts`): Cloudflare `OAuthResourceServer`, Service Binding token validation, exact audience, verified UID props and enforced `mcp:read`.
+- MCP Streamable HTTP handler using Cloudflare Agents SDK `createMcpHandler` and MCP SDK v2, stateless mode with legacy protocol lane rejected.
+- Read-only tools:
+  - `cowila_get_training_summary`
+  - `cowila_get_recent_messages` (1–25 messages)
+  - `cowila_search_messages` (bounded query and at most 20 results)
+- Dedicated package manifest and strict TypeScript configuration.
+- GitHub Actions workflow installs isolated dependencies, type-checks the complete integration and runs unit tests.
 
-- `src/firebase-auth.ts`: Firebase Secure Token refresh exchange, strict linked-UID equality, expiry validation, and sanitized errors.
-- `src/secret-vault.ts`: AES-256-GCM envelope encryption for Firebase refresh tokens using a 32-byte runtime key.
-- `src/firebase-identity.ts`: verifies Firebase ID token signatures against Google's Secure Token JWKS; enforces exact issuer/audience, permitted verified operator email, UID, expiry, and recent authentication.
-- `src/google-oauth.ts`: Google authorization URL with S256 PKCE, offline access and identity scopes; code exchange using the server-held verifier.
-- `src/firebase-google-exchange.ts`: exchanges a short-lived Google OAuth access token through Firebase Identity Toolkit `accounts:signInWithIdp`, verifies the Firebase ID token and UID/email consistency.
-- `src/firebase-credential-store.ts` and `migrations/0001_firebase_link_credentials.sql`: D1 credential-store abstraction and schema; only the AES-GCM envelope is persisted.
-- `src/firestore-cowila.ts`: read-only REST client restricted to `users/{uid}/cowilaLab/real-training-v2`, using a delegated Firebase ID token so Firestore Security Rules still apply.
-- `src/cowila-service.ts`: retrieves the encrypted credential, refreshes Firebase, persists rotated refresh credentials encrypted, and then reads the v2 document. Firebase ID tokens remain server-side.
-- Unit tests for these modules, including PKCE, encryption/rotation/unlink, refresh orchestration, Firestore path/ownership/schema/limits, malformed provider responses, forged signatures, expiry, UID mismatch and HTTPS callback checks.
+## Latest verification
 
-Latest verified workflow: GitHub Actions run #51, commit `f51b68a4a60625ede0e442db7a5b77316b4ca11a`, completed successfully. The preceding fully inspected test run #49 reported **48 tests passed, 0 failed**, with TypeScript strict passing. Run #51 is green on the same implementation plus documentation/PR updates; its individual test count has not been re-read here.
+GitHub Actions run **#74** on commit `fcb76c5e85b15204a12e703e28b095867c704dbb` completed successfully:
+- TypeScript strict check: passed.
+- Unit tests: **49 passed, 0 failed**.
 
-## What is not implemented
+These are unit tests and compile checks. They do not prove OAuth browser round-trip, Worker runtime compatibility, real Google/Firebase sign-in, Firestore permission behavior against the real project, or ChatGPT client compatibility.
 
-- No Cloudflare OAuth Authorization Server or Google callback wired to the primitives.
-- No MCP Streamable HTTP Resource Server or callable MCP tools.
-- No D1 binding/database provisioned and no migration applied.
-- No production secrets, Worker deployment, real Firestore reads, or ChatGPT connection.
-- No proof yet that a custom connector is available in the user's ChatGPT plan or Android app.
+## Configuration intentionally not supplied
+
+`src/config.ts` contains non-deployable `.example.invalid` placeholders for the authorization issuer, MCP resource and Google callback. They must be replaced only after selecting and approving real HTTPS hostnames.
+
+The Authorization Worker requires:
+- KV binding `OAUTH_KV` for Cloudflare OAuth provider state and grants.
+- D1 binding `DB` for encrypted Firebase refresh credentials.
+- Secrets `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_VAULT_KEY`.
+
+The Resource Worker requires:
+- Service Binding `AUTH_SERVER` to the Authorization Worker.
+- D1 binding `DB`.
+- `FIREBASE_PROJECT_ID`, `FIREBASE_DATABASE_ID`, `FIREBASE_API_KEY`, `FIREBASE_VAULT_KEY`.
+
+The Authorization Worker also requires the Cloudflare compatibility flag `global_fetch_strictly_public` to enable CIMD client metadata lookup. The final Wrangler configurations must be created only after the real hostnames, KV namespace and D1 database have been explicitly selected. No IDs or secrets are invented here.
 
 ## Security boundaries
 
-- No service-account bypass. Firestore requests use the linked user's Firebase ID token, preserving Firestore Security Rules.
-- Never persist plaintext refresh tokens. The encryption key must be a Cloudflare Worker Secret, not D1 or frontend configuration.
-- Never accept UID as an MCP tool argument; derive it from the authenticated OAuth principal's server-side link.
-- No arbitrary Firestore paths, writes, deletes, bulk export, or production access during this stage.
-- D1 migration, secret provisioning, deployment, and any real-data test require explicit human approval.
+- No service-account bypass: Firestore reads use the delegated Firebase user's ID token.
+- No arbitrary Firestore paths, writes, deletes, collection enumeration or bulk export.
+- UID is derived from verified OAuth grant props, never from MCP arguments.
+- OAuth access tokens are audience-bound to the exact MCP resource.
+- Only `mcp:read` is granted.
+- Firebase refresh token is encrypted before D1 persistence; vault key belongs in a Worker Secret.
+- No changes to `workers/`, Firebase Security Rules, existing documents, production secrets or deployed infrastructure.
 
-## Next implementation gates
+## Still required
 
-1. Verify the current Cloudflare OAuth Provider API and ChatGPT's remote MCP OAuth contract from primary documentation/source.
-2. Implement the authorization server, consent, single-use state, Google callback, Firebase identity exchange, and secure credential persistence.
-3. Implement a separate MCP resource server using Streamable HTTP, exact resource audience, and enforced `mcp:read`.
-4. Add contract tests and run the handlers in a local Workers-compatible runtime.
-5. Validate against an isolated Firebase test project. Only then request approval for production configuration and read-only diagnosis.
+1. Add isolated Worker runtime/integration tests for OAuth consent, Google callback, token validation and MCP tool calls (including denial, expired state, UID mismatch and missing scope).
+2. Run local Workers runtime tests with mock KV/D1 and mocked Google/Firebase/Firestore endpoints.
+3. Provision a separate Firebase development project and test the full delegated identity flow.
+4. Approve real hostnames, OAuth Google client, KV/D1 resources and secrets.
+5. Apply D1 migration and deploy only after explicit approval; then validate the real read-only path.
+6. Register the MCP endpoint in ChatGPT and test actual availability in the Android app. No such connection has been made yet.
+
+The PR remains Draft until the runtime integration tests and development-project validation are complete.
