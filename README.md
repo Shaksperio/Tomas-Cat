@@ -41,7 +41,7 @@ Endereço público esperado: https://shaksperio.github.io/Tomas-Cat/
 
 O Google AI Studio é o ambiente de desenvolvimento original. Este repositório contém a cópia versionada do código-fonte. Ao continuar o trabalho no AI Studio, sincronize as alterações exportadas com este repositório e preserve a configuração Vite e o workflow do GitHub Pages.
 
-## Sistemas de jogo em evolução
+## Laboratório da Cowila\n\nInterface administrativa de testes ao vivo, avaliação de contexto/raciocínio/personalidade e curadoria de feedback: [Abrir Laboratório da Cowila](https://shaksperio.github.io/Tomas-Cat/cowila-lab). Consulte [`docs/COWILA-LAB.md`](./docs/COWILA-LAB.md) para recursos, limites e roteiro de treinamento.\n\n## Sistemas de jogo em evolução
 
 - Ciclo de sete períodos do dia.
 - Iluminação lunar e força especial de Tomas.
