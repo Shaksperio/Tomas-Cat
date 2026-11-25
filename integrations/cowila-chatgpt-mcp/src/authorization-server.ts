@@ -1,6 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import {
   AuthorizationError,
+  authorizationErrorRedirect,
   OAuthAuthorizationServer,
   type AuthRequest,
 } from "@cloudflare/workers-oauth-provider";
@@ -111,7 +112,7 @@ async function renderConsent(request: Request, env: Env): Promise<Response> {
   const redirectHost = escapeHtml(description.redirectHost);
   const clientDomain = description.clientDomain
     ? "<p><strong>Verified client domain:</strong> " + escapeHtml(description.clientDomain) + "</p>"
-    : "";
+    : "<p><strong>Unverified application name:</strong> this client supplied its own name; it has not been verified.</p>";
   const loopbackWarning = description.redirectIsLoopback
     ? "<p role=\"alert\"><strong>Warning:</strong> the redirect goes to a local application; another local process may be listening there.</p>"
     : "";
@@ -167,8 +168,11 @@ async function handleConsentPost(request: Request, env: Env): Promise<Response> 
       codeChallenge: pkce.challenge,
     });
     return redirect(location, upstream.headers);
-  } catch {
-    return errorPage("Não foi possível iniciar a autenticação Google. Tente novamente.", 400);
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return errorPage("Não foi possível iniciar a autenticação Google. Reinicie a conexão.", 400);
+    }
+    throw error;
   }
 }
 
@@ -177,8 +181,11 @@ async function handleGoogleCallback(request: Request, env: Env): Promise<Respons
   let resumed;
   try {
     resumed = await oauth.finishUpstream<UpstreamData>(request);
-  } catch {
-    return errorPage("A sessão OAuth expirou ou não corresponde a este navegador. Reinicie a conexão.", 400);
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return errorPage("A sessão OAuth expirou ou não corresponde a este navegador. Reinicie a conexão.", 400);
+    }
+    throw error;
   }
 
   // Reject mismatched resource/scope before exchanging credentials or persisting a Firebase refresh token.
@@ -188,7 +195,7 @@ async function handleGoogleCallback(request: Request, env: Env): Promise<Respons
 
   const url = new URL(request.url);
   if (url.searchParams.has("error")) {
-    return errorPage("A autenticação Google foi cancelada ou recusada.", 401, resumed.headers);
+    return redirect(authorizationErrorRedirect(resumed.request, "access_denied"), resumed.headers);
   }
   const code = url.searchParams.get("code");
   if (!code || !resumed.data || typeof resumed.data.codeVerifier !== "string") {
