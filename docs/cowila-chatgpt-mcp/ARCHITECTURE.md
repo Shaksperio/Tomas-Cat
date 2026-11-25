@@ -339,3 +339,24 @@ Foram adicionados seis testes com um adaptador D1 em memória: round-trip cifrad
 A primeira execução encontrou duas falhas no adaptador D1 em memória dos testes: ele sobrescrevia artificialmente `created_at` em um UPSERT e o teste verificava a última SQL após uma consulta adicional. A simulação foi corrigida para preservar o timestamp original e registrar o histórico de comandos.
 
 Resultado final: **37 testes aprovados, 0 falhas**, GitHub Actions run #30, Node 22. A migration continua não aplicada e nenhum banco Cloudflare foi criado ou alterado.
+
+
+## Leitura Firestore restrita ao registro v2 (2026-11-25)
+
+Foi implementado `src/firestore-cowila.ts` como cliente REST read-only:
+
+- O único caminho codificado é `users/{uid}/cowilaLab/real-training-v2`; UID, projeto e database ID são validados e não vêm de argumentos MCP.
+- A chamada usa o Firebase ID token delegado no cabeçalho Bearer. Assim, a autorização continua sujeita às Firestore Security Rules do usuário; não há service account/IAM bypass.
+- 404 é tratado como documento inexistente; 401/403 são erros de permissão sanitizados.
+- O parser valida `ownerUid`, `schemaVersion=1`, `instructions` até 1500 caracteres, `updatedAt` e até 100 mensagens. Mensagens são filtradas para os campos conhecidos do laboratório e valores excessivos são limitados.
+- Não consulta o caminho legado `current`, coleções arbitrárias, subcoleções ou outros usuários.
+
+### CI e revisão de tipos
+
+Foi adicionado um passo de TypeScript `--strict --noEmit` para todos os módulos de servidor. A primeira execução encontrou incompatibilidades reais de tipagem Web Crypto/JWK; foram corrigidas usando um tipo JWK com `kid` e buffers `ArrayBuffer` explícitos.
+
+Resultado no commit `3670406d5c94dca8ada44b10093314d82b3016db`: **44 testes aprovados, 0 falhas**, TypeScript strict aprovado, GitHub Actions run #40. Os testes de Firestore usam respostas simuladas; não houve leitura de Firebase real.
+
+### Limite atual
+
+O cliente Firestore está implementado e testado isoladamente, mas ainda não está chamado por uma ferramenta MCP. Não há autorização OAuth executável, D1 remoto, Worker deployado nem ChatGPT conectado.
