@@ -2,7 +2,7 @@
 
 > **Toda IA (Claude, ChatGPT/Codex, Grok ou outra) lê este arquivo antes de começar qualquer trabalho e atualiza no mesmo commit em que reivindica, entrega ou abandona uma tarefa.** Ele existe para que duas IAs nunca façam a mesma coisa nem mexam no trabalho uma da outra.
 >
-> Última revisão: 2026-11-25 (ChatGPT: T-223 avançou; 52 testes unitários e 6 testes Workers runtime aprovados no run #151; token OAuth de teste validado pelo Service Binding e chamada MCP autenticada despachada; ainda sem Firebase/Firestore real, deploy ou conexão ChatGPT).
+> Última revisão: 2026-11-25 (ChatGPT: T-223 avançou; 52 testes unitários e 6 testes Workers runtime aprovados no run #155; token OAuth de teste validado pelo Service Binding e chamada MCP autenticada despachada; ainda sem Firebase/Firestore real, deploy ou conexão ChatGPT).
 
 ## 1. Regras
 
@@ -42,7 +42,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
-- [T-223] Conector remoto MCP exclusivo do ChatGPT para consulta somente leitura ao Firestore da Cowila — dono: ChatGPT/Codex — branch: `codex/cowila-chatgpt-mcp` — PR: #106 (draft) — reserva: `integrations/cowila-chatgpt-mcp/`, `docs/cowila-chatgpt-mcp/`, `.github/workflows/cowila-chatgpt-mcp.yml` — desde: 2026-11-25 — progresso: Authorization Worker e Resource Worker implementados com OAuth Provider 1.3.0; DCR, consentimento browser-bound single-use, Google callback com PKCE S256, troca Google→Firebase, persistência AES-GCM D1, MCP Streamable HTTP e 3 ferramentas read-only; política de grant exige exatamente o recurso Cowila e `mcp:read`. Run #151 verde: TypeScript strict (inclui testes/fixtures), 52 testes unitários e 6 testes `workerd`; fixture emite token OAuth local, Resource Worker valida via Service Binding, `tools/list` e chamada autenticada `tools/call` são exercitados. Ainda não há login Google/Firebase real, leitura Firestore, persistência D1 runtime validada, deploy ou conexão ChatGPT. Não editar `workers/`, regras Firebase, dados ou produção; provisionamento depende de aprovação explícita.
+- [T-223] Conector remoto MCP exclusivo do ChatGPT para consulta somente leitura ao Firestore da Cowila — dono: ChatGPT/Codex — branch: `codex/cowila-chatgpt-mcp` — PR: #106 (draft) — reserva: `integrations/cowila-chatgpt-mcp/`, `docs/cowila-chatgpt-mcp/`, `.github/workflows/cowila-chatgpt-mcp.yml` — desde: 2026-11-25 — progresso: Authorization Worker e Resource Worker implementados com OAuth Provider 1.3.0; DCR, consentimento browser-bound single-use, Google callback com PKCE S256, troca Google→Firebase, persistência AES-GCM D1, MCP Streamable HTTP e 3 ferramentas read-only; política de grant exige exatamente o recurso Cowila e `mcp:read`. Run #155 verde: TypeScript strict (inclui testes/fixtures), 52 testes unitários e 6 testes `workerd`; fixture emite token OAuth local, Resource Worker valida via Service Binding, `tools/list` e chamada autenticada `tools/call` são exercitados. Ainda não há login Google/Firebase real, leitura Firestore, persistência D1 runtime validada, deploy ou conexão ChatGPT. Não editar `workers/`, regras Firebase, dados ou produção; provisionamento depende de aprovação explícita.
 
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 
@@ -94,7 +94,7 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 
 ## 6. Histórico de mudanças do quadro
 
-- 2026-11-25 — ChatGPT/Codex: T-223 avançou na PR #106 (draft). Além dos dois Workers e fluxo de consentimento/PKCE, suíte `workerd` agora emite token OAuth por fixture isolada, valida-o no Resource Worker via Service Binding e exercita `tools/list` + `tools/call`; run #151 aprovado com 52 testes unitários + 6 runtime. Sem Google/Firebase real, leitura Firestore, deploy ou conexão ChatGPT. Pasta isolada, sem tocar em `workers/`.
+- 2026-11-25 — ChatGPT/Codex: T-223 avançou na PR #106 (draft). Além dos dois Workers e fluxo de consentimento/PKCE, suíte `workerd` agora emite token OAuth por fixture isolada, valida-o no Resource Worker via Service Binding e exercita `tools/list` + `tools/call`; run #155 aprovado com 52 testes unitários + 6 runtime. Sem Google/Firebase real, leitura Firestore, deploy ou conexão ChatGPT. Pasta isolada, sem tocar em `workers/`.
 - 2026-11-21 — ChatGPT/Codex: reivindicada T-220 para desenvolver Matrix Explorer em branch isolada; escopo e reservas limitados ao observador/explorador, documentação e workflow próprio. O projeto central e PRs existentes permanecem intocados.
 
 - 2026-11-20 — criado por Claude a pedido de Tom.
