@@ -133,3 +133,37 @@ As variáveis `VITE_FIREBASE_*` do GitHub Actions pertencem ao cliente web e nã
 2. **Service account restrita:** usar credencial server-side com IAM mínimo, mais uma allowlist rígida de UID/documentos vinculada ao principal autenticado.
 
 A opção 1 é preferível se o fluxo de identidade e refresh puder ser implementado com segurança. A opção 2 só será adotada após revisão do alcance de IAM e aprovação explícita. Nenhum dado será consultado até essa decisão e aprovação.
+
+## Revisão de autorização Firestore e decisão de identidade (2026-11-25)
+
+A leitura direta dos arquivos atuais em `main` confirmou:
+
+- `firestore.rules` permite `get/list` em `users/{userId}/cowilaLab/{sessionId}` somente quando o token Firebase autenticado tem o mesmo UID do caminho, e-mail `antonyopintor@gmail.com` e `email_verified == true`.
+- As regras de escrita também impõem `ownerUid`, `schemaVersion == 1`, lista `messages` com no máximo 100 itens, `instructions` string até 1500 caracteres e `updatedAt` inteiro.
+- O caminho legado documentado é `users/{uid}/cowilaLab/current`; a documentação da versão v2 registra `users/{uid}/cowilaLab/real-training-v2`. Ambos estão sob o mesmo match de regras, mas isso não prova que ambos existam no banco.
+- O cliente Firebase usa Firebase Auth no navegador e inicializa Firestore com o database ID definido em `VITE_FIREBASE_DATABASE_ID` (ou o banco padrão da SDK).
+
+### Consequência de segurança
+
+Uma service account usada no servidor normalmente acessa Firestore via IAM e não fica sujeita às Security Rules do mesmo modo que um cliente Firebase. Portanto, uma allowlist de UID no código MCP não equivale à proteção por usuário das regras. Não adotaremos service account como solução padrão para este conector.
+
+### Estratégia preferida: delegação Firebase Auth
+
+A próxima prova de conceito deve preservar as regras existentes usando uma identidade Firebase do próprio operador:
+
+1. O usuário inicia um fluxo de vinculação em uma página HTTPS controlada pelo projeto e autentica-se no Firebase pelo método já suportado pelo app.
+2. O servidor valida o ID token Firebase (assinatura, issuer, audience, expiração, UID, e-mail e e-mail verificado) e vincula esse UID à identidade OAuth autenticada do ChatGPT.
+3. Para chamadas MCP posteriores, o servidor usa um mecanismo seguro de renovação da sessão Firebase do próprio usuário; tokens e refresh tokens ficam cifrados em armazenamento server-side, nunca em argumentos MCP, logs ou Git.
+4. Consultas Firestore REST usam o token Firebase do usuário, de modo que as Security Rules continuam sendo aplicadas. A autorização também restringe os caminhos às sessões Cowila permitidas e ao UID vinculado.
+5. Desvincular/revogar a conexão invalida a associação e elimina os tokens armazenados conforme política de retenção.
+
+**Bloqueio técnico a resolver antes de codificar:** confirmar qual provedor/método de login Firebase o app usa e demonstrar que a renovação de credenciais pode ser feita com segurança sem exigir que o usuário cole tokens no ChatGPT. Se isso não for possível, interromper e apresentar alternativas; não contornar as regras com credencial administrativa silenciosamente.
+
+### Escopo de leitura inicial
+
+A primeira versão deve expor somente:
+- diagnóstico da existência e metadados mínimos dos dois IDs de documento conhecidos (`current` e `real-training-v2`);
+- leitura paginada e limitada das mensagens de uma sessão selecionada dentro desses caminhos;
+- pesquisa limitada apenas sobre conteúdo desses documentos autorizados.
+
+Não oferecer ferramentas MCP para criar, atualizar, excluir, exportar em massa ou consultar caminhos arbitrários. Não afirmar que o histórico está presente até o diagnóstico real retornar os documentos.
