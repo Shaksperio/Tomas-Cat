@@ -167,3 +167,43 @@ A primeira versão deve expor somente:
 - pesquisa limitada apenas sobre conteúdo desses documentos autorizados.
 
 Não oferecer ferramentas MCP para criar, atualizar, excluir, exportar em massa ou consultar caminhos arbitrários. Não afirmar que o histórico está presente até o diagnóstico real retornar os documentos.
+
+## Inspeção do código real de autenticação e persistência (2026-11-25)
+
+Arquivos conferidos em `main`: `src/App.tsx`, `src/components/CowilaLab.tsx`, `src/firebase/cowilaLabStore.ts`, `src/firebase/client.ts` e `docs/FIREBASE-AUTH.md`.
+
+### Autenticação efetivamente usada
+
+- O app usa **Firebase Authentication com Google** (`GoogleAuthProvider`, `signInWithPopup`, fallback `signInWithRedirect`).
+- O cliente observa a sessão com `onAuthStateChanged`; a SDK tenta persistência IndexedDB, localStorage, sessionStorage e, por último, memória.
+- O Laboratório recebe o objeto `User` já autenticado pelo app. Não há fluxo de login por senha/email no código verificado.
+- O token de sessão atual vive na sessão Firebase do navegador. O app não envia um token Firebase ao Worker `tomas-cowila-ai` no fluxo do chat.
+
+### Persistência efetivamente usada
+
+- O módulo `src/firebase/cowilaLabStore.ts` lê com `getDoc` e grava com `setDoc` exclusivamente em `users/{uid}/cowilaLab/real-training-v2`.
+- O componente também mantém cópia local em `localStorage`, chave `cowila-real-training:v2:{uid}`.
+- O caminho `current` aparece na documentação como legado; não é consultado pelo módulo de persistência atual.
+- O registro remoto valida `ownerUid`, `schemaVersion`, `messages`, `instructions` e `updatedAt`. A gravação remota é limitada a 100 mensagens e instruções de até 1500 caracteres.
+
+### Impacto para a vinculação MCP
+
+A simples autenticação OAuth do ChatGPT não entrega ao servidor a sessão Firebase que hoje existe no navegador. O MCP não pode reutilizar `firebaseAuth.currentUser` remotamente e não deve pedir ao usuário para copiar ID token/refresh token no chat.
+
+A próxima implementação deve separar duas autorizações:
+1. OAuth ChatGPT → autentica e autoriza o cliente a chamar o MCP.
+2. Vinculação Firebase Google → autentica o proprietário do Firestore e prova o UID permitido.
+
+A vinculação precisa ocorrer numa página HTTPS própria, com callback protegido contra CSRF/state replay e validação de domínio/audience/issuer. O servidor deve guardar somente o material mínimo necessário, cifrado e com revogação. Para consultar Firestore preservando as regras, a opção delegada exigirá uma forma segura de renovar a sessão Firebase do usuário. A SDK web atual, por si só, não fornece essa sessão ao MCP.
+
+### Prova de conceito obrigatória antes de qualquer acesso real
+
+- Demonstrar um fluxo Google/Firebase de vinculação que não dependa de copiar tokens manualmente.
+- Demonstrar renovação do token Firebase e leitura REST de um documento de teste sob as mesmas Security Rules.
+- Demonstrar que UID não pode ser alterado por parâmetro de ferramenta nem por outra conta ChatGPT.
+- Demonstrar revogação/desvinculação e limpeza segura do material de sessão.
+- Usar apenas dados de teste inicialmente; nenhuma leitura de histórico real nesta fase.
+
+### Correção de escopo dos documentos
+
+A documentação de produto cita `users/{uid}/cowilaLab/current` como caminho legado, mas o código atual só lê/escreve `real-training-v2`. A primeira versão MCP não deve prometer consulta a `current` até existir uma justificativa de migração/recuperação e teste específico. O diagnóstico inicial deve priorizar o documento v2; o caminho legado fica fora do escopo até confirmação do operador.
