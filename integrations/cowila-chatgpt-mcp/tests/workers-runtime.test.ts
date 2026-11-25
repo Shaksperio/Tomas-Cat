@@ -138,7 +138,9 @@ describe("Cowila Workers runtime boundary", () => {
     expect(googleUrl.searchParams.get("state")).toBeTruthy();
     expect(googleUrl.searchParams.get("code_challenge_method")).toBe("S256");
 
-    const upstreamCookie = approved.headers.get("set-cookie")?.split(";")[0];
+    const setCookieHeaders = approved.headers.get("set-cookie") ?? "";
+    const upstreamCookie = /(__Host-oauth-upstream-[^=]+=[^;,]*)/.exec(setCookieHeaders)?.[1];
+    expect(upstreamCookie).toBeTruthy();
     const cookies = [consentCookie, upstreamCookie].filter(Boolean).join("; ");
     const callbackUrl = new URL("/google/callback", AUTH_ISSUER);
     callbackUrl.searchParams.set("error", "access_denied");
