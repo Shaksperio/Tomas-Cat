@@ -11,7 +11,8 @@ This directory is reserved by task T-223. It must remain isolated from `workers/
 - `src/firebase-identity.ts`: verifies Firebase ID token signature against Google's Secure Token JWKS; enforces exact issuer/audience, permitted verified operator email, UID, expiry, and recent authentication (10-minute maximum auth age).
 - `src/google-oauth.ts`: builds the Google authorization URL with S256 PKCE, offline access and identity scopes; exchanges the authorization code using the server-held verifier and sanitizes provider errors.
 - `src/firebase-google-exchange.ts`: exchanges a short-lived Google OAuth access token through Firebase Identity Toolkit `accounts:signInWithIdp`, verifies the returned signed Firebase ID token and UID/email consistency, and returns the Firebase refresh token only to the trusted server caller for immediate encryption.
-- Unit tests for all five modules, including S256 PKCE, malformed Google token responses, forged Firebase signatures, malformed/expired identity claims, mismatched UID, invalid provider response, and non-HTTPS callback rejection.
+- `src/firebase-credential-store.ts` and `migrations/0001_firebase_link_credentials.sql`: persist only the AES-GCM envelope in D1; support encrypted-token rotation, UID-bound reads, and unlink deletion.
+- Unit tests for all six modules, including S256 PKCE, encrypted D1 round-trip/rotation/unlink, malformed Google token responses, forged Firebase signatures, malformed/expired identity claims, mismatched UID, invalid provider response, and non-HTTPS callback rejection.
 
 ## Run tests
 
@@ -27,7 +28,7 @@ Latest CI result: **17 tests passed, 0 failed** (GitHub Actions run #9, Node 22)
 
 - No OAuth authorization server or MCP HTTP endpoint.
 - No Google/Firebase account-linking page or callback. The Google OAuth PKCE and Google-to-Firebase exchange primitives exist, but are not yet wired to Cloudflare's OAuth callback.
-- No D1 binding, schema, migration, Worker deployment, or secret provisioning.
+- No D1 binding, Worker deployment, or secret provisioning. A D1 migration file is prepared but has not been applied to any database.
 - No Firestore reads or writes.
 - No access to production Cowila history.
 - No credentials, API keys, tokens, or real account identifiers in source.
