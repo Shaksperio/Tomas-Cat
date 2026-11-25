@@ -1,6 +1,10 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 export class SecretVaultError extends Error {
   constructor(message: string) {
     super(message);
@@ -28,7 +32,7 @@ async function importVaultKey(encodedKey: string): Promise<CryptoKey> {
   if (raw.byteLength !== 32) {
     throw new SecretVaultError("Vault key must contain exactly 32 bytes.");
   }
-  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+  return crypto.subtle.importKey("raw", toArrayBuffer(raw), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
 export interface EncryptedSecret {
@@ -47,9 +51,9 @@ export async function encryptRefreshToken(
   const key = await importVaultKey(base64Key);
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: nonce, additionalData: encoder.encode("cowila-firebase-refresh:v1") },
+    { name: "AES-GCM", iv: toArrayBuffer(nonce), additionalData: toArrayBuffer(encoder.encode("cowila-firebase-refresh:v1")) },
     key,
-    encoder.encode(refreshToken),
+    toArrayBuffer(encoder.encode(refreshToken)),
   );
   return {
     version: 1,
@@ -71,11 +75,11 @@ export async function decryptRefreshToken(
   const plaintext = await crypto.subtle.decrypt(
     {
       name: "AES-GCM",
-      iv: fromBase64(envelope.nonce),
-      additionalData: encoder.encode("cowila-firebase-refresh:v1"),
+      iv: toArrayBuffer(fromBase64(envelope.nonce)),
+      additionalData: toArrayBuffer(encoder.encode("cowila-firebase-refresh:v1")),
     },
     key,
-    fromBase64(envelope.ciphertext),
+    toArrayBuffer(fromBase64(envelope.ciphertext)),
   );
   return decoder.decode(plaintext);
 }
