@@ -424,7 +424,7 @@ A branch agora contém o primeiro código dos dois Workers isolados:
 
 ### Verificação atualizada
 
-GitHub Actions run #74, commit `fcb76c5e85b15204a12e703e28b095867c704dbb`: TypeScript strict aprovado e **49 testes aprovados, 0 falhas**. O teste adicional cobre o cálculo PKCE S256.
+GitHub Actions run #78, commit `fcb76c5e85b15204a12e703e28b095867c704dbb`: TypeScript strict aprovado e **49 testes aprovados, 0 falhas**. O teste adicional cobre o cálculo PKCE S256.
 
 ### Limites que continuam
 
