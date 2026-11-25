@@ -123,13 +123,22 @@ describe("Cowila Workers runtime boundary", () => {
     const consentCookie = consent.headers.get("set-cookie")?.split(";")[0];
     expect(consentCookie).toBeTruthy();
 
-    const approved = await auth.fetch(new URL("/authorize/consent", AUTH_ISSUER), {
+    const consentPostUrl = new URL("/authorize/consent", AUTH_ISSUER);
+    const consentPostBody = new URLSearchParams({ handle: handle!, decision: "approve" });
+    const wrongBrowser = await auth.fetch(consentPostUrl, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: consentPostBody,
+    });
+    expect(wrongBrowser.status).toBe(400);
+
+    const approved = await auth.fetch(consentPostUrl, {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
         cookie: consentCookie!,
       },
-      body: new URLSearchParams({ handle: handle!, decision: "approve" }),
+      body: consentPostBody,
       redirect: "manual",
     });
     expect(approved.status).toBe(302);
@@ -148,7 +157,11 @@ describe("Cowila Workers runtime boundary", () => {
     const callback = await auth.fetch(callbackUrl, {
       headers: { cookie: cookies },
     });
-    expect(callback.status).toBe(401);
-    expect(await callback.text()).toContain("cancelada ou recusada");
+    expect(callback.status).toBe(302);
+    const deniedRedirect = new URL(callback.headers.get("location")!);
+    expect(deniedRedirect.origin + deniedRedirect.pathname).toBe("https://client.example/callback");
+    expect(deniedRedirect.searchParams.get("error")).toBe("access_denied");
+    expect(deniedRedirect.searchParams.get("state")).toBe("cowila-state-runtime");
+    expect(deniedRedirect.searchParams.get("iss")).toBe(AUTH_ISSUER);
   });
 });
