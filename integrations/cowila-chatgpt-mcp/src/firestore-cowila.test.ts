@@ -65,6 +65,20 @@ test("reads only the v2 Cowila document using the Firebase user's bearer token",
   assert.equal(authorization, `Bearer ${input.idToken}`);
 });
 
+test("rejects a Firestore response whose document name is not the exact requested path", async () => {
+  const doc = validDocument();
+  doc.name = "projects/cowila-test-project/databases/cowila-test-db/documents/users/another-user/cowilaLab/real-training-v2";
+  const fetcher: typeof fetch = async () => Response.json(doc);
+  await assert.rejects(readCowilaTrainingRecord(input, fetcher), CowilaFirestoreError);
+});
+
+test("rejects a Firestore response with no canonical document name", async () => {
+  const doc = validDocument();
+  delete (doc as { name?: string }).name;
+  const fetcher: typeof fetch = async () => Response.json(doc);
+  await assert.rejects(readCowilaTrainingRecord(input, fetcher), CowilaFirestoreError);
+});
+
 test("returns null when the v2 document does not exist", async () => {
   const fetcher: typeof fetch = async () => new Response(null, { status: 404 });
   assert.equal(await readCowilaTrainingRecord(input, fetcher), null);
