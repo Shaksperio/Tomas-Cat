@@ -15,9 +15,11 @@ class MemoryD1 implements D1DatabaseLike {
   row: Record<string, unknown> | null = null;
   lastSql = "";
   lastValues: unknown[] = [];
+  sqlHistory: string[] = [];
 
   prepare(query: string) {
     this.lastSql = query;
+    this.sqlHistory.push(query);
     const db = this;
     let values: unknown[] = [];
     return {
@@ -28,6 +30,7 @@ class MemoryD1 implements D1DatabaseLike {
       },
       async run() {
         if (query.includes("INSERT INTO firebase_link_credentials")) {
+          const previousCreatedAt = db.row?.created_at ?? values[6];
           db.row = {
             firebase_uid: values[0],
             email: values[1],
@@ -35,7 +38,7 @@ class MemoryD1 implements D1DatabaseLike {
             vault_algorithm: values[3],
             vault_nonce: values[4],
             vault_ciphertext: values[5],
-            created_at: values[6],
+            created_at: previousCreatedAt,
             updated_at: values[7],
             revoked_at: null,
           };
@@ -99,7 +102,7 @@ test("deletes the stored credential on unlink", async () => {
   await saveFirebaseCredential(db, { uid: UID, email: EMAIL, refreshToken: "refresh-secret-value" }, KEY);
   await deleteFirebaseCredential(db, UID);
   assert.equal(await getFirebaseCredential(db, UID, KEY), null);
-  assert.match(db.lastSql, /DELETE FROM firebase_link_credentials/);
+  assert.ok(db.sqlHistory.some((sql) => sql.startsWith("DELETE FROM firebase_link_credentials")));
 });
 
 test("rejects malformed stored encryption envelopes", async () => {
