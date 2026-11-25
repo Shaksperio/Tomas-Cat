@@ -332,3 +332,10 @@ Foi criado o primeiro contrato de armazenamento:
 Foram adicionados seis testes com um adaptador D1 em memória: round-trip cifrado, rotação, rejeição de e-mail não permitido, UID sem vínculo, unlink e envelope inválido.
 
 **Limite operacional:** a migration ainda não foi aplicada; não há D1 database/binding criado ou selecionado, nem chave de cifragem provisionada. Não executei comandos remotos nem alterei Cloudflare. A execução CI desta etapa ainda precisa concluir.
+
+
+### Resultado da validação D1 em CI
+
+A primeira execução encontrou duas falhas no adaptador D1 em memória dos testes: ele sobrescrevia artificialmente `created_at` em um UPSERT e o teste verificava a última SQL após uma consulta adicional. A simulação foi corrigida para preservar o timestamp original e registrar o histórico de comandos.
+
+Resultado final: **37 testes aprovados, 0 falhas**, GitHub Actions run #30, Node 22. A migration continua não aplicada e nenhum banco Cloudflare foi criado ou alterado.
