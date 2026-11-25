@@ -33,5 +33,17 @@ jobs:
         with:
           node-version: 22
 
+      - name: Type-check isolated server primitives
+        run: >-
+          npx --yes --package typescript@5.9.3 tsc --noEmit --strict
+          --target ES2022 --module ESNext --moduleResolution Bundler
+          --lib ES2022,DOM
+          integrations/cowila-chatgpt-mcp/src/firebase-auth.ts
+          integrations/cowila-chatgpt-mcp/src/firebase-identity.ts
+          integrations/cowila-chatgpt-mcp/src/firebase-google-exchange.ts
+          integrations/cowila-chatgpt-mcp/src/google-oauth.ts
+          integrations/cowila-chatgpt-mcp/src/secret-vault.ts
+          integrations/cowila-chatgpt-mcp/src/firebase-credential-store.ts
+
       - name: Run isolated tests
         run: npx --yes tsx@4.21.0 --test integrations/cowila-chatgpt-mcp/src/*.test.ts
