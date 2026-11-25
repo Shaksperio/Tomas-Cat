@@ -10,6 +10,7 @@ type ChatMessage = {
   latencyMs?: number;
   rating?: 'positive' | 'negative';
   feedback?: string;
+  approvedForTraining?: boolean;
 };
 type LabRecord = {
   version: 1;
@@ -59,7 +60,7 @@ function downloadTrainingSet(messages: ChatMessage[], instructions: string) {
       correction: message.feedback ?? '',
       session_instruction: instructions,
       source: 'tomas-vagabundo-cowila-lab',
-      approved_for_training: message.rating === 'positive' && Boolean(message.feedback?.trim()) ? false : false,
+      approved_for_training: message.approvedForTraining === true,
       created_at: new Date(message.createdAt).toISOString(),
     }];
   });
@@ -112,12 +113,21 @@ export function CowilaLab({ user, onExit }: Props) {
   const positive = messages.filter((message) => message.rating === 'positive').length;
   const negative = messages.filter((message) => message.rating === 'negative').length;
   const corrections = messages.filter((message) => Boolean(message.feedback?.trim())).length;
+  const approvedExamples = messages.filter((message) => message.role === 'assistant' && message.approvedForTraining === true).length;
   const contextChars = messages.slice(-10).reduce((total, message) => total + message.content.length, 0);
 
   async function sendMessage(text: string) {
     const message = text.trim();
     if (!message || busy) return;
-    const history = messages.slice(-10).map((item) => ({ role: item.role, content: item.content }));
+    const history = messages.slice(-10).flatMap((item) => {
+      const entries: Array<{ role: 'user' | 'assistant'; content: string }> = [{ role: item.role, content: item.content }];
+      if (item.role === 'assistant' && item.rating) {
+        entries.push({ role: 'user', content: item.feedback?.trim()
+          ? `FEEDBACK DO RESPONSÁVEL SOBRE A RESPOSTA ANTERIOR: avaliação ${item.rating === 'positive' ? 'positiva' : 'negativa'}. Correção/orientação: ${item.feedback.trim().slice(0, 1_500)}. Considere esta orientação nas próximas respostas.`
+          : `FEEDBACK DO RESPONSÁVEL: a resposta anterior recebeu avaliação ${item.rating === 'positive' ? 'positiva' : 'negativa'}. Considere isso ao ajustar a próxima resposta.` });
+      }
+      return entries;
+    }).slice(-10);
     if (instructions.trim()) {
       history.push({
         role: 'user',
@@ -172,11 +182,17 @@ export function CowilaLab({ user, onExit }: Props) {
 
   function rateMessage(id: string, rating: 'positive' | 'negative') {
     setMessages((current) => current.map((message) => message.id === id
-      ? { ...message, rating, feedback: rating === 'positive' ? message.feedback : message.feedback }
+      ? { ...message, rating, approvedForTraining: rating === 'positive' ? message.approvedForTraining : false }
       : message));
     setActiveFeedbackId(id);
     const existing = messages.find((message) => message.id === id);
     setCorrectionDraft(existing?.feedback ?? '');
+  }
+
+  function toggleApproval(id: string) {
+    setMessages((current) => current.map((message) => message.id === id
+      ? { ...message, approvedForTraining: !message.approvedForTraining }
+      : message));
   }
 
   function saveCorrection() {
@@ -294,6 +310,7 @@ export function CowilaLab({ user, onExit }: Props) {
                           <button onClick={() => rateMessage(message.id, 'negative')} aria-label="Avaliar resposta negativamente" className={`rounded-lg px-2.5 py-1 text-xs ${message.rating === 'negative' ? 'bg-rose-300/20 text-rose-200' : 'bg-white/5 text-slate-400 hover:text-rose-200'}`}>👎 Precisa melhorar</button>
                           <button onClick={() => { setActiveFeedbackId(message.id); setCorrectionDraft(message.feedback ?? ''); }} className="rounded-lg bg-white/5 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/10">Corrigir / instruir</button>
                           {message.feedback && <span className="text-[10px] text-cyan-200">Feedback registrado</span>}
+                          {message.rating === 'positive' && <button onClick={() => toggleApproval(message.id)} className={`rounded-lg px-2.5 py-1 text-xs ${message.approvedForTraining ? 'bg-emerald-300/20 text-emerald-200' : 'bg-white/5 text-slate-400 hover:text-emerald-200'}`}>{message.approvedForTraining ? '✓ Aprovado para dataset' : 'Aprovar exemplo'}</button>}
                         </div>
                       )}
                       {activeFeedbackId === message.id && (
@@ -358,10 +375,11 @@ export function CowilaLab({ user, onExit }: Props) {
                   <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-slate-500">Respostas avaliadas</p><p className="text-2xl font-bold">{positive + negative}</p></div>
                   <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-slate-500">Correções escritas</p><p className="text-2xl font-bold">{corrections}</p></div>
                   <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-slate-500">Mensagens salvas</p><p className="text-2xl font-bold">{messages.length}</p></div>
+                  <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-slate-500">Exemplos aprovados</p><p className="text-2xl font-bold">{approvedExamples}</p></div>
                 </div>
                 <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-4">
                   <h3 className="font-semibold">Exportação de exemplos</h3>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">Gera JSONL com pergunta, resposta, avaliação, correção e instrução da sessão. Os exemplos ainda precisam de revisão, deduplicação, remoção de dados pessoais e aprovação antes de entrar em um dataset de SFT.</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">Gera JSONL com pergunta, resposta, avaliação, correção e instrução da sessão. Somente respostas marcadas manualmente como aprovadas entram como exemplos aprovados; ainda precisam de revisão, deduplicação e remoção de dados pessoais antes do SFT.</p>
                   <button onClick={() => downloadTrainingSet(messages, instructions)} className="mt-3 rounded-lg bg-cyan-300 px-4 py-2 text-sm font-bold text-slate-950">Exportar dataset JSONL</button>
                 </div>
                 <p className="text-xs text-slate-500">Histórico e feedback são guardados no armazenamento deste navegador, por conta. Não são enviados a um banco na Cloudflare nesta versão.</p>
@@ -386,7 +404,7 @@ export function CowilaLab({ user, onExit }: Props) {
                 <li>• Contexto: referência a fatos de turnos anteriores.</li>
                 <li>• Personalidade: consistência de voz e identidade.</li>
                 <li>• Honestidade: reconhecimento de limites e incerteza.</li>
-                <li>• Feedback: correção humana vinculada à resposta.</li>
+                <li>• Feedback: correção humana vinculada à resposta.\n                • Curadoria: aprovação explícita de exemplos para dataset.</li>
               </ul>
             </section>
             <section className="rounded-2xl border border-amber-300/15 bg-amber-300/5 p-4">
