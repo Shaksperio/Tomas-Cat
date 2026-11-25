@@ -80,4 +80,73 @@ describe("Cowila Workers runtime boundary", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toContain("resource_metadata=");
   });
+
+  it("runs dynamic registration, browser-bound consent, Google PKCE redirect, and safe denial in workerd", async () => {
+    const registration = await auth.fetch(new URL("/oauth/register", AUTH_ISSUER), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "Cowila runtime test client",
+        redirect_uris: ["https://client.example/callback"],
+        token_endpoint_auth_method: "none",
+        grant_types: ["authorization_code"],
+        response_types: ["code"],
+      }),
+    });
+    expect(registration.status).toBe(201);
+    const client = (await registration.json()) as { client_id: string };
+    expect(client.client_id).toBeTruthy();
+
+    const verifier = "cowila-runtime-test-verifier-0123456789-abcdefghijklmnopqrstuvwxyz";
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\\+/g, "-")
+      .replace(/\\//g, "_")
+      .replace(/=+$/, "");
+    const authorizationUrl = new URL("/authorize", AUTH_ISSUER);
+    for (const [key, value] of Object.entries({
+      response_type: "code",
+      client_id: client.client_id,
+      redirect_uri: "https://client.example/callback",
+      scope: "mcp:read",
+      state: "cowila-state-runtime",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      resource: MCP_RESOURCE,
+    })) authorizationUrl.searchParams.set(key, value);
+
+    const consent = await auth.fetch(authorizationUrl);
+    expect(consent.status).toBe(200);
+    const consentHtml = await consent.text();
+    const handle = /name="handle" value="([^"]+)"/.exec(consentHtml)?.[1];
+    expect(handle).toBeTruthy();
+    const consentCookie = consent.headers.get("set-cookie")?.split(";")[0];
+    expect(consentCookie).toBeTruthy();
+
+    const approved = await auth.fetch(new URL("/authorize/consent", AUTH_ISSUER), {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: consentCookie!,
+      },
+      body: new URLSearchParams({ handle: handle!, decision: "approve" }),
+      redirect: "manual",
+    });
+    expect(approved.status).toBe(302);
+    const googleUrl = new URL(approved.headers.get("location")!);
+    expect(googleUrl.hostname).toBe("accounts.google.com");
+    expect(googleUrl.searchParams.get("state")).toBeTruthy();
+    expect(googleUrl.searchParams.get("code_challenge_method")).toBe("S256");
+
+    const upstreamCookie = approved.headers.get("set-cookie")?.split(";")[0];
+    const cookies = [consentCookie, upstreamCookie].filter(Boolean).join("; ");
+    const callbackUrl = new URL("/google/callback", AUTH_ISSUER);
+    callbackUrl.searchParams.set("error", "access_denied");
+    callbackUrl.searchParams.set("state", googleUrl.searchParams.get("state")!);
+    const callback = await auth.fetch(callbackUrl, {
+      headers: { cookie: cookies },
+    });
+    expect(callback.status).toBe(401);
+    expect(await callback.text()).toContain("cancelada ou recusada");
+  });
 });
