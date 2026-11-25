@@ -238,9 +238,8 @@ describe("Cowila Workers runtime boundary", () => {
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
-        _meta: {},
         method: "tools/list",
-        params: {},
+        params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {} } },
       }),
     });
     const toolsBody = await toolsList.text();
