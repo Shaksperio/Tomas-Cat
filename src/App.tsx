@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserPopupRedirectResolver, onAuthStateChanged, getRedirectResult, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { GameCanvas } from './components/GameCanvas';
 import { OracleDialogue } from './components/OracleDialogue';
+import { CowilaLab } from './components/CowilaLab';
 import { AgentTasksPanel } from './components/AgentTasksPanel';
 import type { OracleWorldAction } from './game/society/agents/oracleWorldActions';
 import { GameHUD } from './components/GameHUD';
@@ -335,6 +336,10 @@ export default function App() {
     return <LoginScreen configured={firebaseConfigured} busy={authBusy} error={authError} inIframe={inIframe} onGoogleLogin={handleGoogleLogin} />;
   }
 
+  if (window.location.pathname.replace(/\/+$/, '').endsWith('/cowila-lab')) {
+    return <CowilaLab user={authUser} onExit={() => window.location.assign('/Tomas-Cat/')} />;
+  }
+
   return (
     <main className="relative flex h-full w-full flex-col overflow-hidden bg-[#0B0F17]">
       <header className="relative z-30 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#080d17]/95 px-3 py-1.5 backdrop-blur-md">
@@ -347,6 +352,9 @@ export default function App() {
             {authUser.displayName && authUser.email && <p className="truncate text-[10px] text-slate-400">{authUser.email}</p>}
           </div>
         </div>
+        {authUser.emailVerified && authUser.email?.trim().toLowerCase() === 'antonyopintor@gmail.com' && (
+          <button type="button" onClick={() => window.location.assign('/Tomas-Cat/cowila-lab')} className="shrink-0 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-300/20">Laboratório Cowila</button>
+        )}
         <button type="button" onClick={handleLogout} className="shrink-0 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/20">Sair</button>
       </header>
 

@@ -10,6 +10,30 @@ service cloud.firestore {
         && request.resource.data.payload is map;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Histórico do laboratório é privado e exclusivo da conta administrativa verificada.
+    match /users/{userId}/cowilaLab/{sessionId} {
+      allow get, list: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.email == 'antonyopintor@gmail.com'
+        && request.auth.token.email_verified == true;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.email == 'antonyopintor@gmail.com'
+        && request.auth.token.email_verified == true
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.messages is list
+        && request.resource.data.messages.size() <= 100
+        && request.resource.data.instructions is string
+        && request.resource.data.instructions.size() <= 1500
+        && request.resource.data.updatedAt is int;
+      allow delete: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.email == 'antonyopintor@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
