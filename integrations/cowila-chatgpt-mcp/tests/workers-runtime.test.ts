@@ -3,10 +3,16 @@ import { createTestHarness } from "wrangler";
 
 const AUTH_SERVER = { configPath: "./wrangler.auth.test.jsonc" };
 const MCP_SERVER = { configPath: "./wrangler.resource.test.jsonc" };
+const AUTH_TOKEN_FIXTURE = { configPath: "./wrangler.auth.fixture.test.jsonc" };
+const AUTHENTICATED_MCP_SERVER = { configPath: "./wrangler.resource.authenticated.test.jsonc" };
 
-const harness = createTestHarness({ workers: [AUTH_SERVER, MCP_SERVER] });
+const harness = createTestHarness({
+  workers: [AUTH_SERVER, MCP_SERVER, AUTH_TOKEN_FIXTURE, AUTHENTICATED_MCP_SERVER],
+});
 const auth = harness.getWorker("cowila-auth-runtime-test");
 const mcp = harness.getWorker("cowila-mcp-runtime-test");
+const authFixture = harness.getWorker("cowila-auth-token-fixture");
+const authenticatedMcp = harness.getWorker("cowila-mcp-authenticated-runtime-test");
 
 const AUTH_ISSUER = "https://cowila-auth.example.invalid";
 const MCP_RESOURCE = "https://cowila-mcp.example.invalid/mcp";
@@ -164,5 +170,98 @@ describe("Cowila Workers runtime boundary", () => {
     expect(deniedRedirect.searchParams.get("error")).toBe("access_denied");
     expect(deniedRedirect.searchParams.get("state")).toBe("cowila-state-runtime");
     expect(deniedRedirect.searchParams.get("iss")).toBe(AUTH_ISSUER);
+  });
+
+  it("issues a real local OAuth token and reaches authenticated MCP tools through the Service Binding", async () => {
+    const registration = await authFixture.fetch(new URL("/oauth/register", AUTH_ISSUER), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_name: "Cowila authenticated runtime test",
+        redirect_uris: ["https://client.example/callback"],
+        token_endpoint_auth_method: "none",
+        grant_types: ["authorization_code"],
+        response_types: ["code"],
+      }),
+    });
+    expect(registration.status).toBe(201);
+    const client = (await registration.json()) as { client_id: string };
+
+    const verifier = "cowila-authenticated-runtime-verifier-0123456789";
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replace(/=+$/, "");
+    const authorizeUrl = new URL("/test/authorize", AUTH_ISSUER);
+    for (const [key, value] of Object.entries({
+      response_type: "code",
+      client_id: client.client_id,
+      redirect_uri: "https://client.example/callback",
+      scope: "mcp:read",
+      state: "cowila-authorized-runtime-state",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      resource: MCP_RESOURCE,
+    })) authorizeUrl.searchParams.set(key, value);
+
+    const authorization = await authFixture.fetch(authorizeUrl, { redirect: "manual" });
+    expect(authorization.status).toBe(302);
+    const code = new URL(authorization.headers.get("location")!).searchParams.get("code");
+    expect(code).toBeTruthy();
+
+    const tokenResponse = await authFixture.fetch(new URL("/oauth/token", AUTH_ISSUER), {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: code!,
+        redirect_uri: "https://client.example/callback",
+        client_id: client.client_id,
+        code_verifier: verifier,
+        resource: MCP_RESOURCE,
+      }),
+    });
+    expect(tokenResponse.status).toBe(200);
+    const tokens = (await tokenResponse.json()) as { access_token: string; token_type: string };
+    expect(tokens.token_type.toLowerCase()).toBe("bearer");
+    expect(tokens.access_token).toBeTruthy();
+
+    const toolsList = await authenticatedMcp.fetch(MCP_RESOURCE, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${tokens.access_token}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+    expect(toolsList.status).toBe(200);
+    const toolsBody = await toolsList.text();
+    expect(toolsBody).toContain("cowila_get_training_summary");
+    expect(toolsBody).toContain("cowila_get_recent_messages");
+    expect(toolsBody).toContain("cowila_search_messages");
+
+    const summary = await authenticatedMcp.fetch(MCP_RESOURCE, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${tokens.access_token}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "cowila_get_training_summary", arguments: {} },
+      }),
+    });
+    expect(summary.status).toBe(200);
+    expect(await summary.text()).toContain("Cowila training record does not exist yet");
   });
 });
