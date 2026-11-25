@@ -42,7 +42,7 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
-- [T-223] Conector remoto MCP exclusivo do ChatGPT para consulta somente leitura ao Firestore da Cowila — dono: ChatGPT/Codex — branch: `codex/cowila-chatgpt-mcp` — PR: #106 (draft) — reserva: `integrations/cowila-chatgpt-mcp/`, `docs/cowila-chatgpt-mcp/` — desde: 2026-11-25 — escopo: servidor MCP isolado e autenticado, consultas Firestore read-only, testes de protocolo e guia de cadastro no ChatGPT; não editar `workers/`, regras Firestore, dados, segredos ou infraestrutura existente; implantação e cadastro dependem de validação e autorização explícita de Tom.
+- [T-223] Conector remoto MCP exclusivo do ChatGPT para consulta somente leitura ao Firestore da Cowila — dono: ChatGPT/Codex — branch: `codex/cowila-chatgpt-mcp` — PR: #106 (draft) — reserva: `integrations/cowila-chatgpt-mcp/`, `docs/cowila-chatgpt-mcp/`, `.github/workflows/cowila-chatgpt-mcp.yml` — desde: 2026-11-25 — escopo: servidor MCP isolado e autenticado, consultas Firestore read-only, testes de protocolo e guia de cadastro no ChatGPT; não editar `workers/`, regras Firestore, dados, segredos ou infraestrutura existente; implantação e cadastro dependem de validação e autorização explícita de Tom.
 
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
 

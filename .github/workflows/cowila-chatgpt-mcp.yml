@@ -1,0 +1,41 @@
+name: Cowila ChatGPT MCP — security primitives
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "integrations/cowila-chatgpt-mcp/**"
+      - ".github/workflows/cowila-chatgpt-mcp.yml"
+  push:
+    branches: ["codex/cowila-chatgpt-mcp"]
+    paths:
+      - "integrations/cowila-chatgpt-mcp/**"
+      - ".github/workflows/cowila-chatgpt-mcp.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cowila-chatgpt-mcp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firebase-auth-primitives:
+    name: Firebase auth + encrypted vault tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run isolated tests
+        run: npx tsx --test integrations/cowila-chatgpt-mcp/src/*.test.ts
