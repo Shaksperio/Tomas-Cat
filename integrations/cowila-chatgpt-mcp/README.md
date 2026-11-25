@@ -1,6 +1,6 @@
 # Cowila — ChatGPT MCP connector
 
-**Status:** isolated Authorization Worker and MCP Resource Worker source implemented; TypeScript strict and 49 unit tests pass in GitHub Actions run #74. Not deployed, not connected to production Firestore, and not registered in ChatGPT.
+**Status:** isolated Authorization Worker and MCP Resource Worker source implemented; TypeScript strict and 49 unit tests pass in GitHub Actions run #78. Not deployed, not connected to production Firestore, and not registered in ChatGPT.
 
 ## Implemented
 
