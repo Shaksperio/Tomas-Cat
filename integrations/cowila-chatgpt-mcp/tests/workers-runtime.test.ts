@@ -241,8 +241,8 @@ describe("Cowila Workers runtime boundary", () => {
         params: {},
       }),
     });
-    expect(toolsList.status).toBe(200);
     const toolsBody = await toolsList.text();
+    expect(toolsList.status, toolsBody).toBe(200);
     expect(toolsBody).toContain("cowila_get_training_summary");
     expect(toolsBody).toContain("cowila_get_recent_messages");
     expect(toolsBody).toContain("cowila_search_messages");
