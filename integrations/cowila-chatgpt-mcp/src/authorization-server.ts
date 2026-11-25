@@ -144,8 +144,11 @@ async function handleConsentPost(request: Request, env: Env): Promise<Response> 
     try {
       const denied = await oauth.denyConsent(request, handle);
       return redirect(denied.redirectTo, denied.headers);
-    } catch {
-      return errorPage("O pedido de consentimento expirou. Reinicie a conexão.", 400);
+    } catch (error) {
+      if (error instanceof AuthorizationError) {
+        return errorPage("O pedido de consentimento expirou. Reinicie a conexão.", 400);
+      }
+      throw error;
     }
   }
   if (decision !== "approve") return errorPage("Decisão de consentimento inválida.", 400);
