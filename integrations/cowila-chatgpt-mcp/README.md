@@ -1,6 +1,6 @@
 # Cowila — ChatGPT MCP connector
 
-**Status:** isolated Authorization Worker and MCP Resource Worker implemented; TypeScript strict, 52 unit tests and 5 Workers runtime tests pass in GitHub Actions run #117. Not deployed, not connected to production Firestore, and not registered in ChatGPT.
+**Status:** isolated Authorization Worker and MCP Resource Worker implemented; TypeScript strict, 52 unit tests and 6 Workers runtime tests pass in GitHub Actions run #151. Not deployed, not connected to production Firestore, and not registered in ChatGPT.
 
 ## Implemented
 
@@ -22,18 +22,19 @@
 - Dedicated package manifest and strict TypeScript configuration.
 - Local-only Wrangler configurations for two-Worker `workerd` tests, with local KV/D1 bindings and a real local Service Binding; no production IDs or domains.
 - Runtime tests cover OAuth metadata, protected-resource challenge, invalid bearer validation through the Service Binding, unauthenticated MCP tool rejection, dynamic client registration, browser-bound consent, Google PKCE redirect and upstream denial callback.
+- A test-only authorization fixture mints a local authorization-code access token through the OAuth token endpoint; the Resource Worker validates it through its Service Binding, returns the three MCP tools, and dispatches an authenticated tool call. The fixture endpoint exists only under `tests/` and is not part of either production Worker.
 - Exact OAuth grant policy rejects additional, duplicate or missing scopes and any resource other than the one registered.
 - GitHub Actions installs isolated dependencies, type-checks the complete integration, runs unit tests and launches the Workers runtime suite.
 
 ## Latest verification
 
-GitHub Actions run **#117** on commit `1c4883180b1d9d5d32b434edfcea5597dd3e766e` completed successfully:
-- TypeScript strict check: passed.
+GitHub Actions run **#151** on commit `128fb97e77126178306c7a49885d3471c6e5f582` completed successfully:
+- TypeScript strict check, including the runtime fixtures and tests: passed.
 - Unit tests: **52 passed, 0 failed**.
-- Workers runtime suite in `workerd`: **5 passed, 0 failed**.
-- Runtime coverage includes OAuth discovery, resource metadata, invalid-token validation through the actual local Service Binding, unauthenticated tool rejection, DCR, browser-bound consent, Google S256 PKCE redirect and a provider-denial callback redirected safely to the OAuth client.
+- Workers runtime suite in `workerd`: **6 passed, 0 failed**.
+- Runtime coverage includes OAuth discovery, resource metadata, invalid-token validation through the local Service Binding, unauthenticated tool rejection, DCR, browser-bound consent, Google S256 PKCE redirect, upstream-denial callback, authorization-code token issuance in a test-only fixture, token validation through the Resource Worker's Service Binding, MCP tool listing and an authenticated tool-call dispatch.
 
-This is a meaningful local runtime integration check, but not a full production OAuth round-trip. It does not prove successful Google authentication, Firebase Identity Toolkit exchange, D1 credential persistence/rotation, an authorized MCP tool read against Firestore, real-project Firestore rules, or ChatGPT client compatibility.
+The authenticated MCP test uses a test-only identity fixture, not Google/Firebase production credentials. The tool call returns a structured error because the fixture has no real linked Firebase training record; no Firestore read is claimed. This is a meaningful local runtime integration check, but not a full production OAuth round-trip. It does not prove successful Google authentication, Firebase Identity Toolkit exchange, D1 credential persistence/rotation, authorized Firestore content retrieval, real-project Firestore rules, OAuth refresh-token flow, or ChatGPT client compatibility.
 
 ## Configuration intentionally not supplied
 
@@ -63,7 +64,7 @@ The Authorization Worker also requires the Cloudflare compatibility flag `global
 
 ## Still required
 
-1. Extend runtime tests to cover consent expiry/replay, token endpoint issuance/refresh, and a valid authorized MCP tool invocation with isolated Firebase/Firestore mocks.
+1. Extend runtime tests to cover consent expiry/replay, OAuth refresh-token rotation, and a successful authorized MCP tool read with isolated Firebase/Firestore mocks.
 2. Validate successful Google→Firebase exchange and D1 credential write/rotation in an isolated test project.
 3. Provision a separate Firebase development project and test the full delegated identity flow.
 4. Approve real hostnames, Google OAuth client, KV/D1 resources and secrets.
