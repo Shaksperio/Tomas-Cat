@@ -32,10 +32,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-
-      - name: Install locked dependencies
-        run: npm ci
 
       - name: Run isolated tests
-        run: npx tsx --test integrations/cowila-chatgpt-mcp/src/*.test.ts
+        run: npx --yes tsx@4.21.0 --test integrations/cowila-chatgpt-mcp/src/*.test.ts
