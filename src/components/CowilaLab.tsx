@@ -93,6 +93,7 @@ export function CowilaLab({ user, onExit }: Props) {
   const [correctionDraft, setCorrectionDraft] = useState('');
   const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'chat' | 'evaluation' | 'training'>('chat');
   const [lastLatency, setLastLatency] = useState<number | null>(null);
@@ -236,6 +237,18 @@ export function CowilaLab({ user, onExit }: Props) {
     void sendMessage(draft);
   }
 
+  async function copyAssistantMessage(message: ChatMessage) {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      window.setTimeout(() => {
+        setCopiedMessageId((current) => current === message.id ? null : current);
+      }, 1800);
+    } catch {
+      setError('Não foi possível copiar automaticamente. Selecione o texto da resposta e copie manualmente.');
+    }
+  }
+
   function rateMessage(id: string, rating: 'positive' | 'negative') {
     setMessages((current) => current.map((message) => message.id === id
       ? { ...message, rating, approvedForTraining: rating === 'positive' ? message.approvedForTraining : false }
@@ -366,6 +379,9 @@ export function CowilaLab({ user, onExit }: Props) {
                       <p className="whitespace-pre-wrap text-sm leading-7 text-slate-100">{message.content}</p>
                       {message.role === 'assistant' && (
                         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-2">
+                          <button onClick={() => void copyAssistantMessage(message)} className="rounded-lg bg-cyan-300/10 px-2.5 py-1 text-xs text-cyan-200 hover:bg-cyan-300/20">
+                            {copiedMessageId === message.id ? '✓ Copiado' : '⧉ Copiar resposta'}
+                          </button>
                           <button onClick={() => rateMessage(message.id, 'positive')} aria-label="Avaliar resposta positivamente" className={`rounded-lg px-2.5 py-1 text-xs ${message.rating === 'positive' ? 'bg-emerald-300/20 text-emerald-200' : 'bg-white/5 text-slate-400 hover:text-emerald-200'}`}>👍 Útil</button>
                           <button onClick={() => rateMessage(message.id, 'negative')} aria-label="Avaliar resposta negativamente" className={`rounded-lg px-2.5 py-1 text-xs ${message.rating === 'negative' ? 'bg-rose-300/20 text-rose-200' : 'bg-white/5 text-slate-400 hover:text-rose-200'}`}>👎 Precisa melhorar</button>
                           <button onClick={() => { setActiveFeedbackId(message.id); setCorrectionDraft(message.feedback ?? ''); }} className="rounded-lg bg-white/5 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/10">Corrigir / instruir</button>
