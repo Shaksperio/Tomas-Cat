@@ -420,7 +420,7 @@ export function CowilaLab({ user, onExit }: Props) {
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button disabled={evaluationRunning || busy} onClick={() => void runEvaluation()} className="rounded-xl bg-cyan-300 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-40">{evaluationRunning ? `Executando ${evaluationIndex}/${evaluationCases.length}…` : 'Executar bateria de testes'}</button>
-                  <span className="text-xs text-slate-500">4 chamadas sequenciais · respeita o limite do Worker</span>
+                  <span className="text-xs text-slate-500">4 casos · 5 chamadas sequenciais · respeita o limite do Worker</span>
                 </div>
                 <p className="rounded-xl border border-amber-300/15 bg-amber-300/5 p-3 text-xs leading-5 text-amber-100/80">A avaliação é assistida: a interface registra as respostas e suas notas, mas não atribui uma nota automática de qualidade sem um avaliador independente.</p>
               </div>
