@@ -85,3 +85,20 @@ Nenhum segredo será solicitado em mensagem de chat. O provisionamento deverá o
 4. Executar revisão de segurança e testes de contrato.
 5. Configurar secrets e projeto real somente após autorização explícita.
 6. Fazer diagnóstico read-only e, por último, cadastrar o aplicativo no ChatGPT e testar no Android.
+
+
+## Configuração Firebase já existente no GitHub Actions (verificada em 2026-11-25)
+
+O workflow `.github/workflows/deploy-pages.yml` já injeta no build do frontend:
+
+- Secrets: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`.
+- Database ID: `VITE_FIREBASE_DATABASE_ID`, lido de Secret se definido; caso contrário, o workflow usa o valor padrão `ai-studio-780f41f1-7f4e-40c2-91b7-1ac37ba9bac6`.
+- Variable: `VITE_COWILA_AI_URL`, alimentada por `vars.COWILA_AI_URL`.
+
+O cliente em `src/firebase/client.ts` usa esses valores para inicializar Firebase Auth e Firestore. Isso confirma que o build publicado já conhece o projeto e o banco usados pelo app. Não é necessário pedir ao operador que recadastre esses mesmos valores para o frontend.
+
+**Limite de segurança:** variáveis `VITE_*` são incorporadas ao bundle do navegador; mesmo quando o valor de origem está cadastrado como GitHub Secret, o valor compilado pode ser extraído do app publicado. A Firebase Web API key e a configuração web identificam o projeto, mas não substituem autenticação nem concedem privilégios administrativos por si só. O conector MCP no servidor não deve tratar esses valores como credencial de serviço nem presumir que o MCP pode ler Firestore apenas por conhecê-los.
+
+Para leitura server-side, o conector ainda precisa de uma identidade de serviço/credencial segura com permissões mínimas, ou de uma alternativa baseada em Firebase Auth que preserve as regras e a identidade UID do usuário. Essa decisão deve ser tomada antes de implementar o acesso. Não copiar valores de Secrets para o repositório, logs, prompts ou respostas MCP.
+
+A variável `COWILA_AI_URL` é o endereço do Worker de inferência/chat, não o endpoint de dados do Firestore; ela não deve ser confundida com a URL do servidor MCP. O MCP será um serviço separado.
