@@ -21,8 +21,8 @@ Disponibilizar ao ChatGPT um servidor MCP remoto e dedicado para consultar, em m
 
 1. Servidor MCP remoto independente em Cloudflare Workers, com transporte HTTP compatível com MCP.
 2. Autorização OAuth compatível com o fluxo de conexão de aplicativos do ChatGPT. A implementação deve ser validada contra a documentação atual do ChatGPT antes de declarar compatibilidade. Não depender de token estático colado no chat.
-3. Identidade de serviço do Google armazenada somente como segredo do Worker; credencial nunca vai para GitHub, D1, resposta MCP ou logs.
-4. Acesso ao Firestore por API REST com escopo mínimo de leitura e database ID explicitamente configurado.
+3. Identidade Firebase delegada do próprio operador, autenticada por Google no fluxo de autorização; nenhum UID ou token é aceito como argumento de ferramenta.
+4. Acesso ao Firestore por API REST com ID token Firebase renovado a partir de refresh token protegido e database ID explicitamente configurado; as Firestore Security Rules continuam sendo a barreira de autorização.
 5. Autorização do lado do conector vinculada ao usuário autorizado do ChatGPT e ao UID Firestore permitido. O e-mail isoladamente não é prova de identidade.
 6. Allowlist explícita de coleções/caminhos; nenhuma consulta arbitrária, gravação, exclusão ou enumeração irrestrita.
 7. Auditoria com metadados mínimos (ferramenta, horário, resultado/erro, identidade pseudonimizada), sem registrar conteúdo integral das conversas.
@@ -52,8 +52,6 @@ Todas as ferramentas são read-only. Não haverá ferramenta de escrita, exclus�
 
 ## Configuração esperada (nomes ilustrativos; valores nunca versionados)
 
-- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
 - `FIREBASE_PROJECT_ID`
 - `FIRESTORE_DATABASE_ID`
 - segredos/estado necessários ao OAuth do servidor, definidos após confirmar o fluxo oficial suportado pelo ChatGPT.
@@ -99,7 +97,7 @@ O cliente em `src/firebase/client.ts` usa esses valores para inicializar Firebas
 
 **Limite de segurança:** variáveis `VITE_*` são incorporadas ao bundle do navegador; mesmo quando o valor de origem está cadastrado como GitHub Secret, o valor compilado pode ser extraído do app publicado. A Firebase Web API key e a configuração web identificam o projeto, mas não substituem autenticação nem concedem privilégios administrativos por si só. O conector MCP no servidor não deve tratar esses valores como credencial de serviço nem presumir que o MCP pode ler Firestore apenas por conhecê-los.
 
-Para leitura server-side, o conector ainda precisa de uma identidade de serviço/credencial segura com permissões mínimas, ou de uma alternativa baseada em Firebase Auth que preserve as regras e a identidade UID do usuário. Essa decisão deve ser tomada antes de implementar o acesso. Não copiar valores de Secrets para o repositório, logs, prompts ou respostas MCP.
+Para leitura server-side, o conector usará a identidade Firebase delegada do operador, e não uma service account privilegiada. O ID token será renovado no servidor usando o refresh token obtido no fluxo de vinculação Google/Firebase. O refresh token é uma credencial de alto impacto: deve ser cifrado em repouso com chave em Cloudflare Secret, nunca gravado em claro em D1, GitHub, logs, prompts ou respostas MCP. A viabilidade dessa renovação precisa ser provada com uma conta e documento de teste antes de qualquer leitura de histórico real.
 
 A variável `COWILA_AI_URL` é o endereço do Worker de inferência/chat, não o endpoint de dados do Firestore; ela não deve ser confundida com a URL do servidor MCP. O MCP será um serviço separado.
 
@@ -127,12 +125,7 @@ Não será criado um endpoint MCP aberto nem um token estático compartilhado. A
 
 ### Decisão sobre acesso Firestore
 
-As variáveis `VITE_FIREBASE_*` do GitHub Actions pertencem ao cliente web e não serão usadas como identidade server-side. Antes de implementar consultas reais, escolheremos uma destas estratégias e testaremos a autorização:
-
-1. **Firebase Auth delegado:** o OAuth do conector vincula o usuário ao UID Firebase e o servidor usa um token Firebase de usuário com regras Firestore, sem service account privilegiada; ou
-2. **Service account restrita:** usar credencial server-side com IAM mínimo, mais uma allowlist rígida de UID/documentos vinculada ao principal autenticado.
-
-A opção 1 é preferível se o fluxo de identidade e refresh puder ser implementado com segurança. A opção 2 só será adotada após revisão do alcance de IAM e aprovação explícita. Nenhum dado será consultado até essa decisão e aprovação.
+As variáveis `VITE_FIREBASE_*` do GitHub Actions pertencem ao cliente web e não serão usadas como identidade server-side. A decisão está tomada: **Firebase Auth delegado**. Não haverá fallback silencioso para service account. O fluxo OAuth do próprio conector deve autenticar o operador com Google/Firebase, vincular o UID validado ao principal OAuth e emitir autorização MCP com esse vínculo. Se a renovação do token Firebase não puder ser implementada com segurança, o projeto para e apresenta alternativas; não contorna as Security Rules. Nenhum dado real será consultado até a prova de conceito e aprovação explícita.
 
 ## Revisão de autorização Firestore e decisão de identidade (2026-11-25)
 
@@ -207,3 +200,38 @@ A vinculação precisa ocorrer numa página HTTPS própria, com callback protegi
 ### Correção de escopo dos documentos
 
 A documentação de produto cita `users/{uid}/cowilaLab/current` como caminho legado, mas o código atual só lê/escreve `real-training-v2`. A primeira versão MCP não deve prometer consulta a `current` até existir uma justificativa de migração/recuperação e teste específico. O diagnóstico inicial deve priorizar o documento v2; o caminho legado fica fora do escopo até confirmação do operador.
+
+
+## Próxima prova de conceito — sessão Firebase delegada (2026-11-25)
+
+### Fluxo candidato
+
+1. O ChatGPT inicia o OAuth do servidor MCP; o servidor de autorização conduz o usuário ao login Google/Firebase numa página HTTPS controlada pelo projeto.
+2. O Firebase Authentication conclui o login com o provedor Google já usado pelo Cowila Lab. O callback valida state de uso único, origem/redirect URI exatos e proteção contra replay.
+3. O backend valida o Firebase ID token (assinatura, issuer, audience, expiração, subject, e-mail e e-mail verificado) e confirma o UID permitido. O UID nunca vem de parâmetro MCP.
+4. O backend recebe o refresh token por canal HTTPS de back-channel, cifra-o antes de persistir e associa o registro ao identificador estável do principal OAuth. O token não é retornado ao ChatGPT.
+5. Em cada chamada autorizada, o backend troca o refresh token por um ID token recente no endpoint oficial de refresh do Firebase Authentication e chama Firestore REST com o ID token.
+6. A consulta só pode acessar o documento users/{uid}/cowilaLab/real-training-v2; limites de tamanho, campos e paginação são aplicados antes da resposta MCP.
+7. Desvincular remove a associação e o refresh token cifrado. A revogação também deve ser testada com a revogação de sessões Firebase; a exclusão local do token não revoga por si só tokens já emitidos.
+
+### Riscos e controles obrigatórios
+
+- O refresh token Firebase equivale a uma credencial duradoura. A chave de cifragem fica em Cloudflare Secret; D1 guarda somente ciphertext, nonce, versão da chave, UID, timestamps e estado de revogação.
+- Não registrar corpos de callback, cabeçalhos Authorization, ID tokens, refresh tokens nem conteúdo integral de mensagens.
+- Restringir a conta por UID e e-mail verificado conforme as regras existentes; não confiar somente no endereço de e-mail.
+- Validar state, PKCE quando aplicável, redirect URI exato, issuer, audience, assinatura e expiração; impedir vinculação de conta por CSRF ou troca de sessão.
+- Renovação deve tratar invalid_grant, token revogado, expiração e indisponibilidade sem cair para credenciais administrativas.
+- A prova inicial usa projeto/documento de teste isolado. Não ler nem alterar real-training-v2 de produção nesta etapa.
+
+### Testes de saída da prova
+
+- Login Google/Firebase completo sem copiar tokens manualmente.
+- Refresh do token Firebase com sucesso e leitura REST de documento de teste sob Firestore Security Rules.
+- Usuário/UID diferente, e-mail não verificado, state repetido, token expirado e token revogado são rejeitados.
+- O chamador não consegue selecionar outro UID, database, coleção ou caminho.
+- Desvinculação remove a credencial cifrada e bloqueia chamadas subsequentes.
+- Testes automatizados confirmam ausência de ferramentas de escrita e ausência de segredos em logs.
+
+### Bloqueio externo ainda aberto
+
+A compatibilidade do fluxo OAuth/registro de servidor MCP com a modalidade de conexão personalizada disponível na conta ChatGPT e no aplicativo Android ainda não foi demonstrada. A implementação não será declarada conectada até esse teste real. A existência de um endpoint MCP remoto, por si só, não instala o conector no ChatGPT.
