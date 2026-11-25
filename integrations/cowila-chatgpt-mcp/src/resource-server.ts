@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import {
   OAuthResourceServer,
+  insufficientScope,
   type AuthorizationServerBinding,
   type OAuthResourceContext,
 } from "@cloudflare/workers-oauth-provider";
@@ -172,10 +173,7 @@ const resourceServer = new OAuthResourceServer<Env, CowilaAuthProps>({
   handler: {
     fetch(request: Request, bindings: Env, context: OAuthResourceContext<CowilaAuthProps>) {
       if (!context.auth.scope.includes("mcp:read")) {
-        return new Response("Insufficient scope", {
-          status: 403,
-          headers: { "cache-control": "no-store" },
-        });
+        return insufficientScope(context.auth, ["mcp:read"], "The Cowila connector requires read access.");
       }
       if (
         !context.props ||
