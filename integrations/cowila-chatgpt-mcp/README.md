@@ -12,7 +12,8 @@ This directory is reserved by task T-223. It must remain isolated from `workers/
 - `src/google-oauth.ts`: builds the Google authorization URL with S256 PKCE, offline access and identity scopes; exchanges the authorization code using the server-held verifier and sanitizes provider errors.
 - `src/firebase-google-exchange.ts`: exchanges a short-lived Google OAuth access token through Firebase Identity Toolkit `accounts:signInWithIdp`, verifies the returned signed Firebase ID token and UID/email consistency, and returns the Firebase refresh token only to the trusted server caller for immediate encryption.
 - `src/firebase-credential-store.ts` and `migrations/0001_firebase_link_credentials.sql`: persist only the AES-GCM envelope in D1; support encrypted-token rotation, UID-bound reads, and unlink deletion.
-- Unit tests for all six modules, including S256 PKCE, encrypted D1 round-trip/rotation/unlink, malformed Google token responses, forged Firebase signatures, malformed/expired identity claims, mismatched UID, invalid provider response, and non-HTTPS callback rejection.
+- `src/firestore-cowila.ts`: read-only REST client restricted to the single `users/{uid}/cowilaLab/real-training-v2` document, using the delegated Firebase ID token so Firestore Security Rules still apply; validates owner UID/schema and returns bounded message fields.
+- Unit tests for all seven modules, including S256 PKCE, encrypted D1 round-trip/rotation/unlink, Firestore path/ownership/schema/limits, malformed Google token responses, forged Firebase signatures, malformed/expired identity claims, mismatched UID, invalid provider response, and non-HTTPS callback rejection.
 
 ## Run tests
 
