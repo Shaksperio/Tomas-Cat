@@ -336,7 +336,7 @@ export default function App() {
     return <LoginScreen configured={firebaseConfigured} busy={authBusy} error={authError} inIframe={inIframe} onGoogleLogin={handleGoogleLogin} />;
   }
 
-  if (window.location.pathname.replace(/\\/+$/, '').endsWith('/cowila-lab')) {
+  if (window.location.pathname.replace(/\/+$/, '').endsWith('/cowila-lab')) {
     return <CowilaLab user={authUser} onExit={() => window.location.assign('/Tomas-Cat/')} />;
   }
 
