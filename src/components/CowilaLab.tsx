@@ -169,7 +169,7 @@ export function CowilaLab({ user, onExit }: Props) {
       .filter((item) => item.role === 'user')
       .slice(0, Math.max(0, previousMessages.length - 6))
       .slice(-6)
-      .map((item) => item.content.replace(/\\s+/g, ' ').slice(0, 150))
+      .map((item) => item.content.replace(/\s+/g, ' ').slice(0, 150))
       .filter(Boolean)
       .join(' | ')
       .slice(0, 900);
