@@ -235,3 +235,15 @@ A documentação de produto cita `users/{uid}/cowilaLab/current` como caminho le
 ### Bloqueio externo ainda aberto
 
 A compatibilidade do fluxo OAuth/registro de servidor MCP com a modalidade de conexão personalizada disponível na conta ChatGPT e no aplicativo Android ainda não foi demonstrada. A implementação não será declarada conectada até esse teste real. A existência de um endpoint MCP remoto, por si só, não instala o conector no ChatGPT.
+
+
+## Primeira implementação isolada (2026-11-25)
+
+Foi criado o primeiro incremento executável em `integrations/cowila-chatgpt-mcp/src/`, sem tocar em `workers/`, no cliente Firebase existente ou nas regras/dados:
+
+- `firebase-auth.ts`: troca o refresh token Firebase por ID token novo via Secure Token API; exige UID esperado, valida campos/expiração e sanitiza erros sem incluir o corpo do provedor.
+- `secret-vault.ts`: cifra/decifra refresh tokens com AES-256-GCM, nonce aleatório de 96 bits e contexto autenticado versionado. A chave de 32 bytes é fornecida em runtime e não está no repositório.
+- Testes: renovação válida, UID divergente, erro do provedor sem vazamento de corpo, resposta incompleta, round-trip AES-GCM, nonce exclusivo, chave inválida, ciphertext adulterado e versão não suportada.
+- Workflow isolado `.github/workflows/cowila-chatgpt-mcp.yml`: instala dependências travadas e executa somente os testes do conector em PR/push relevante.
+
+**Limite desta implementação:** estes módulos não fazem a vinculação inicial Google/Firebase, não persistem credenciais, não iniciam OAuth, não expõem MCP e não acessam Firestore. A segurança do refresh depende de o fluxo de vinculação validar o ID token inicial e vincular o UID ao principal OAuth antes de guardar o refresh token. O workflow foi criado, mas seu resultado precisa ser observado no GitHub Actions antes de considerar os testes aprovados.
