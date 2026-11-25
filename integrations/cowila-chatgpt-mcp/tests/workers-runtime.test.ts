@@ -78,6 +78,7 @@ describe("Cowila Workers runtime boundary", () => {
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
+        _meta: {},
         method: "tools/list",
         params: {},
       }),
@@ -238,6 +239,7 @@ describe("Cowila Workers runtime boundary", () => {
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
+        _meta: {},
         method: "tools/list",
         params: {},
       }),
@@ -259,6 +261,7 @@ describe("Cowila Workers runtime boundary", () => {
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 2,
+        _meta: {},
         method: "tools/call",
         params: { name: "cowila_get_training_summary", arguments: {} },
       }),
