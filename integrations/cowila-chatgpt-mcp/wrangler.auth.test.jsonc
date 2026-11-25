@@ -1,0 +1,27 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cowila-auth-runtime-test",
+  "main": "src/authorization-server.ts",
+  "compatibility_date": "2026-10-30",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "cowila-auth.example.invalid", "custom_domain": true }
+  ],
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "00000000000000000000000000000001" }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cowila-mcp-runtime-test",
+      "database_id": "00000000-0000-0000-0000-000000000002",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "GOOGLE_CLIENT_ID": "runtime-test.apps.googleusercontent.com",
+    "FIREBASE_API_KEY": "runtime-test-api-key",
+    "FIREBASE_PROJECT_ID": "cowila-runtime-test"
+  }
+}

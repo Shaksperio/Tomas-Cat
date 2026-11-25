@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cowila-mcp-authenticated-runtime-test",
+  "main": "src/resource-server.ts",
+  "compatibility_date": "2026-10-30",
+  "workers_dev": false,
+  "services": [
+    { "binding": "AUTH_SERVER", "service": "cowila-auth-token-fixture" }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cowila-mcp-auth-runtime-test",
+      "database_id": "00000000-0000-0000-0000-000000000004",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "FIREBASE_PROJECT_ID": "cowila-runtime-test",
+    "FIREBASE_DATABASE_ID": "(default)",
+    "FIREBASE_API_KEY": "runtime-test-api-key"
+  }
+}
