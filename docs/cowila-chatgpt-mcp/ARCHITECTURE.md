@@ -360,3 +360,21 @@ Resultado no commit `3670406d5c94dca8ada44b10093314d82b3016db`: **44 testes apro
 ### Limite atual
 
 O cliente Firestore está implementado e testado isoladamente, mas ainda não está chamado por uma ferramenta MCP. Não há autorização OAuth executável, D1 remoto, Worker deployado nem ChatGPT conectado.
+
+
+## Orquestração de sessão Firebase e leitura Cowila (2026-11-25)
+
+Foi criado `src/cowila-service.ts`, que conecta as primitivas anteriores:
+
+1. Busca a credencial cifrada pelo UID confiável.
+2. Decifra o refresh token somente em memória do Worker.
+3. Renova a sessão no Firebase Secure Token endpoint e exige UID idêntico.
+4. Persiste imediatamente o refresh token retornado, cifrado com novo nonce AES-GCM.
+5. Só depois consulta o documento v2 via REST com o ID token recém-emitido.
+6. Retorna o registro filtrado, nunca o ID token nem o refresh token.
+
+Se a conta não estiver vinculada, a renovação falhar, o UID divergir ou a rotação não puder ser persistida, a leitura Firestore não acontece. Erros são convertidos em mensagens sanitizadas.
+
+Foram adicionados quatro testes: fluxo completo com rotação e leitura; conta não vinculada; falha de refresh impede Firestore; UID divergente impede Firestore.
+
+**Limite:** serviço testado com D1 e Firebase simulados. Ainda não há chamada por MCP, OAuth callback, D1 remoto ou consulta a dados reais. O próximo CI executará TypeScript strict também neste serviço.
