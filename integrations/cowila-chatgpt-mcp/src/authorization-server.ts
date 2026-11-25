@@ -9,6 +9,7 @@ import {
   buildGoogleAuthorizationUrl,
 } from "./google-oauth";
 import { createPkcePair } from "./pkce";
+import { isAllowedCowilaAuthorizationRequest } from "./oauth-policy";
 import { exchangeGoogleTokenForFirebaseSession } from "./firebase-google-exchange";
 import { saveFirebaseCredential, type D1DatabaseLike } from "./firebase-credential-store";
 import {
@@ -75,10 +76,7 @@ function errorPage(message: string, status = 400, headers = new Headers()): Resp
 
 function validateResourceAndScope(request: AuthRequest): boolean {
   const resource = (request as AuthRequest & { resource?: string | string[] }).resource;
-  const resources = Array.isArray(resource) ? resource : resource ? [resource] : [];
-  return resources.length === 1 &&
-    resources[0] === COWILA_MCP_RESOURCE &&
-    request.scope.includes("mcp:read");
+  return isAllowedCowilaAuthorizationRequest(resource, request.scope);
 }
 
 async function renderConsent(request: Request, env: Env): Promise<Response> {
