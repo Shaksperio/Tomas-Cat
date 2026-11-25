@@ -44,6 +44,7 @@ jobs:
           integrations/cowila-chatgpt-mcp/src/google-oauth.ts
           integrations/cowila-chatgpt-mcp/src/secret-vault.ts
           integrations/cowila-chatgpt-mcp/src/firebase-credential-store.ts
+          integrations/cowila-chatgpt-mcp/src/firestore-cowila.ts
 
       - name: Run isolated tests
         run: npx --yes tsx@4.21.0 --test integrations/cowila-chatgpt-mcp/src/*.test.ts
