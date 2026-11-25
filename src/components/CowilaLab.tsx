@@ -101,6 +101,9 @@ export function CowilaLab({ user, onExit }: Props) {
   const [evaluationIndex, setEvaluationIndex] = useState(0);
   const [evaluationRunning, setEvaluationRunning] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   useEffect(() => {
     let active = true;
@@ -161,7 +164,7 @@ export function CowilaLab({ user, onExit }: Props) {
   async function sendMessage(text: string) {
     const message = text.trim();
     if (!message || busy) return;
-    const history = messages.slice(-10).flatMap((item) => {
+    const history = messagesRef.current.slice(-10).flatMap((item) => {
       const entries: Array<{ role: 'user' | 'assistant'; content: string }> = [{ role: item.role, content: item.content }];
       if (item.role === 'assistant' && item.rating) {
         entries.push({ role: 'user', content: item.feedback?.trim()
@@ -247,7 +250,7 @@ export function CowilaLab({ user, onExit }: Props) {
   }
 
   function clearSession() {
-    if (!window.confirm('Apagar o histórico desta sessão neste navegador? Exporte os dados antes, se quiser preservá-los.')) return;
+    if (!window.confirm('Apagar o histórico atual sincronizado na nuvem e a cópia local? Exporte os dados antes, se quiser preservá-los.')) return;
     setMessages([{ id: makeId(), role: 'assistant', content: STARTER, createdAt: Date.now() }]);
     setLastLatency(null);
     setError('');
