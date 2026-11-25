@@ -378,3 +378,34 @@ Se a conta não estiver vinculada, a renovação falhar, o UID divergir ou a rot
 Foram adicionados quatro testes: fluxo completo com rotação e leitura; conta não vinculada; falha de refresh impede Firestore; UID divergente impede Firestore.
 
 **Limite:** serviço testado com D1 e Firebase simulados. Ainda não há chamada por MCP, OAuth callback, D1 remoto ou consulta a dados reais. O próximo CI executará TypeScript strict também neste serviço.
+
+
+## Contrato OAuth Cloudflare verificado no código-fonte oficial (2026-11-25)
+
+Foi inspecionado o repositório oficial `cloudflare/workers-oauth-provider`, branch `main`, pacote atualmente declarado como **1.3.0**. A implementação deste projeto deverá seguir o modelo de dois Workers, não o `OAuthProvider` combinado/legado:
+
+- **Authorization Worker:** `OAuthAuthorizationServer`, `getOAuthApi(env)`, rota `/authorize` implementada pela aplicação, e `authorizationServer.fetch(request, env, ctx)` para discovery, token e revocation.
+- **Resource Worker:** `OAuthResourceServer`, metadados RFC 9728 com o identificador canônico do endpoint MCP, validação de token por Service Binding para `AUTH_SERVER.validateToken`, e handler MCP separado.
+- **Autorização:** `parseAuthRequest()` valida cliente, redirect URI, resource indicator e PKCE. A tela precisa chamar `describeConsent()` e `beginConsent()`; POST usa `approveConsent()` ou `denyConsent()`. Somente depois do consentimento pode chamar `beginUpstream()`.
+- **Google upstream:** `beginUpstream()` guarda a transação aprovada e o PKCE verifier no estado protegido do provider; callback chama `finishUpstream()`, troca o código Google e valida a identidade Firebase antes de `completeAuthorization()`.
+- **Vínculo:** `completeAuthorization()` grava o Firebase UID como `userId` do grant e em `props` confiáveis. O refresh token Firebase permanece fora de `props`: é cifrado imediatamente e salvo no D1 pelo repositório já implementado.
+- **Resource server:** `ctx.props` contém os atributos aprovados; `ctx.auth.scope` contém scopes verificados. `requiredScopes: ['mcp:read']` anuncia o mínimo, mas o handler ainda precisa impor o scope em cada chamada.
+- **Storage:** Authorization Worker exige KV binding `OAUTH_KV`. A documentação oficial confirma rotação de refresh token OAuth e revogação RFC 7009. D1 continua sendo somente o cofre da sessão Firebase delegada.
+- **ChatGPT:** a documentação do provider registra que o documento CIMD do ChatGPT oferece `none` e `private_key_jwt`; com CIMD habilitado, o provider suporta ambos, mantendo PKCE obrigatório para cliente público. Isso é compatibilidade do protocolo OAuth do provider, não prova de cadastro ou funcionamento no plano/cliente Android deste usuário.
+
+Referências primárias:
+- https://github.com/cloudflare/workers-oauth-provider
+- https://github.com/cloudflare/workers-oauth-provider/blob/main/docs/authorization-server.md
+- https://github.com/cloudflare/workers-oauth-provider/blob/main/docs/consent-page.md
+- https://github.com/cloudflare/workers-oauth-provider/blob/main/docs/upstream-sign-in.md
+- https://github.com/cloudflare/workers-oauth-provider/blob/main/examples/split-workers/auth-server/index.ts
+- https://github.com/cloudflare/workers-oauth-provider/blob/main/examples/split-workers/mcp-server/index.ts
+
+### Decisões de implementação derivadas
+
+1. Usar `clientIdMetadataDocumentEnabled: true` e `global_fetch_strictly_public`; não abrir DCR indiscriminado nesta primeira versão.
+2. Consentimento por cliente sempre antes do redirecionamento Google, sem confiar em campos hidden além do handle emitido pelo provider.
+3. Usar `mcp:read` como único scope concedido no primeiro release.
+4. O authorization server e resource server terão URLs HTTPS próprias e audience MCP exata; URLs e bindings só serão fixados quando domínio/serviços forem aprovados.
+5. O Authorization Worker exigirá KV + D1 e secrets Google/Firebase/vault. Nenhum ID fictício será colocado em Wrangler e nenhuma infraestrutura será provisionada nesta etapa.
+6. A implementação só será considerada pronta após typecheck contra o pacote real, testes do consentimento/callback, execução local em Workers runtime e teste com Firebase de desenvolvimento.
