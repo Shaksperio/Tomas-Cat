@@ -272,7 +272,9 @@ describe("Cowila Workers runtime boundary", () => {
       result?: { isError?: boolean; content?: Array<{ text?: string }> };
     };
     expect(summaryPayload.result?.isError).toBe(true);
-    expect(summaryPayload.result?.content?.[0]?.text).toBeTruthy();
+    const toolErrorText = summaryPayload.result?.content?.[0]?.text ?? "";
+    expect(toolErrorText).toBeTruthy();
+    expect(toolErrorText).not.toContain("authenticated Cowila operator identity is unavailable");
     expect(summaryBody).not.toContain(tokens.access_token);
   });
 });
