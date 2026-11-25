@@ -13,6 +13,7 @@ import {
 } from "./cowila-service";
 import type { D1DatabaseLike } from "./firebase-credential-store";
 import type { CowilaTrainingRecord } from "./firestore-cowila";
+import { COWILA_AUTH_ISSUER, COWILA_MCP_RESOURCE } from "./config";
 
 interface CowilaAuthProps {
   userId: string;
@@ -27,9 +28,6 @@ interface Env {
   FIREBASE_API_KEY: string;
   FIREBASE_VAULT_KEY: string;
 }
-
-const MCP_RESOURCE = "https://cowila-mcp.example.invalid/mcp";
-const AUTH_ISSUER = "https://cowila-auth.example.invalid";
 
 function principal(): CowilaAuthProps {
   const props = getMcpAuthContext()?.props as Record<string, unknown> | undefined;
@@ -164,8 +162,8 @@ const mcpHandler = createMcpHandler(createCowilaMcpServer, {
 
 const resourceServer = new OAuthResourceServer<Env, CowilaAuthProps>({
   resourceMetadata: {
-    resource: MCP_RESOURCE,
-    authorization_servers: [AUTH_ISSUER],
+    resource: COWILA_MCP_RESOURCE,
+    authorization_servers: [COWILA_AUTH_ISSUER],
     resource_name: "Cowila private training history",
     bearer_methods_supported: ["header"],
   },
