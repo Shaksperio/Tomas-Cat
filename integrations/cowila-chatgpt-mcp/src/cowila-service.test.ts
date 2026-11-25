@@ -39,6 +39,7 @@ function firestoreDoc() {
   const str = (stringValue: string) => ({ stringValue });
   const int = (integerValue: number) => ({ integerValue: String(integerValue) });
   return {
+    name: `projects/${CONFIG.projectId}/databases/${CONFIG.databaseId}/documents/users/${UID}/cowilaLab/real-training-v2`,
     fields: {
       ownerUid: str(UID),
       schemaVersion: int(1),
