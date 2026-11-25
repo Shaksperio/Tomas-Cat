@@ -34,8 +34,8 @@ O laboratório é uma interface separada do jogo, mas usa a mesma API de convers
 
 ## Persistência e limites atuais
 
-- Histórico, instruções e feedback são sincronizados em Firestore no documento `users/{uid}/cowilaLab/current`, separados pelo UID Firebase; há também uma cópia local em `localStorage`.
-- As regras de `firestore.rules` limitam leitura/escrita à conta administrativa verificada e ao próprio UID. As regras precisam estar publicadas no Firebase para habilitar a persistência remota.
+- Histórico, instruções e feedback são sincronizados em Firestore no documento `users/{uid}/cowilaLab/current`, separados pelo UID Firebase; até 100 mensagens são mantidas na nuvem e há também uma cópia local em `localStorage`.
+- As regras de `firestore.rules` limitam leitura/escrita à conta administrativa verificada e ao próprio UID. As regras precisam ser publicadas no banco Firestore selecionado pelo `VITE_FIREBASE_DATABASE_ID` (o workflow usa `ai-studio-780f41f1-7f4e-40c2-91b7-1ac37ba9bac6` como padrão) para habilitar a persistência remota.
 - O Worker atual é stateless para o chat: recebe o histórico do cliente, processa a solicitação e retorna a resposta.
 - A exportação JSONL é um conjunto de candidatos; aprovação na interface não substitui revisão de privacidade, deduplicação, validação e avaliação.
 - Não há treinamento online. Workers AI executa inferência; os pesos do modelo não são alterados pela conversa.
@@ -43,7 +43,7 @@ O laboratório é uma interface separada do jogo, mas usa a mesma API de convers
 
 ## Persistência na nuvem
 
-O histórico é salvo no Firestore já utilizado pelo jogo, no caminho `users/{uid}/cowilaLab/current`. As regras foram adicionadas em `firestore.rules` para permitir acesso apenas ao usuário autenticado, com e-mail administrativo verificado e UID correspondente. A publicação das regras depende do Firebase Console/CLI e não é executada pelo workflow do GitHub Pages.
+O histórico é salvo no Firestore já utilizado pelo jogo, no caminho `users/{uid}/cowilaLab/current`. As regras foram adicionadas em `firestore.rules` para permitir acesso apenas ao usuário autenticado, com e-mail administrativo verificado e UID correspondente. A publicação das regras depende do Firebase Console/CLI e não é executada pelo workflow do GitHub Pages. No Console, selecione o mesmo banco nomeado configurado no build e publique o conteúdo de `firestore.rules`.
 
 O chat e a inferência continuam no Worker Cloudflare. Não é necessário adicionar D1, R2 ou Durable Objects para esta primeira versão.
 
