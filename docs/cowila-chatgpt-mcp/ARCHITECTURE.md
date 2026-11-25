@@ -255,3 +255,26 @@ Foi criado o primeiro incremento executável em `integrations/cowila-chatgpt-mcp
 - Workflow corrigido para executar a versão fixada `tsx@4.21.0` via `npx`, sem presumir lockfile nem instalar a árvore completa do jogo.
 - Execução seguinte: **9 testes aprovados, 0 falhas** (GitHub Actions run #4, job `Firebase auth + encrypted vault tests`).
 - O teste valida os módulos isolados em Node 22. Ainda não é prova de compatibilidade em produção Cloudflare Workers, nem valida o fluxo OAuth completo.
+
+
+## Verificação criptográfica da identidade Firebase (2026-11-25)
+
+Foi acrescentado `src/firebase-identity.ts`, com validação local do Firebase ID token antes de qualquer associação de conta:
+
+- aceita apenas JWT com algoritmo RS256 e `kid` presente;
+- obtém a chave pública correspondente do JWKS oficial do Firebase Secure Token;
+- verifica a assinatura com Web Crypto (RSASSA-PKCS1-v1_5/SHA-256);
+- exige issuer `https://securetoken.google.com/{projectId}` e audience exatamente igual ao Firebase project ID configurado;
+- exige UID (`sub`) válido, token dentro da validade, e-mail do operador exatamente permitido e `email_verified=true`;
+- exige autenticação recente: `auth_time` nos últimos 10 minutos;
+- retorna somente UID, e-mail permitido e horário de autenticação; não retorna nem registra token.
+
+Foram adicionados oito testes com chaves RSA geradas durante os testes: identidade válida, audience incorreta, e-mail não verificado, autenticação antiga, token expirado, assinatura forjada, chave desconhecida e JWT malformado.
+
+### CI atualizado
+
+O workflow isolado executou os três módulos de teste no commit `9a74df7fce8e4b60a6c39d607c829dd10b1b9d10`: **17 testes aprovados, 0 falhas** (run #9). Isso comprova os testes unitários em Node 22; ainda não comprova compatibilidade completa em Workers nem o fluxo OAuth end-to-end.
+
+### Limites preservados
+
+A função de verificação ainda não é um callback e não armazena vínculo. Não há proteção state/nonce de fluxo, página de vinculação, persistência D1, OAuth server, handler MCP, consulta Firestore ou deploy. A etapa seguinte deve integrar state de uso único e callback somente depois de fixar o contrato do authorization server Cloudflare/ChatGPT. Nenhum histórico real foi consultado.
