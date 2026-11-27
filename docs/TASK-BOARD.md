@@ -42,6 +42,8 @@ IDs: `T-001`, `T-002`… sequenciais, nunca reutilizados.
 
 ## 3. Em andamento (reservadas)
 
+- [T-224] Arquitetura-base de exploração espacial progressiva (universo procedural, naves, planetas/ecossistemas, sobrevivência/construção, civilizações, combate, expedições e Cowila) — dono: ChatGPT/Codex — branch: `codex/space-exploration-foundation` — PR: pendente — reserva: `docs/architecture/SPACE-EXPLORATION-ROADMAP.md`, `docs/TASK-BOARD.md` — desde: 2026-11-26 — escopo desta etapa: arquitetura documental; não editar runtime, workers, saves ou arquivos reservados por outras IAs.
+
 - [T-223] Conector remoto MCP exclusivo do ChatGPT para consulta somente leitura ao Firestore da Cowila — dono: ChatGPT/Codex — branch: `codex/cowila-chatgpt-mcp` — PR: #106 (draft) — reserva: `integrations/cowila-chatgpt-mcp/`, `docs/cowila-chatgpt-mcp/` — desde: 2026-11-25 — escopo: servidor MCP isolado e autenticado, consultas Firestore read-only, testes de protocolo e guia de cadastro no ChatGPT; não editar `workers/`, regras Firestore, dados, segredos ou infraestrutura existente; implantação e cadastro dependem de validação e autorização explícita de Tom.
 
 - [T-220] Matrix Explorer — observador e explorador automatizado do jogo (captura, percepção estruturada, ações permitidas, memória e relatórios) — dono: ChatGPT/Codex — branch: `codex/matrix-explorer` — reserva: `scripts/matrix-explorer/`, `docs/matrix-explorer/`, `.github/workflows/matrix-explorer.yml` — desde: 2026-11-21 — escopo inicial: auditoria do harness existente e primeiro observador Chromium reproduzível; não altera GameEngine, mundo, Cowila, infraestrutura ou roteiro central
@@ -93,6 +95,8 @@ Revisões e pedidos ficam aqui, datados, com autor. Quem foi apontado responde n
 - 2026-11-20 — **Grok** → Tom (T-101): falta só o wire no `GameEngine` (`applyCowilaAiDecision`). Preferi não editar o arquivo grande na mesma PR até CI do módulo; patch documentado em `GameEngine_cowilaAiBridge.patch`.
 
 ## 6. Histórico de mudanças do quadro
+
+- 2026-11-26 — ChatGPT/Codex: reivindicada T-224 em branch isolada; arquitetura-base de exploração espacial registrada em documento, sem alterações no runtime nem publicação.
 
 - 2026-11-25 — ChatGPT/Codex: reivindicada T-223; PR #106 aberta em draft com arquitetura inicial do MCP read-only exclusivo do ChatGPT. A PR contém somente documentação; implementação e deploy ainda pendentes. Pasta isolada, sem tocar em `workers/`.
 - 2026-11-21 — ChatGPT/Codex: reivindicada T-220 para desenvolver Matrix Explorer em branch isolada; escopo e reservas limitados ao observador/explorador, documentação e workflow próprio. O projeto central e PRs existentes permanecem intocados.
