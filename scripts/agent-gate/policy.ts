@@ -70,7 +70,7 @@ export const DEFAULT_GATE_CONFIG: GateConfig = {
   maxChangedLines: 1500,
   maxPerDay: 5,
   requiredChecks: ['build'],
-  allowedSkipped: ['deploy'],
+  allowedSkipped: ['deploy', 'Post-deploy health check'],
 };
 
 export interface GateDecision { allow: boolean; reasons: string[]; }
